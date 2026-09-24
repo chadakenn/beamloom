@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Copy, Lock, Trash2, Unlock } from "lucide-react";
 import { GELS, LOOKS } from "@/lib/beam/looks";
+import { listClips, restoreClips, subscribeClips } from "@/lib/beam/clips";
 import { selectedSurface, type Blend } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
 import { cn } from "@/lib/cn";
@@ -13,6 +15,21 @@ const BLENDS: { id: Blend; label: string }[] = [
 export function Inspector() {
   const face = useEditor((s) => selectedSurface(s));
   const patchSurface = useEditor((s) => s.patchSurface);
+  const [clipName, setClipName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sync = () => {
+      const id = useEditor.getState().selectedId;
+      const face = useEditor.getState().scenes.flatMap((scene) => scene.surfaces).find((item) => item.id === id);
+      const name = face?.videoId ? listClips().find((clip) => clip.id === face.videoId)?.name ?? null : null;
+      setClipName(name);
+    };
+    void restoreClips().then(sync);
+    const stop = subscribeClips(sync);
+    return () => {
+      stop();
+    };
+  }, [face?.videoId, face?.id]);
   const removeSurface = useEditor((s) => s.removeSurface);
   const duplicateSurface = useEditor((s) => s.duplicateSurface);
 
@@ -82,8 +99,19 @@ export function Inspector() {
         </div>
       </div>
       <div>
-        <p className="mb-2 text-xs font-medium text-muted">Look</p>
-        <p className="text-sm text-fg">{LOOKS.find((look) => look.id === face.look)?.name}</p>
+        <p className="mb-2 text-xs font-medium text-muted">Picture</p>
+        <p className="text-sm text-fg">
+          {face.videoId ? (clipName ?? "Imported video") : LOOKS.find((look) => look.id === face.look)?.name}
+        </p>
+        {face.videoId ? (
+          <button
+            type="button"
+            onClick={() => patchSurface(face.id, { videoId: null })}
+            className="mt-2 h-11 rounded-md border border-line px-3 text-sm text-fg"
+          >
+            Use the look instead
+          </button>
+        ) : null}
       </div>
       {face.look === "gel" ? (
         <div>
