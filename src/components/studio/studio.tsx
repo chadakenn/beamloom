@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Download, FolderOpen, Grid2x2, Monitor, Plus, RotateCcw, X } from "lucide-react";
+import { Crosshair, Download, FolderOpen, Grid2x2, Monitor, Plus, Redo2, RotateCcw, Undo2, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
 import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
 import { openProjectFile, saveProjectFile } from "@/lib/beam/project-file";
@@ -30,6 +30,12 @@ export function Studio() {
   const removeSurface = useEditor((s) => s.removeSurface);
   const setArmedLook = useEditor((s) => s.setArmedLook);
   const selectedId = useEditor((s) => s.selectedId);
+  const canUndo = useEditor((s) => s.canUndo);
+  const canRedo = useEditor((s) => s.canRedo);
+  const undo = useEditor((s) => s.undo);
+  const redo = useEditor((s) => s.redo);
+  const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
+  const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
   const [dock, setDock] = useState<Dock>("looks");
   const [chrome, setChrome] = useState(true);
   const [ready, setReady] = useState(false);
@@ -113,6 +119,17 @@ export function Studio() {
         return;
       }
       if (typing) return;
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redo(); else undo();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const step = event.shiftKey ? 0.02 : 0.006;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -143,7 +160,7 @@ export function Studio() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nudge, picker, removeSurface, setArmedLook, setGuides, setOutput]);
+  }, [nudge, picker, redo, removeSurface, setArmedLook, setGuides, setOutput, undo]);
 
   useEffect(() => {
     const onFull = () => {
@@ -244,6 +261,8 @@ export function Studio() {
             aria-label="Project name"
             value={name}
             maxLength={48}
+            onFocus={beginHistoryGroup}
+            onBlur={endHistoryGroup}
             onChange={(event) => setName(event.target.value)}
             className="hidden h-11 min-w-0 flex-1 rounded-md bg-transparent px-2 text-sm text-fg sm:block"
           />
@@ -304,6 +323,8 @@ export function Studio() {
           >
             <RotateCcw className="size-4" aria-hidden="true" />
           </button>
+          <button type="button" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)" className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted disabled:opacity-40"><Undo2 className="size-4" aria-hidden="true" /></button>
+          <button type="button" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Y)" className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted disabled:opacity-40"><Redo2 className="size-4" aria-hidden="true" /></button>
           <input
             ref={fileInput}
             type="file"
