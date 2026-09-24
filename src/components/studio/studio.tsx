@@ -359,9 +359,7 @@ export function Studio() {
       {output ? null : (
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line px-3">
           <div className="flex items-center gap-2 pr-1">
-            <span className="grid size-8 place-items-center rounded-md bg-beam text-ink" aria-hidden="true">
-              <span className="block h-3 w-3 rotate-45 border-2 border-ink" />
-            </span>
+            <img src="/beamloom-mark.svg" alt="" className="size-8" aria-hidden="true" />
             <span className="font-display text-lg font-semibold leading-none">Beamloom</span>
           </div>
           <input
