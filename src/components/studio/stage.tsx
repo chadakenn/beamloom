@@ -2,6 +2,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { gelRgb } from "@/lib/beam/looks";
 import { getClipSource } from "@/lib/beam/clips";
 import { getFadeSeconds, subscribeFade } from "@/lib/beam/fade";
+import { getMaster, subscribeMaster } from "@/lib/beam/master";
 import { getSolo, subscribeSolo, toggleSolo } from "@/lib/beam/solo";
 import { createMapper, type DrawFace, type Mapper } from "@/lib/beam/gl-mapper";
 import type { Corners } from "@/lib/beam/math";
@@ -35,6 +36,9 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   const solo = useSyncExternalStore(subscribeSolo, getSolo, () => false);
   const soloRef = useRef(solo);
   soloRef.current = solo;
+  const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
+  const masterRef = useRef(master);
+  masterRef.current = master;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -71,7 +75,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
           faces = [...scaledFaces(sceneFaces(previous, soloId), 1 - amount), ...scaledFaces(faces, amount)];
         } else fading = null;
       }
-      mapper?.draw(blackoutRef.current ? [] : faces, reduced ? 0 : now / 1000);
+      mapper?.draw(blackoutRef.current ? [] : faces, reduced ? 0 : now / 1000, masterRef.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
