@@ -92,6 +92,22 @@ export function Inspector() {
         />
       </div>
       <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-medium text-muted">Soft edge</span>
+          <span className="text-xs tabular-nums text-fg">{Math.round(face.feather * 100)}%</span>
+        </div>
+        <input
+          className="opacity-range"
+          type="range"
+          min={0}
+          max={0.4}
+          step={0.01}
+          value={face.feather}
+          aria-label="Soft edge"
+          onChange={(event) => patchSurface(face.id, { feather: Number(event.target.value) })}
+        />
+      </div>
+      <div>
         <p className="mb-2 text-xs font-medium text-muted">Blend</p>
         <div className="grid grid-cols-3 gap-1">
           {BLENDS.map((blend) => (
