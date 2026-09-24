@@ -29,6 +29,8 @@ The name, interface, looks, and warp math are written for this project. This is 
 
 **Output** opens a display picker. Where the browser allows it, pick a display and Beamloom opens a separate projector window. Otherwise, open a window and move it onto the projector, or go fullscreen on this display. The projector window follows edits from the editor. Allow popups for Beamloom. Fullscreen inside that window still needs one click there.
 
+Use **Save** to download a portable `.beamloom` project file, including videos used by its surfaces. Use **Open** to restore that file on another computer. Large videos make the file large; the browser needs enough memory and local storage to import them. Opening a file replaces the current editor project but leaves other imported videos in the browser.
+
 A native Windows shell with project files on disk is still later.
 
 ## License
