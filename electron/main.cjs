@@ -1,5 +1,6 @@
-const { app, BrowserWindow, dialog, autoUpdater, ipcMain, protocol, screen } = require("electron");
+const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen } = require("electron");
 const { readFile } = require("node:fs/promises");
+const https = require("node:https");
 const path = require("node:path");
 
 protocol.registerSchemesAsPrivileged([
@@ -76,35 +77,60 @@ function startUpdates() {
   } catch {
     return;
   }
-  let told = false;
-  autoUpdater.on("error", () => {});
-  autoUpdater.on("update-downloaded", () => {
-    if (told) return;
-    told = true;
-    dialog
-      .showMessageBox({
-        type: "info",
-        buttons: ["Restart", "Later"],
-        defaultId: 0,
-        cancelId: 1,
-        title: "Update Beamloom",
-        message: "An update is ready",
-        detail: "Restart to finish the update. The project saved on this computer stays put.",
-      })
-      .then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall();
-      })
-      .catch(() => {});
+  let phase = "idle";
+  let version = null;
+  const send = (next) => {
+    phase = next.phase;
+    version = next.version ?? version;
+    if (editor && !editor.isDestroyed()) editor.webContents.send("beamloom:update", { phase, version });
+  };
+  autoUpdater.on("error", () => {
+    if (phase === "downloading") send({ phase: "failed", version });
   });
-  const check = () => {
+  autoUpdater.on("update-downloaded", () => {
+    send({ phase: "ready", version });
+  });
+  const probe = () => {
+    if (phase === "downloading" || phase === "ready") return;
+    const request = https.get(`${feed}/RELEASES`, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        return;
+      }
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf8");
+        const found = body.match(/releases\/download\/([^/\s]+)\//)?.[1] ?? null;
+        if (!found || found === app.getVersion()) return;
+        send({ phase: "available", version: found });
+      });
+    });
+    request.setTimeout(15000, () => request.destroy());
+    request.on("error", () => {});
+  };
+  ipcMain.handle("beamloom:update-current", (event) => {
+    if (event.sender !== editor?.webContents || phase === "idle") return null;
+    return { phase, version };
+  });
+  ipcMain.handle("beamloom:update-apply", (event) => {
+    if (event.sender !== editor?.webContents) return false;
+    if (phase === "ready") {
+      autoUpdater.quitAndInstall();
+      return true;
+    }
+    if (phase !== "available" && phase !== "failed") return false;
+    send({ phase: "downloading", version });
     try {
       autoUpdater.checkForUpdates();
+      return true;
     } catch {
-      /* no release published yet */
+      send({ phase: "failed", version });
+      return false;
     }
-  };
-  setTimeout(check, 8000);
-  setInterval(check, 30 * 60 * 1000);
+  });
+  setTimeout(probe, 4000);
+  setInterval(probe, 30 * 60 * 1000);
 }
 
 app.whenReady().then(() => {

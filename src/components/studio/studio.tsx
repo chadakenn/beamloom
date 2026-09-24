@@ -13,6 +13,7 @@ import { Stage } from "@/components/studio/stage";
 import { ShowBar } from "@/components/studio/show-bar";
 
 type Dock = "looks" | "adjust";
+type AppUpdate = { phase: "available" | "downloading" | "ready" | "failed"; version: string | null };
 const LINEUP_KEY = "beamloom.lineup.v1";
 const BLACKOUT_KEY = "beamloom.blackout.v1";
 
@@ -64,6 +65,21 @@ export function Studio() {
   const [sceneDrop, setSceneDrop] = useState<{ id: string; after: boolean } | null>(null);
   const [blackout, setBlackout] = useState(false);
   const blackoutRef = useRef(false);
+  const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
+
+  useEffect(() => {
+    const desktop = window.beamloomDesktop;
+    if (!desktop?.onUpdate || !desktop.updateStatus) return;
+    let current = true;
+    void desktop.updateStatus().then((status) => {
+      if (current && status) setAppUpdate(status);
+    });
+    const stop = desktop.onUpdate((status) => setAppUpdate(status));
+    return () => {
+      current = false;
+      stop();
+    };
+  }, []);
 
   function startSceneRename(id: string, name: string) {
     cancelRename.current = false;
@@ -318,6 +334,28 @@ export function Studio() {
 
   return (
     <div id="beamloom-output" className="relative flex h-dvh flex-col bg-bg text-fg">
+      {appUpdate && !output ? (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-beam bg-panel px-3 py-2 text-sm text-fg" role="status">
+          <span>
+            {appUpdate.phase === "ready"
+              ? `Beamloom ${appUpdate.version ?? ""} is downloaded. Restart to finish.`
+              : appUpdate.phase === "downloading"
+                ? `Downloading Beamloom ${appUpdate.version ?? ""}.`
+                : appUpdate.phase === "failed"
+                  ? "The update did not download."
+                  : `Beamloom ${appUpdate.version ?? "a new version"} is available.`}
+          </span>
+          {appUpdate.phase === "downloading" ? null : (
+            <button
+              type="button"
+              onClick={() => void window.beamloomDesktop?.applyUpdate?.()}
+              className="h-10 shrink-0 rounded-md bg-beam px-3 font-medium text-ink"
+            >
+              {appUpdate.phase === "ready" ? "Restart" : "Update"}
+            </button>
+          )}
+        </div>
+      ) : null}
       {output ? null : (
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line px-3">
           <div className="flex items-center gap-2 pr-1">

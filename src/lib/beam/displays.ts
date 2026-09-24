@@ -24,6 +24,9 @@ declare global {
     beamloomDesktop?: {
       displays: () => Promise<Display[]>;
       openProjector: (displayId: number | null) => Promise<boolean>;
+      updateStatus?: () => Promise<{ phase: "available" | "downloading" | "ready" | "failed"; version: string | null } | null>;
+      onUpdate?: (callback: (status: { phase: "available" | "downloading" | "ready" | "failed"; version: string | null }) => void) => () => void;
+      applyUpdate?: () => Promise<boolean>;
     };
   }
 }
