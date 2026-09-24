@@ -34,6 +34,8 @@ type EditorState = Project & {
   replace: (project: Project) => void;
   setName: (name: string) => void;
   setScene: (id: string) => void;
+  renameScene: (id: string, name: string) => void;
+  duplicateScene: (id: string) => void;
   addScene: () => void;
   removeScene: (id: string) => void;
   select: (id: string | null) => void;
@@ -215,6 +217,31 @@ export const useEditor = create<EditorState>((set, get) => ({
       selectedId: scene.surfaces.some((face) => face.id === get().selectedId)
         ? get().selectedId
         : (scene.surfaces[0]?.id ?? null),
+    });
+  },
+  renameScene: (id, name) => {
+    const trimmed = name.trim().slice(0, 32);
+    if (!trimmed || !get().scenes.some((scene) => scene.id === id && scene.name !== trimmed)) return;
+    set({ scenes: get().scenes.map((scene) => scene.id === id ? { ...scene, name: trimmed } : scene) });
+  },
+  duplicateScene: (id) => {
+    const scenes = get().scenes;
+    const index = scenes.findIndex((scene) => scene.id === id);
+    if (index < 0) return;
+    const source = scenes[index];
+    let seq = get().seq + 1;
+    const sceneId = `scene-${seq}`;
+    const surfaces = source.surfaces.map((face) => ({
+      ...face,
+      id: `surf-${++seq}`,
+      corners: face.corners.map((corner) => ({ ...corner })) as Corners,
+    }));
+    const copy = { ...source, id: sceneId, name: `${source.name} copy`.slice(0, 32), surfaces };
+    set({
+      seq,
+      scenes: [...scenes.slice(0, index + 1), copy, ...scenes.slice(index + 1)],
+      activeSceneId: sceneId,
+      selectedId: surfaces[source.surfaces.findIndex((face) => face.id === get().selectedId)]?.id ?? surfaces[0]?.id ?? null,
     });
   },
   addScene: () => {
