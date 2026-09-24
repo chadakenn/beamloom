@@ -82,7 +82,14 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
       const drag = dragRef.current;
       if (!drag) return;
       const point = normFromEvent(event);
-      if (drag.type === "corner") setCorner(drag.id, drag.index, point.x, point.y);
+      const snapped =
+        drag.type === "corner"
+          ? {
+              x: snapLine(point.x, lineup, event.altKey),
+              y: snapLine(point.y, lineup, event.altKey),
+            }
+          : point;
+      if (drag.type === "corner") setCorner(drag.id, drag.index, snapped.x, snapped.y);
       else moveSurface(drag.id, drag.corners, point.x - drag.startX, point.y - drag.startY);
     };
     const up = () => {
@@ -94,7 +101,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
-  }, [moveSurface, setCorner]);
+  }, [lineup, moveSurface, setCorner]);
 
   function beginMove(event: React.PointerEvent, face: Surface) {
     if (!edit || face.locked) {
@@ -199,6 +206,12 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
       </div>
     </div>
   );
+}
+
+function snapLine(value: number, lineup: boolean, bypass: boolean) {
+  if (!lineup || bypass) return value;
+  const nearest = Math.round(value * 10) / 10;
+  return Math.abs(nearest - value) <= 0.02 ? nearest : value;
 }
 
 function LineupOverlay() {
