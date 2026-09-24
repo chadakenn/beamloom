@@ -8,6 +8,9 @@ export type DrawFace = {
   gel: [number, number, number];
   opacity: number;
   feather: number;
+  brightness: number;
+  contrast: number;
+  saturation: number;
   blend: Blend;
   visible: boolean;
   source: TexImageSource | null;
@@ -27,6 +30,9 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform float uOpacity;
 uniform float uFeather;
+uniform float uBrightness;
+uniform float uContrast;
+uniform float uSaturation;
 uniform int uKind;
 uniform vec3 uGel;
 uniform sampler2D uVideo;
@@ -110,6 +116,10 @@ void main() {
     float grain = (hash(gl_FragCoord.xy + fract(uTime) * 80.0) - 0.5) * 0.035;
     col += grain;
   }
+  col += uBrightness;
+  col = (col - 0.5) * uContrast + 0.5;
+  float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  col = mix(vec3(luma), col, uSaturation);
   col = clamp(col, 0.0, 1.0);
   float soft = 1.0;
   if (uFeather > 0.001) {
@@ -161,6 +171,9 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     time: gl.getUniformLocation(program, "uTime"),
     opacity: gl.getUniformLocation(program, "uOpacity"),
     feather: gl.getUniformLocation(program, "uFeather"),
+    brightness: gl.getUniformLocation(program, "uBrightness"),
+    contrast: gl.getUniformLocation(program, "uContrast"),
+    saturation: gl.getUniformLocation(program, "uSaturation"),
     kind: gl.getUniformLocation(program, "uKind"),
     gel: gl.getUniformLocation(program, "uGel"),
     video: gl.getUniformLocation(program, "uVideo"),
@@ -220,6 +233,9 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         gl.uniformMatrix3fv(loc.inv, false, inv);
         gl.uniform1f(loc.opacity, face.opacity);
         gl.uniform1f(loc.feather, face.feather);
+        gl.uniform1f(loc.brightness, face.brightness);
+        gl.uniform1f(loc.contrast, face.contrast);
+        gl.uniform1f(loc.saturation, face.saturation);
         gl.uniform1i(loc.kind, lookKind(face.look));
         gl.uniform3f(loc.gel, face.gel[0], face.gel[1], face.gel[2]);
         const source = face.source;

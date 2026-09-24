@@ -107,6 +107,30 @@ export function Inspector() {
           onChange={(event) => patchSurface(face.id, { feather: Number(event.target.value) })}
         />
       </div>
+      <ColorSlider
+        label="Brightness"
+        value={face.brightness}
+        min={-1}
+        max={1}
+        text={`${face.brightness > 0 ? "+" : ""}${Math.round(face.brightness * 100)}`}
+        onChange={(value) => patchSurface(face.id, { brightness: value })}
+      />
+      <ColorSlider
+        label="Contrast"
+        value={face.contrast}
+        min={0}
+        max={2}
+        text={`${Math.round(face.contrast * 100)}%`}
+        onChange={(value) => patchSurface(face.id, { contrast: value })}
+      />
+      <ColorSlider
+        label="Saturation"
+        value={face.saturation}
+        min={0}
+        max={2}
+        text={`${Math.round(face.saturation * 100)}%`}
+        onChange={(value) => patchSurface(face.id, { saturation: value })}
+      />
       <div>
         <p className="mb-2 text-xs font-medium text-muted">Blend</p>
         <div className="grid grid-cols-3 gap-1">
@@ -224,6 +248,41 @@ export function Inspector() {
         </button>
       </div>
       <p className="text-xs text-muted">Arrows nudge · Del removes · G guides</p>
+    </div>
+  );
+}
+
+function ColorSlider({
+  label,
+  value,
+  min,
+  max,
+  text,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  text: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-medium text-muted">{label}</span>
+        <span className="text-xs tabular-nums text-fg">{text}</span>
+      </div>
+      <input
+        className="opacity-range"
+        type="range"
+        min={min}
+        max={max}
+        step={0.01}
+        value={value}
+        aria-label={label}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
     </div>
   );
 }
