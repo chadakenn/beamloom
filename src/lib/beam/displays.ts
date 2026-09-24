@@ -7,7 +7,16 @@ export type Display = {
   primary: boolean;
 };
 
-type ScreenDetails = { screens: Array<Screen & { label?: string; isPrimary?: boolean; availLeft: number; availTop: number }> };
+type ScreenDetail = {
+  label?: string;
+  isPrimary?: boolean;
+  availLeft: number;
+  availTop: number;
+  availWidth: number;
+  availHeight: number;
+};
+
+type ScreenDetails = { screens: ScreenDetail[] };
 
 export async function connectedDisplays(): Promise<Display[] | null> {
   const browser = window as Window & { getScreenDetails?: () => Promise<ScreenDetails> };
@@ -27,7 +36,7 @@ export function openProjector(display?: Display): Window | null {
   const url = new URL(window.location.href);
   url.searchParams.set("projector", "1");
   const features = display
-    ? `popup=yes,left=${display.left},top=${display.top},width=${display.width},height=${display.height}`
+    ? `popup=yes,left=${Math.round(display.left)},top=${Math.round(display.top)},width=${Math.round(display.width)},height=${Math.round(display.height)}`
     : "popup=yes,width=1280,height=720";
   return window.open(url.href, "beamloom-projector", features);
 }

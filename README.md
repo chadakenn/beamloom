@@ -2,7 +2,7 @@
 
 Original projection-mapping studio.
 
-Beamloom places light on real surfaces. You drop a surface on a 16:9 projector frame, assign a look, and drag the corners until the picture sits on the wall, pier, or object. **Output** sends that frame fullscreen to the display feeding your projector.
+Beamloom places light on real surfaces. You drop a surface on a 16:9 projector frame, assign a look, and drag the corners until the picture sits on the wall, pier, or object. **Output** sends that frame to the display feeding your projector.
 
 The name, interface, looks, and warp math are written for this project. This is not a copy of any commercial mapping tool. Do not add their assets, presets, or decompiled code.
 
@@ -24,9 +24,12 @@ The name, interface, looks, and warp math are written for this project. This is 
 | `src/lib/beam/project.ts` | Scenes, surfaces, and the facade study. |
 | `src/lib/beam/store.ts` | Editor state. |
 | `src/lib/beam/clips.ts` | Local video files and playback. |
+| `src/lib/beam/displays.ts` | Display list and the projector window. |
 | `src/components/studio/` | The editor: looks, frame, inspector. |
 
-**Output** opens a display picker in browsers supporting the Window Management API (for example, Chromium with display permission). Pick a display to open a separate projector window, then click **Fullscreen projector** in that window. Browsers without display access offer a window you can move to the projector manually. The editor and projector window share project edits through browser storage. Allow popups for Beamloom and use the same browser profile for both windows. A native Windows shell with project files on disk is still future work.
+**Output** opens a display picker. Where the browser allows it, pick a display and Beamloom opens a separate projector window. Otherwise, open a window and move it onto the projector, or go fullscreen on this display. The projector window follows edits from the editor. Allow popups for Beamloom. Fullscreen inside that window still needs one click there.
+
+A native Windows shell with project files on disk is still later.
 
 ## License
 
