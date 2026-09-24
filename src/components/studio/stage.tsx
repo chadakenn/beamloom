@@ -25,6 +25,8 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   const select = useEditor((s) => s.select);
   const setCorner = useEditor((s) => s.setCorner);
   const moveSurface = useEditor((s) => s.moveSurface);
+  const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
+  const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -88,15 +90,18 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
       else moveSurface(drag.id, drag.corners, point.x - drag.startX, point.y - drag.startY);
     };
     const up = () => {
+      if (dragRef.current) endHistoryGroup();
       dragRef.current = null;
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
-  }, [moveSurface, setCorner]);
+  }, [moveSurface, setCorner, endHistoryGroup]);
 
   function beginMove(event: React.PointerEvent, face: Surface) {
     if (!edit || face.locked) {
@@ -104,6 +109,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
       return;
     }
     event.preventDefault();
+    beginHistoryGroup();
     select(face.id);
     const point = normFromEvent(event);
     dragRef.current = {
@@ -182,6 +188,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
                     onPointerDown={(event) => {
                       event.stopPropagation();
                       event.preventDefault();
+                      beginHistoryGroup();
                       select(selected.id);
                       dragRef.current = { type: "corner", id: selected.id, index };
                     }}
