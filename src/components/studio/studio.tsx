@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Download, FolderOpen, Grid2x2, Monitor, Plus, RotateCcw, X } from "lucide-react";
+import { Crosshair, Download, FolderOpen, Grid2x2, Monitor, Plus, Power, Redo2, RotateCcw, Undo2, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
 import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
 import { openProjectFile, saveProjectFile } from "@/lib/beam/project-file";
@@ -14,6 +14,7 @@ import { ShowBar } from "@/components/studio/show-bar";
 
 type Dock = "looks" | "adjust";
 const LINEUP_KEY = "beamloom.lineup.v1";
+const BLACKOUT_KEY = "beamloom.blackout.v1";
 
 export function Studio() {
   const name = useEditor((s) => s.name);
@@ -33,6 +34,12 @@ export function Studio() {
   const selectedId = useEditor((s) => s.selectedId);
   const playlistPlaying = useEditor((s) => s.playlistPlaying);
   const currentDuration = useEditor((s) => activeScene(s).durationSeconds);
+  const canUndo = useEditor((s) => s.canUndo);
+  const canRedo = useEditor((s) => s.canRedo);
+  const undo = useEditor((s) => s.undo);
+  const redo = useEditor((s) => s.redo);
+  const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
+  const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
   const [dock, setDock] = useState<Dock>("looks");
   const [chrome, setChrome] = useState(true);
   const [ready, setReady] = useState(false);
@@ -46,6 +53,20 @@ export function Studio() {
   const [fileBusy, setFileBusy] = useState(false);
   const [fileMessage, setFileMessage] = useState("");
   const [lineup, setLineup] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [blackout, setBlackout] = useState(false);
+  const blackoutRef = useRef(false);
+
+  function toggleBlackout() {
+    const next = !blackoutRef.current;
+    blackoutRef.current = next;
+    setBlackout(next);
+    try {
+      localStorage.setItem(BLACKOUT_KEY, next ? "1" : "0");
+    } catch {
+      /* this window still goes dark */
+    }
+  }
 
   function toggleLineup() {
     const next = !lineup;
@@ -60,11 +81,19 @@ export function Studio() {
   useEffect(() => {
     try {
       setLineup(localStorage.getItem(LINEUP_KEY) === "1");
+      const dark = localStorage.getItem(BLACKOUT_KEY) === "1";
+      blackoutRef.current = dark;
+      setBlackout(dark);
     } catch {
       /* ignore */
     }
     const sync = (event: StorageEvent) => {
       if (event.key === LINEUP_KEY) setLineup(event.newValue === "1");
+      if (event.key === BLACKOUT_KEY) {
+        const dark = event.newValue === "1";
+        blackoutRef.current = dark;
+        setBlackout(dark);
+      }
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
@@ -115,6 +144,10 @@ export function Studio() {
         target?.tagName === "INPUT" ||
         target?.tagName === "TEXTAREA" ||
         target?.isContentEditable;
+      if (event.key === "Escape" && shortcutsOpen) {
+        setShortcutsOpen(false);
+        return;
+      }
       if (event.key === "Escape" && picker) {
         setPicker(false);
         return;
@@ -125,6 +158,24 @@ export function Studio() {
         return;
       }
       if (typing) return;
+      if (event.key === "?" && !projectorRef.current) {
+        event.preventDefault();
+        setShortcutsOpen((open) => !open);
+        return;
+      }
+      if (shortcutsOpen) return;
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const step = event.shiftKey ? 0.02 : 0.006;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -146,6 +197,9 @@ export function Studio() {
         }
       } else if (event.key === "g" || event.key === "G") {
         setGuides(!useEditor.getState().guides);
+      } else if (event.key === "b" || event.key === "B") {
+        event.preventDefault();
+        toggleBlackout();
       } else if ((event.key === "f" || event.key === "F") && !projectorRef.current) {
         void enterOutput();
       } else if (event.key >= "1" && event.key <= "7") {
@@ -155,7 +209,7 @@ export function Studio() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nudge, picker, removeSurface, setArmedLook, setGuides, setOutput]);
+  }, [nudge, picker, redo, removeSurface, setArmedLook, setGuides, setOutput, shortcutsOpen, undo]);
 
   useEffect(() => {
     const onFull = () => {
@@ -256,6 +310,8 @@ export function Studio() {
             aria-label="Project name"
             value={name}
             maxLength={48}
+            onFocus={beginHistoryGroup}
+            onBlur={endHistoryGroup}
             onChange={(event) => setName(event.target.value)}
             className="hidden h-11 min-w-0 flex-1 rounded-md bg-transparent px-2 text-sm text-fg sm:block"
           />
@@ -310,12 +366,36 @@ export function Studio() {
           </button>
           <button
             type="button"
+            aria-pressed={blackout}
+            onClick={toggleBlackout}
+            className={cn(
+              "inline-flex h-11 items-center gap-2 rounded-md border px-2 text-sm",
+              blackout ? "border-beam text-beam" : "border-line text-muted",
+            )}
+            aria-label={blackout ? "Turn blackout off" : "Turn blackout on"}
+          >
+            <Power className="size-4" aria-hidden="true" />
+            <span className="hidden xl:inline">Blackout</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen(true)}
+            className="inline-flex size-11 items-center justify-center rounded-md border border-line text-lg font-medium text-muted"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            ?
+          </button>
+          <button
+            type="button"
             onClick={reset}
             className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted"
             aria-label="Reset to the facade study"
           >
             <RotateCcw className="size-4" aria-hidden="true" />
           </button>
+          <button type="button" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)" className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted disabled:opacity-40"><Undo2 className="size-4" aria-hidden="true" /></button>
+          <button type="button" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Y)" className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted disabled:opacity-40"><Redo2 className="size-4" aria-hidden="true" /></button>
           <input
             ref={fileInput}
             type="file"
@@ -359,6 +439,7 @@ export function Studio() {
         </header>
       )}
       {output ? null : <ShowBar />}
+      {shortcutsOpen && !output ? <ShortcutCard onClose={() => setShortcutsOpen(false)} /> : null}
       {fileMessage && !output ? (
         <div role="status" className="absolute bottom-3 left-3 z-30 max-w-sm rounded-md border border-line bg-panel px-3 py-2 text-sm text-fg">
           {fileMessage}
@@ -425,7 +506,7 @@ export function Studio() {
           </aside>
         )}
         <main className={cn("relative min-w-0", output ? "min-h-0 flex-1" : "aspect-video shrink-0 lg:aspect-auto lg:min-h-0 lg:flex-1")}>
-          <Stage edit={!output} lineup={lineup} />
+          <Stage edit={!output} lineup={lineup} blackout={blackout} />
         </main>
         {output ? null : (
           <aside className="hidden w-80 shrink-0 overflow-auto border-l border-line bg-panel lg:block">
@@ -479,6 +560,48 @@ export function Studio() {
       </span>
     </div>
   );
+}
+
+function ShortcutCard({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onCancel={onClose}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      aria-labelledby="shortcut-title"
+      className="max-h-[85dvh] w-[min(92vw,28rem)] overflow-y-auto rounded-lg border border-line bg-panel p-5 text-fg shadow-2xl backdrop:bg-black/75"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <h2 id="shortcut-title" className="font-display text-xl font-semibold">Keyboard shortcuts</h2>
+        <button type="button" onClick={onClose} className="inline-flex size-11 items-center justify-center rounded-md border border-line" aria-label="Close shortcuts"><X className="size-4" aria-hidden="true" /></button>
+      </div>
+      <dl className="mt-3 space-y-2 text-sm">
+        <Shortcut keys="Arrow keys" action="Nudge selected surface" />
+        <Shortcut keys="Shift + Arrow keys" action="Nudge farther" />
+        <Shortcut keys="Delete / Backspace" action="Remove selected surface" />
+        <Shortcut keys="Ctrl+Z" action="Undo" />
+        <Shortcut keys="Ctrl+Shift+Z / Ctrl+Y" action="Redo" />
+        <Shortcut keys="G" action="Toggle editor guides" />
+        <Shortcut keys="B" action="Blackout the projector" />
+        <Shortcut keys="F" action="Fullscreen output on this display" />
+        {LOOKS.map((look, index) => <Shortcut key={look.id} keys={String(index + 1)} action={look.name} />)}
+        <Shortcut keys="?" action="Show or hide this card" />
+        <Shortcut keys="Esc" action="Close card, picker, or output" />
+      </dl>
+      <p className="mt-4 text-xs text-muted">Shortcuts pause while you type in a field.</p>
+    </dialog>
+  );
+}
+
+function Shortcut({ keys, action }: { keys: string; action: string }) {
+  return <div className="flex items-center justify-between gap-3 border-b border-line py-1"><dt>{action}</dt><dd className="shrink-0 rounded border border-line px-2 py-1 font-mono text-xs text-beam">{keys}</dd></div>;
 }
 
 function DockTab({

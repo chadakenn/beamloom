@@ -16,6 +16,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 - Scenes, opacity, soft edge, brightness, contrast, saturation, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
 - A lineup grid, center cross, and edge ticks for aiming the projector
+- Blackout cuts the projector to black without moving the mapping. Press B, or use the Blackout button. The projector window follows.
 - Timed scene playlist with per-scene durations and looping playback
 - Named alignment presets that save the corners of matching surfaces in all scenes
 - Projects saved in the browser on this machine

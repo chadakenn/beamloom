@@ -9,9 +9,11 @@ import { useEditor } from "@/lib/beam/store";
 const VIEW_W = 1600;
 const VIEW_H = 900;
 
-export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
+export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boolean; blackout: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapperRef = useRef<Mapper | null>(null);
+  const blackoutRef = useRef(blackout);
+  blackoutRef.current = blackout;
   const dragRef = useRef<
     | { type: "corner"; id: string; index: number }
     | { type: "move"; id: string; startX: number; startY: number; corners: Corners }
@@ -23,6 +25,8 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
   const select = useEditor((s) => s.select);
   const setCorner = useEditor((s) => s.setCorner);
   const moveSurface = useEditor((s) => s.moveSurface);
+  const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
+  const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -55,7 +59,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
         visible: face.visible,
         source: getClipSource(face.videoId),
       }));
-      mapper?.draw(faces, reduced ? 0 : now / 1000);
+      mapper?.draw(blackoutRef.current ? [] : faces, reduced ? 0 : now / 1000);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -86,15 +90,18 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
       else moveSurface(drag.id, drag.corners, point.x - drag.startX, point.y - drag.startY);
     };
     const up = () => {
+      if (dragRef.current) endHistoryGroup();
       dragRef.current = null;
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
-  }, [moveSurface, setCorner]);
+  }, [moveSurface, setCorner, endHistoryGroup]);
 
   function beginMove(event: React.PointerEvent, face: Surface) {
     if (!edit || face.locked) {
@@ -102,6 +109,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
       return;
     }
     event.preventDefault();
+    beginHistoryGroup();
     select(face.id);
     const point = normFromEvent(event);
     dragRef.current = {
@@ -180,6 +188,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
                     onPointerDown={(event) => {
                       event.stopPropagation();
                       event.preventDefault();
+                      beginHistoryGroup();
                       select(selected.id);
                       dragRef.current = { type: "corner", id: selected.id, index };
                     }}
@@ -190,7 +199,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
               : null}
           </div>
         ) : null}
-        {lineup ? <LineupOverlay /> : null}
+        {lineup && !blackout ? <LineupOverlay /> : null}
         {edit && scene.surfaces.length === 0 ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted">
             Add a surface, then drag its corners until the light sits on the real object.
