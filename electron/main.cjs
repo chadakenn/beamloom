@@ -1,11 +1,47 @@
-const { app, BrowserWindow, ipcMain, net, protocol, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, protocol, screen } = require("electron");
+const { readFile } = require("node:fs/promises");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
 
-protocol.registerSchemesAsPrivileged([{ scheme: "beamloom", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
+protocol.registerSchemesAsPrivileged([
+  { scheme: "beamloom", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+]);
+
+const MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".txt": "text/plain; charset=utf-8",
+  ".map": "application/json",
+};
 
 let editor;
 let projector;
+
+function fileFromRequest(root, requestUrl) {
+  let pathname = "";
+  try {
+    pathname = decodeURIComponent(new URL(requestUrl).pathname);
+  } catch {
+    return null;
+  }
+  const relative = pathname.replace(/^[/\\]+/, "");
+  if (!relative || relative.includes("\0")) return null;
+  const file = path.resolve(root, relative);
+  const fromRoot = path.relative(root, file);
+  if (fromRoot.startsWith("..") || path.isAbsolute(fromRoot) || !path.extname(file)) return null;
+  return file;
+}
 
 function createWindow({ output = false, display } = {}) {
   const bounds = display?.bounds;
@@ -34,13 +70,16 @@ function createWindow({ output = false, display } = {}) {
 
 app.whenReady().then(() => {
   const root = path.join(__dirname, "..", "dist");
-  protocol.handle("beamloom", (request) => {
-    const pathname = new URL(request.url).pathname;
-    const file = path.resolve(root, `.${pathname}`);
-    if (!file.startsWith(root + path.sep) || !path.extname(file)) {
+  protocol.handle("beamloom", async (request) => {
+    const file = fileFromRequest(root, request.url);
+    if (!file) return new Response("Not found", { status: 404 });
+    try {
+      const body = await readFile(file);
+      const type = MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream";
+      return new Response(body, { headers: { "content-type": type } });
+    } catch {
       return new Response("Not found", { status: 404 });
     }
-    return net.fetch(pathToFileURL(file).href);
   });
   ipcMain.handle("beamloom:displays", (event) => {
     if (event.sender !== editor?.webContents) return [];
@@ -63,12 +102,21 @@ app.whenReady().then(() => {
     if (displayId !== null && !display) return false;
     if (projector && !projector.isDestroyed()) projector.close();
     projector = createWindow({ output: true, display });
-    projector.on("closed", () => { projector = undefined; });
+    projector.on("closed", () => {
+      projector = undefined;
+    });
     return true;
   });
   editor = createWindow();
-  editor.on("closed", () => { editor = undefined; if (projector && !projector.isDestroyed()) projector.close(); });
-  app.on("activate", () => { if (!editor) editor = createWindow(); });
+  editor.on("closed", () => {
+    editor = undefined;
+    if (projector && !projector.isDestroyed()) projector.close();
+  });
+  app.on("activate", () => {
+    if (!editor) editor = createWindow();
+  });
 });
 
-app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
