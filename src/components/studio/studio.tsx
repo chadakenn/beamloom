@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Download, FolderOpen, Monitor, Plus, RotateCcw, X } from "lucide-react";
+import { Crosshair, Download, FolderOpen, Grid2x2, Monitor, Plus, RotateCcw, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
 import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
 import { openProjectFile, saveProjectFile } from "@/lib/beam/project-file";
@@ -12,6 +12,7 @@ import { Library } from "@/components/studio/library";
 import { Stage } from "@/components/studio/stage";
 
 type Dock = "looks" | "adjust";
+const LINEUP_KEY = "beamloom.lineup.v1";
 
 export function Studio() {
   const name = useEditor((s) => s.name);
@@ -41,6 +42,30 @@ export function Studio() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [fileBusy, setFileBusy] = useState(false);
   const [fileMessage, setFileMessage] = useState("");
+  const [lineup, setLineup] = useState(false);
+
+  function toggleLineup() {
+    const next = !lineup;
+    setLineup(next);
+    try {
+      localStorage.setItem(LINEUP_KEY, next ? "1" : "0");
+    } catch {
+      /* the overlay still shows in this window */
+    }
+  }
+
+  useEffect(() => {
+    try {
+      setLineup(localStorage.getItem(LINEUP_KEY) === "1");
+    } catch {
+      /* ignore */
+    }
+    const sync = (event: StorageEvent) => {
+      if (event.key === LINEUP_KEY) setLineup(event.newValue === "1");
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
 
   useEffect(() => {
     const isProjector = new URLSearchParams(window.location.search).has("projector");
@@ -260,6 +285,19 @@ export function Studio() {
           </button>
           <button
             type="button"
+            aria-pressed={lineup}
+            onClick={toggleLineup}
+            className={cn(
+              "inline-flex h-11 items-center gap-2 rounded-md border px-2 text-sm",
+              lineup ? "border-beam text-beam" : "border-line text-muted",
+            )}
+            aria-label={lineup ? "Turn lineup off" : "Turn lineup on"}
+          >
+            <Grid2x2 className="size-4" aria-hidden="true" />
+            <span className="hidden xl:inline">Lineup</span>
+          </button>
+          <button
+            type="button"
             onClick={reset}
             className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted"
             aria-label="Reset to the facade study"
@@ -374,7 +412,7 @@ export function Studio() {
           </aside>
         )}
         <main className={cn("relative min-w-0", output ? "min-h-0 flex-1" : "aspect-video shrink-0 lg:aspect-auto lg:min-h-0 lg:flex-1")}>
-          <Stage edit={!output} />
+          <Stage edit={!output} lineup={lineup} />
         </main>
         {output ? null : (
           <aside className="hidden w-80 shrink-0 overflow-auto border-l border-line bg-panel lg:block">

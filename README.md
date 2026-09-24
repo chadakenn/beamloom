@@ -15,6 +15,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 - Play, pause, unmute, loop, and scrub an imported video. Playback stays on this machine.
 - Scenes, opacity, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
+- A lineup grid, center cross, and edge ticks for aiming the projector
 - Projects saved in the browser on this machine
 
 ## Source
