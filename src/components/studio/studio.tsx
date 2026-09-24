@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Download, FolderOpen, Grid2x2, Monitor, Plus, Power, Redo2, RotateCcw, Undo2, X } from "lucide-react";
+import { Copy, Crosshair, Download, FolderOpen, Grid2x2, Monitor, Pencil, Plus, Power, Redo2, RotateCcw, Undo2, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
 import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
 import { openProjectFile, saveProjectFile } from "@/lib/beam/project-file";
@@ -24,6 +24,8 @@ export function Studio() {
   const output = useEditor((s) => s.output);
   const setName = useEditor((s) => s.setName);
   const setScene = useEditor((s) => s.setScene);
+  const renameScene = useEditor((s) => s.renameScene);
+  const duplicateScene = useEditor((s) => s.duplicateScene);
   const addScene = useEditor((s) => s.addScene);
   const setGuides = useEditor((s) => s.setGuides);
   const setOutput = useEditor((s) => s.setOutput);
@@ -54,8 +56,23 @@ export function Studio() {
   const [fileMessage, setFileMessage] = useState("");
   const [lineup, setLineup] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const [sceneNameDraft, setSceneNameDraft] = useState("");
+  const cancelRename = useRef(false);
   const [blackout, setBlackout] = useState(false);
   const blackoutRef = useRef(false);
+
+  function startSceneRename(id: string, name: string) {
+    cancelRename.current = false;
+    setSceneNameDraft(name);
+    setEditingSceneId(id);
+  }
+
+  function finishSceneRename() {
+    if (editingSceneId && !cancelRename.current) renameScene(editingSceneId, sceneNameDraft);
+    cancelRename.current = false;
+    setEditingSceneId(null);
+  }
 
   function toggleBlackout() {
     const next = !blackoutRef.current;
@@ -317,18 +334,32 @@ export function Studio() {
           />
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto sm:flex-none">
             {scenes.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={item.id === activeSceneId}
-                onClick={() => setScene(item.id)}
-                className={cn(
-                  "h-11 shrink-0 rounded-md px-3 text-sm",
-                  item.id === activeSceneId ? "bg-panel text-fg" : "text-muted",
+              <div key={item.id} className={cn("flex shrink-0 items-center rounded-md", item.id === activeSceneId ? "bg-panel text-fg" : "text-muted")}>
+                {editingSceneId === item.id ? (
+                  <input
+                    autoFocus
+                    aria-label="Scene name"
+                    value={sceneNameDraft}
+                    maxLength={32}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => setSceneNameDraft(event.target.value)}
+                    onBlur={finishSceneRename}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      if (event.key === "Escape") { cancelRename.current = true; event.currentTarget.blur(); }
+                    }}
+                    className="h-11 w-32 rounded-md border border-beam bg-bg px-2 text-sm text-fg"
+                  />
+                ) : (
+                  <button type="button" aria-pressed={item.id === activeSceneId} onClick={() => setScene(item.id)} onDoubleClick={() => startSceneRename(item.id, item.name)} className="h-11 rounded-md px-3 text-sm" title="Double-click to rename scene">{item.name}</button>
                 )}
-              >
-                {item.name}
-              </button>
+                {item.id === activeSceneId && editingSceneId !== item.id ? (
+                  <>
+                    <button type="button" onClick={() => startSceneRename(item.id, item.name)} aria-label={`Rename ${item.name}`} title="Rename scene" className="inline-flex size-11 items-center justify-center"><Pencil className="size-4" aria-hidden="true" /></button>
+                    <button type="button" onClick={() => duplicateScene(item.id)} aria-label={`Duplicate ${item.name}`} title="Duplicate scene after this tab" className="inline-flex size-11 items-center justify-center"><Copy className="size-4" aria-hidden="true" /></button>
+                  </>
+                ) : null}
+              </div>
             ))}
             <button
               type="button"
@@ -388,7 +419,7 @@ export function Studio() {
           </button>
           <button
             type="button"
-            onClick={reset}
+            onClick={() => { if (window.confirm("Reset the whole show to the facade study? Your current scenes and presets will be replaced.")) reset(); }}
             className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted"
             aria-label="Reset to the facade study"
           >
