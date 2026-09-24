@@ -1,7 +1,16 @@
-import { useEffect, useState } from "react";
-import { Copy, Lock, Trash2, Unlock } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Copy, Lock, Pause, Play, Repeat, Trash2, Unlock, Volume2, VolumeX } from "lucide-react";
 import { GELS, LOOKS } from "@/lib/beam/looks";
-import { listClips, restoreClips, subscribeClips } from "@/lib/beam/clips";
+import {
+  clipTransport,
+  listClips,
+  restoreClips,
+  seekClip,
+  setClipLoop,
+  setClipMuted,
+  setClipPlaying,
+  subscribeClips,
+} from "@/lib/beam/clips";
 import { selectedSurface, type Blend } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
 import { cn } from "@/lib/cn";
@@ -20,8 +29,11 @@ export function Inspector() {
   useEffect(() => {
     const sync = () => {
       const id = useEditor.getState().selectedId;
-      const face = useEditor.getState().scenes.flatMap((scene) => scene.surfaces).find((item) => item.id === id);
-      const name = face?.videoId ? listClips().find((clip) => clip.id === face.videoId)?.name ?? null : null;
+      const current = useEditor
+        .getState()
+        .scenes.flatMap((scene) => scene.surfaces)
+        .find((item) => item.id === id);
+      const name = current?.videoId ? listClips().find((clip) => clip.id === current.videoId)?.name ?? null : null;
       setClipName(name);
     };
     void restoreClips().then(sync);
@@ -88,9 +100,7 @@ export function Inspector() {
               onClick={() => patchSurface(face.id, { blend: blend.id })}
               className={cn(
                 "h-11 rounded-md border text-sm",
-                face.blend === blend.id
-                  ? "border-beam bg-beam text-ink"
-                  : "border-line text-fg",
+                face.blend === blend.id ? "border-beam bg-beam text-ink" : "border-line text-fg",
               )}
             >
               {blend.label}
@@ -103,6 +113,7 @@ export function Inspector() {
         <p className="text-sm text-fg">
           {face.videoId ? (clipName ?? "Imported video") : LOOKS.find((look) => look.id === face.look)?.name}
         </p>
+        {face.videoId ? <VideoTransport videoId={face.videoId} /> : null}
         {face.videoId ? (
           <button
             type="button"
@@ -113,7 +124,7 @@ export function Inspector() {
           </button>
         ) : null}
       </div>
-      {face.look === "gel" ? (
+      {face.look === "gel" && !face.videoId ? (
         <div>
           <p className="mb-2 text-xs font-medium text-muted">Gel</p>
           <div className="flex flex-wrap gap-2">
@@ -175,4 +186,102 @@ export function Inspector() {
       <p className="text-xs text-muted">Arrows nudge · Del removes · G guides</p>
     </div>
   );
+}
+
+function VideoTransport({ videoId }: { videoId: string }) {
+  const [transport, setTransport] = useState(() => clipTransport(videoId));
+  const dragging = useRef(false);
+
+  useEffect(() => {
+    const read = () => {
+      if (!dragging.current) setTransport(clipTransport(videoId));
+    };
+    read();
+    const timer = window.setInterval(read, 200);
+    return () => window.clearInterval(timer);
+  }, [videoId]);
+
+  if (!transport) return null;
+  const duration = transport.duration || 0;
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <p className="text-xs font-medium text-muted">Playback</p>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => {
+            setClipPlaying(videoId, transport.paused);
+            setTransport(clipTransport(videoId));
+          }}
+          className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md border border-line text-sm text-fg"
+        >
+          {transport.paused ? <Play className="size-4" aria-hidden="true" /> : <Pause className="size-4" aria-hidden="true" />}
+          {transport.paused ? "Play" : "Pause"}
+        </button>
+        <button
+          type="button"
+          aria-pressed={!transport.muted}
+          onClick={() => {
+            setClipMuted(videoId, !transport.muted);
+            setTransport(clipTransport(videoId));
+          }}
+          className={cn(
+            "inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md border text-sm",
+            transport.muted ? "border-line text-fg" : "border-beam text-beam",
+          )}
+        >
+          {transport.muted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
+          {transport.muted ? "Sound" : "On"}
+        </button>
+        <button
+          type="button"
+          aria-pressed={transport.loop}
+          onClick={() => {
+            setClipLoop(videoId, !transport.loop);
+            setTransport(clipTransport(videoId));
+          }}
+          className={cn(
+            "inline-flex size-11 items-center justify-center rounded-md border",
+            transport.loop ? "border-beam text-beam" : "border-line text-muted",
+          )}
+          aria-label={transport.loop ? "Turn loop off" : "Loop this video"}
+        >
+          <Repeat className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+      <input
+        className="opacity-range"
+        type="range"
+        min={0}
+        max={duration || 0}
+        step={0.01}
+        value={Math.min(transport.current, duration || 0)}
+        aria-label="Video position"
+        disabled={duration <= 0}
+        onPointerDown={() => {
+          dragging.current = true;
+        }}
+        onPointerUp={() => {
+          dragging.current = false;
+          setTransport(clipTransport(videoId));
+        }}
+        onChange={(event) => {
+          const time = Number(event.target.value);
+          seekClip(videoId, time);
+          setTransport((current) => (current ? { ...current, current: time } : current));
+        }}
+      />
+      <p className="text-xs tabular-nums text-muted">
+        {clock(transport.current)} / {clock(duration)}
+      </p>
+    </div>
+  );
+}
+
+function clock(seconds: number) {
+  const whole = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(whole / 60);
+  const remain = whole % 60;
+  return `${minutes}:${remain.toString().padStart(2, "0")}`;
 }
