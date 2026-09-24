@@ -9,7 +9,7 @@ import { useEditor } from "@/lib/beam/store";
 const VIEW_W = 1600;
 const VIEW_H = 900;
 
-export function Stage({ edit }: { edit: boolean }) {
+export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapperRef = useRef<Mapper | null>(null);
   const dragRef = useRef<
@@ -186,6 +186,7 @@ export function Stage({ edit }: { edit: boolean }) {
               : null}
           </div>
         ) : null}
+        {lineup ? <LineupOverlay /> : null}
         {edit && scene.surfaces.length === 0 ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted">
             Add a surface, then drag its corners until the light sits on the real object.
@@ -193,5 +194,31 @@ export function Stage({ edit }: { edit: boolean }) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function LineupOverlay() {
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="none" aria-hidden="true">
+      <g fill="none" stroke="#fff" strokeOpacity="0.85" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+        <rect x="1" y="1" width={VIEW_W - 2} height={VIEW_H - 2} />
+        {Array.from({ length: 9 }, (_, i) => (
+          <g key={i}>
+            <line x1={((i + 1) * VIEW_W) / 10} y1="0" x2={((i + 1) * VIEW_W) / 10} y2={VIEW_H} strokeOpacity="0.5" />
+            <line x1="0" y1={((i + 1) * VIEW_H) / 10} x2={VIEW_W} y2={((i + 1) * VIEW_H) / 10} strokeOpacity="0.5" />
+          </g>
+        ))}
+        <line x1={VIEW_W / 2 - 42} y1={VIEW_H / 2} x2={VIEW_W / 2 + 42} y2={VIEW_H / 2} strokeWidth="3" />
+        <line x1={VIEW_W / 2} y1={VIEW_H / 2 - 42} x2={VIEW_W / 2} y2={VIEW_H / 2 + 42} strokeWidth="3" />
+        {Array.from({ length: 9 }, (_, i) => (
+          <g key={`tick-${i}`} strokeWidth="3">
+            <line x1={((i + 1) * VIEW_W) / 10} y1="0" x2={((i + 1) * VIEW_W) / 10} y2="18" />
+            <line x1={((i + 1) * VIEW_W) / 10} y1={VIEW_H - 18} x2={((i + 1) * VIEW_W) / 10} y2={VIEW_H} />
+            <line x1="0" y1={((i + 1) * VIEW_H) / 10} x2="18" y2={((i + 1) * VIEW_H) / 10} />
+            <line x1={VIEW_W - 18} y1={((i + 1) * VIEW_H) / 10} x2={VIEW_W} y2={((i + 1) * VIEW_H) / 10} />
+          </g>
+        ))}
+      </g>
+    </svg>
   );
 }
