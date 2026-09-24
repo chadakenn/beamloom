@@ -24,7 +24,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 | `src/lib/beam/store.ts` | Editor state. |
 | `src/components/studio/` | The editor: looks, frame, inspector. |
 
-A native Windows shell (pick a display, borderless fullscreen, project file on disk) can host this same frame. That shell is not in this commit.
+**Output** opens a display picker in browsers supporting the Window Management API (for example, Chromium with display permission). Pick a display to open a separate projector window, then click **Fullscreen projector** in that window. Browsers without display access offer a window you can move to the projector manually. The editor and projector window share project edits through browser storage. Allow popups for Beamloom and use the same browser profile for both windows. A native Windows shell with project files on disk is still future work.
 
 ## License
 
