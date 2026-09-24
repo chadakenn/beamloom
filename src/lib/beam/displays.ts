@@ -24,6 +24,7 @@ declare global {
     beamloomDesktop?: {
       displays: () => Promise<Display[]>;
       openProjector: (displayId: number | null) => Promise<boolean>;
+      editorReady: () => void;
     };
   }
 }
