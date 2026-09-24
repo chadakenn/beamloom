@@ -23,7 +23,14 @@ export type Surface = {
 export type Scene = {
   id: string;
   name: string;
+  durationSeconds: number;
   surfaces: Surface[];
+};
+
+export type AlignmentPreset = {
+  id: string;
+  name: string;
+  scenes: { sceneId: string; surfaces: { surfaceId: string; corners: Corners }[] }[];
 };
 
 export type Project = {
@@ -33,6 +40,7 @@ export type Project = {
   selectedId: string | null;
   guides: boolean;
   seq: number;
+  alignments: AlignmentPreset[];
 };
 
 export const STORAGE_KEY = "beamloom.project.v1";
@@ -68,12 +76,14 @@ export function demoProject(): Project {
     name: "Facade study",
     seq: 8,
     guides: true,
+    alignments: [],
     selectedId: "bay",
     activeSceneId: "facade",
     scenes: [
       {
         id: "facade",
         name: "Facade",
+        durationSeconds: 10,
         surfaces: [
           surface("pier-l", "Left pier", "columns", [
             { x: 0.06, y: 0.18 },
@@ -110,6 +120,7 @@ export function demoProject(): Project {
       {
         id: "object",
         name: "Object",
+        durationSeconds: 10,
         surfaces: [
           surface("crate", "Crate face", "rings", [
             { x: 0.28, y: 0.2 },
@@ -205,7 +216,29 @@ export function sanitizeProject(value: unknown): Project | null {
         })) as Corners,
       });
     }
-    scenes.push({ id: s.id, name: s.name.slice(0, 32), surfaces });
+    scenes.push({ id: s.id, name: s.name.slice(0, 32), durationSeconds: clampNum(s.durationSeconds, 10, 1, 3600), surfaces });
+  }
+  const alignments: AlignmentPreset[] = [];
+  if (Array.isArray(raw.alignments)) {
+    for (const item of raw.alignments.slice(0, 24)) {
+      if (!item || typeof item !== "object") continue;
+      const preset = item as AlignmentPreset;
+      if (typeof preset.id !== "string" || typeof preset.name !== "string" || !Array.isArray(preset.scenes)) continue;
+      alignments.push({
+        id: preset.id.slice(0, 80),
+        name: preset.name.slice(0, 40),
+        scenes: preset.scenes.flatMap((entry) => {
+          if (!entry || typeof entry.sceneId !== "string" || !Array.isArray(entry.surfaces)) return [];
+          return [{
+            sceneId: entry.sceneId,
+            surfaces: entry.surfaces.flatMap((face) => {
+              if (!face || typeof face.surfaceId !== "string" || !Array.isArray(face.corners) || face.corners.length !== 4 || !face.corners.every(isPt)) return [];
+              return [{ surfaceId: face.surfaceId, corners: face.corners.map((c) => ({ x: Math.max(0, Math.min(1, c.x)), y: Math.max(0, Math.min(1, c.y)) })) as Corners }];
+            }),
+          }];
+        }),
+      });
+    }
   }
   const activeSceneId = scenes.some((scene) => scene.id === raw.activeSceneId)
     ? (raw.activeSceneId as string)
@@ -221,6 +254,7 @@ export function sanitizeProject(value: unknown): Project | null {
     selectedId,
     guides: raw.guides !== false,
     seq: Number.isFinite(raw.seq) ? Number(raw.seq) : 1,
+    alignments,
   };
 }
 

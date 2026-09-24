@@ -17,6 +17,8 @@ The name, interface, looks, and warp math are written for this project. This is 
 - Guides for lining up a facade
 - A lineup grid, center cross, and edge ticks for aiming the projector. While it is on, a corner snaps to the nearest 10% line. Hold Alt to place it freely.
 - Blackout cuts the projector to black without moving the mapping. Press B, or use the Blackout button. The projector window follows.
+- Timed scene playlist with per-scene durations and looping playback
+- Named alignment presets that save the corners of matching surfaces in all scenes
 - Projects saved in the browser on this machine
 
 ## Source
@@ -35,6 +37,8 @@ The name, interface, looks, and warp math are written for this project. This is 
 **Output** opens a display picker. Where the browser allows it, pick a display and Beamloom opens a separate projector window. Otherwise, open a window and move it onto the projector, or go fullscreen on this display. The projector window follows edits from the editor. Allow popups for Beamloom. Fullscreen inside that window still needs one click there.
 
 Use **Save** to download a portable `.beamloom` project file, including videos and still images used by its surfaces. Use **Open** to restore that file on another computer. Large videos make the file large; the browser needs enough memory and local storage to import them. Opening a file replaces the current editor project but leaves other imported videos in the browser.
+
+Set the current scene's duration in seconds beside **Play show**. Playback follows the scene tab order and loops back to the first scene; **Pause** holds the current scene. Type a name such as Office or House and choose **Save preset** to keep corner positions for all current scenes. Choose a preset and **Apply** to restore corners on matching surfaces; **Update** replaces its saved positions. Presets are included in the project file. A newly added surface has no position in older presets until you update them.
 
 ## Windows
 
