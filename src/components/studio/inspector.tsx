@@ -194,10 +194,14 @@ export function Inspector() {
         <p className="mb-2 text-xs text-muted">Position in % of the projector frame</p>
         <ol className="grid grid-cols-2 gap-2 text-xs tabular-nums text-muted">
           {face.corners.map((corner, index) => {
-            const cornerName = ["Top left", "Top right", "Bottom right", "Bottom left"][index] ?? `Corner ${index + 1}`;
+            const place = cornerPlaces(face.corners)[index];
+            const cornerName = `Corner ${index + 1} ${place}`;
             return (
               <li key={`${face.id}-${index}`} className="rounded-md border border-line p-2">
-                <span className="mb-1 block font-medium">{cornerName}</span>
+                <span className="mb-1 block font-medium">
+                  Corner {index + 1}
+                  <span className="font-normal text-muted"> · {place}</span>
+                </span>
                 <div className="grid grid-cols-2 gap-1">
                   <CornerNumber
                     label={`${cornerName} X`}
@@ -281,6 +285,19 @@ function ColorSlider({
       />
     </div>
   );
+}
+
+function cornerPlaces(corners: { x: number; y: number }[]): string[] {
+  const ids = [0, 1, 2, 3];
+  const byY = [...ids].sort((a, b) => corners[a].y - corners[b].y || a - b);
+  const top = byY.slice(0, 2).sort((a, b) => corners[a].x - corners[b].x || a - b);
+  const bottom = byY.slice(2).sort((a, b) => corners[a].x - corners[b].x || a - b);
+  const places = ["", "", "", ""];
+  places[top[0]] = "Top left";
+  places[top[1]] = "Top right";
+  places[bottom[0]] = "Bottom left";
+  places[bottom[1]] = "Bottom right";
+  return places;
 }
 
 function CornerNumber({
