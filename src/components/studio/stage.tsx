@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { gelRgb } from "@/lib/beam/looks";
-import { getClipVideo } from "@/lib/beam/clips";
+import { getClipSource } from "@/lib/beam/clips";
 import { createMapper, type DrawFace, type Mapper } from "@/lib/beam/gl-mapper";
 import type { Corners } from "@/lib/beam/math";
 import { activeScene, type Surface } from "@/lib/beam/project";
@@ -49,7 +49,7 @@ export function Stage({ edit }: { edit: boolean }) {
         opacity: face.opacity,
         blend: face.blend,
         visible: face.visible,
-        video: getClipVideo(face.videoId),
+        source: getClipSource(face.videoId),
       }));
       mapper?.draw(faces, reduced ? 0 : now / 1000);
       raf = requestAnimationFrame(loop);

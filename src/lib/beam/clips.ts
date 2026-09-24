@@ -1,8 +1,12 @@
+export type ClipKind = "video" | "image";
+
 export type Clip = {
   id: string;
   name: string;
   url: string;
-  video: HTMLVideoElement;
+  kind: ClipKind;
+  video: HTMLVideoElement | null;
+  image: HTMLImageElement | null;
 };
 
 type StoredClip = { id: string; name: string; blob: Blob };
@@ -42,6 +46,29 @@ export function getClipVideo(id: string | null): HTMLVideoElement | null {
   return clips.find((clip) => clip.id === id)?.video ?? null;
 }
 
+export function getClipSource(id: string | null): TexImageSource | null {
+  const clip = id ? clips.find((item) => item.id === id) : undefined;
+  if (!clip) return null;
+  if (clip.kind === "image") {
+    const image = clip.image;
+    if (!image || !image.complete || image.naturalWidth === 0) return null;
+    return image;
+  }
+  const video = clip.video;
+  if (!video || video.readyState < 2 || video.videoWidth === 0) return null;
+  return video;
+}
+
+export function mediaFile(file: File): File | null {
+  if (file.type.startsWith("video/")) return file;
+  if (file.type === "image/png" || file.type === "image/jpeg") return file;
+  if (file.type && file.type !== "application/octet-stream") return null;
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".png")) return new File([file], file.name, { type: "image/png" });
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return new File([file], file.name, { type: "image/jpeg" });
+  return null;
+}
+
 export function subscribeClips(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -55,11 +82,12 @@ export function restoreClips() {
 export async function importVideoFiles(files: File[]): Promise<string[]> {
   const ids: string[] = [];
   for (const file of files) {
-    if (!file.type.startsWith("video/")) continue;
+    const media = mediaFile(file);
+    if (!media) continue;
     const id = crypto.randomUUID();
-    const name = file.name.slice(0, 80) || "Video";
-    await idbPut({ id, name, blob: file });
-    mountClip({ id, name, blob: file });
+    const name = media.name.slice(0, 80) || (media.type.startsWith("image/") ? "Image" : "Video");
+    await idbPut({ id, name, blob: media });
+    mountClip({ id, name, blob: media });
     ids.push(id);
   }
   if (ids.length > 0) {
@@ -76,9 +104,11 @@ export async function importVideoFiles(files: File[]): Promise<string[]> {
 export async function removeClip(id: string) {
   const clip = clips.find((item) => item.id === id);
   if (!clip) return;
-  clip.video.pause();
-  held.delete(id);
-  clip.video.remove();
+  if (clip.video) {
+    clip.video.pause();
+    held.delete(id);
+    clip.video.remove();
+  }
   URL.revokeObjectURL(clip.url);
   clips = clips.filter((item) => item.id !== id);
   await idbDelete(id);
@@ -89,7 +119,7 @@ const held = new Set<string>();
 
 export function clipTransport(id: string | null) {
   const clip = id ? clips.find((item) => item.id === id) : undefined;
-  if (!clip) return null;
+  if (!clip?.video) return null;
   const duration = Number.isFinite(clip.video.duration) ? clip.video.duration : 0;
   return {
     name: clip.name,
@@ -135,13 +165,22 @@ export function seekClip(id: string, time: number) {
 
 export function resumeClips() {
   for (const clip of clips) {
-    if (held.has(clip.id) || !clip.video.paused) continue;
+    if (!clip.video || held.has(clip.id) || !clip.video.paused) continue;
     void clip.video.play().catch(() => undefined);
   }
 }
 
 function mountClip(record: StoredClip) {
   const url = URL.createObjectURL(record.blob);
+  const kind: ClipKind = record.blob.type === "image/png" || record.blob.type === "image/jpeg" ? "image" : "video";
+  if (kind === "image") {
+    const image = new Image();
+    image.src = url;
+    image.decoding = "async";
+    clips = [...clips.filter((item) => item.id !== record.id), { id: record.id, name: record.name, url, kind, video: null, image }];
+    image.addEventListener("load", emit, { once: true });
+    return;
+  }
   const video = document.createElement("video");
   video.src = url;
   video.muted = true;
@@ -156,7 +195,7 @@ function mountClip(record: StoredClip) {
   };
   if (video.readyState >= 2) start();
   else video.addEventListener("loadeddata", start, { once: true });
-  clips = [...clips.filter((item) => item.id !== record.id), { id: record.id, name: record.name, url, video }];
+  clips = [...clips.filter((item) => item.id !== record.id), { id: record.id, name: record.name, url, kind, video, image: null }];
 }
 
 async function loadAll() {

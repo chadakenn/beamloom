@@ -10,6 +10,7 @@ import {
   setClipMuted,
   setClipPlaying,
   subscribeClips,
+  type ClipKind,
 } from "@/lib/beam/clips";
 import { selectedSurface, type Blend } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
@@ -24,7 +25,7 @@ const BLENDS: { id: Blend; label: string }[] = [
 export function Inspector() {
   const face = useEditor((s) => selectedSurface(s));
   const patchSurface = useEditor((s) => s.patchSurface);
-  const [clipName, setClipName] = useState<string | null>(null);
+  const [clipInfo, setClipInfo] = useState<{ name: string; kind: ClipKind } | null>(null);
 
   useEffect(() => {
     const sync = () => {
@@ -33,8 +34,8 @@ export function Inspector() {
         .getState()
         .scenes.flatMap((scene) => scene.surfaces)
         .find((item) => item.id === id);
-      const name = current?.videoId ? listClips().find((clip) => clip.id === current.videoId)?.name ?? null : null;
-      setClipName(name);
+      const clip = current?.videoId ? listClips().find((item) => item.id === current.videoId) : undefined;
+      setClipInfo(clip ? { name: clip.name, kind: clip.kind } : null);
     };
     void restoreClips().then(sync);
     const stop = subscribeClips(sync);
@@ -111,9 +112,9 @@ export function Inspector() {
       <div>
         <p className="mb-2 text-xs font-medium text-muted">Picture</p>
         <p className="text-sm text-fg">
-          {face.videoId ? (clipName ?? "Imported video") : LOOKS.find((look) => look.id === face.look)?.name}
+          {face.videoId ? (clipInfo?.name ?? "Imported picture") : LOOKS.find((look) => look.id === face.look)?.name}
         </p>
-        {face.videoId ? <VideoTransport videoId={face.videoId} /> : null}
+        {face.videoId && clipInfo?.kind === "video" ? <VideoTransport videoId={face.videoId} /> : null}
         {face.videoId ? (
           <button
             type="button"
