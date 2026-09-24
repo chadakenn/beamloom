@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opening Beamloom</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #0e0f12; color: #e8e4dc; font-family: "Segoe UI", sans-serif; }
+    .screen { position: relative; width: 640px; height: 390px; overflow: hidden; background: radial-gradient(ellipse at 62% 30%, #2b2034 0, #17191e 47%, #0e0f12 83%); }
+    .glow { position: absolute; inset: -80px; opacity: .38; background: conic-gradient(from 110deg at 52% 46%, #e2a12b, transparent 18%, #df5378 31%, transparent 46%, #3c85ad 58%, transparent 74%, #e2a12b); filter: blur(75px); animation: breathe 7s ease-in-out infinite alternate; }
+    .frame { position: absolute; inset: 42px 58px 66px; border: 1px solid #46434a; border-radius: 8px; transform: perspective(500px) rotateX(5deg); }
+    .frame::before, .frame::after { content: ""; position: absolute; height: 1px; left: 0; right: 0; background: #39383d; }
+    .frame::before { top: 33.333%; } .frame::after { top: 66.666%; }
+    .beam { position: absolute; inset: 0; background: linear-gradient(108deg, transparent 25%, #e2a12b16 42%, #f3cb7a75 50%, #e2a12b16 58%, transparent 75%); transform: translateX(-115%); animation: sweep 3s ease-in-out infinite; }
+    .shape { position: absolute; inset: 105px 160px 120px; border: 2px solid #edb54b; box-shadow: 0 0 18px #e2a12b77, inset 0 0 30px #e2a12b17; transform: skew(-11deg, -3deg); animation: shape 3.5s ease-in-out infinite alternate; }
+    .shape::before, .shape::after { content: ""; position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fbe0a2; box-shadow: 0 0 12px #f4c45b; }
+    .shape::before { top: -5px; left: -5px; } .shape::after { right: -5px; bottom: -5px; }
+    .brand { position: absolute; left: 38px; top: 23px; display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+    .mark { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 6px; background: #e2a12b; color: #14120c; font-size: 21px; }
+    .bottom { position: absolute; inset: auto 38px 22px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #a9a9a4; letter-spacing: .11em; text-transform: uppercase; }
+    .dots { display: flex; gap: 7px; }
+    .dots i { width: 5px; height: 5px; border-radius: 50%; background: #e2a12b; animation: pulse 1.2s ease-in-out infinite; }
+    .dots i:nth-child(2) { animation-delay: .2s; }.dots i:nth-child(3) { animation-delay: .4s; }
+    @keyframes sweep { 0% { transform: translateX(-115%); } 65%, 100% { transform: translateX(115%); } }
+    @keyframes breathe { to { opacity: .65; transform: rotate(8deg) scale(1.15); } }
+    @keyframes shape { to { transform: skew(8deg, 2deg) scale(.92); } }
+    @keyframes pulse { 50% { opacity: .25; transform: scale(.6); } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="screen" role="status" aria-label="Opening Beamloom">
+    <div class="glow"></div>
+    <div class="frame"><div class="beam"></div></div>
+    <div class="shape"></div>
+    <div class="brand"><span class="mark">◇</span> Beamloom</div>
+    <div class="bottom"><span>Preparing your studio</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+  </div>
+</body>
+</html>
