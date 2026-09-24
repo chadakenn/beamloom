@@ -172,7 +172,10 @@ function isLook(value: unknown): value is LookId {
     value === "embers" ||
     value === "rings" ||
     value === "columns" ||
-    value === "gel"
+    value === "gel" ||
+    value === "neon" ||
+    value === "aurora" ||
+    value === "confetti"
   );
 }
 

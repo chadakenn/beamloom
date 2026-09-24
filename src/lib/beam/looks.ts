@@ -6,6 +6,9 @@ export const LOOKS = [
   { id: "rings", name: "Halo rings", kind: 4, blurb: "Pulse from center" },
   { id: "columns", name: "Columns", kind: 5, blurb: "Facade bars" },
   { id: "gel", name: "Gel", kind: 6, blurb: "Flat color" },
+  { id: "neon", name: "Neon flow", kind: 7, blurb: "Moving neon ribbons" },
+  { id: "aurora", name: "Aurora", kind: 8, blurb: "Waves of green and violet" },
+  { id: "confetti", name: "Confetti", kind: 9, blurb: "Bright falling sparks" },
 ] as const;
 
 export type LookId = (typeof LOOKS)[number]["id"];
