@@ -25,6 +25,9 @@ const BLENDS: { id: Blend; label: string }[] = [
 
 export function Inspector() {
   const face = useEditor((s) => selectedSurface(s));
+  const scenes = useEditor((s) => s.scenes);
+  const activeSceneId = useEditor((s) => s.activeSceneId);
+  const [destinationSceneId, setDestinationSceneId] = useState("");
   const patchSurface = useEditor((s) => s.patchSurface);
   const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
   const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
@@ -50,6 +53,11 @@ export function Inspector() {
   const removeSurface = useEditor((s) => s.removeSurface);
   const duplicateSurface = useEditor((s) => s.duplicateSurface);
   const solo = useSyncExternalStore(subscribeSolo, getSolo, () => false);
+  const copySurfaceToScene = useEditor((s) => s.copySurfaceToScene);
+  const destinationScenes = scenes.filter((scene) => scene.id !== activeSceneId);
+  const validDestination = destinationScenes.some((scene) => scene.id === destinationSceneId);
+
+  useEffect(() => setDestinationSceneId(""), [activeSceneId]);
 
   if (!face) {
     return (
@@ -229,18 +237,45 @@ export function Inspector() {
           })}
         </ol>
       </div>
-      <button
-        type="button"
-        aria-pressed={solo}
-        onClick={toggleSolo}
-        className={cn(
-          "h-11 rounded-md border text-sm",
-          solo ? "border-beam text-beam" : "border-line text-fg",
-        )}
-      >
-        {solo ? "Solo on" : "Solo"}
-      </button>
-      <div className="mt-auto grid grid-cols-3 gap-2">
+      <div className="mt-auto space-y-2">
+        <label htmlFor="copy-surface-scene" className="block text-xs font-medium text-muted">
+          Copy surface to scene
+        </label>
+        <div className="flex gap-2">
+          <select
+            id="copy-surface-scene"
+            value={validDestination ? destinationSceneId : ""}
+            onChange={(event) => setDestinationSceneId(event.target.value)}
+            disabled={destinationScenes.length === 0}
+            className="h-11 min-w-0 flex-1 rounded-md border border-line bg-bg px-2 text-sm text-fg"
+          >
+            <option value="">{destinationScenes.length ? "Choose scene" : "Add another scene first"}</option>
+            {destinationScenes.map((scene) => (
+              <option key={scene.id} value={scene.id}>{scene.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!validDestination}
+            onClick={() => copySurfaceToScene(face.id, destinationSceneId)}
+            className="h-11 rounded-md border border-line px-3 text-sm text-fg disabled:opacity-50"
+          >
+            Copy there
+          </button>
+        </div>
+        <button
+          type="button"
+          aria-pressed={solo}
+          onClick={toggleSolo}
+          className={cn(
+            "h-11 w-full rounded-md border text-sm",
+            solo ? "border-beam text-beam" : "border-line text-fg",
+          )}
+        >
+          {solo ? "Solo on" : "Solo"}
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
         <button
           type="button"
           onClick={() => patchSurface(face.id, { locked: !face.locked })}
