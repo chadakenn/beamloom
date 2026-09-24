@@ -37,7 +37,7 @@ export function ShowBar() {
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-line bg-panel px-3 py-1.5 text-sm text-fg" aria-label="Show and alignment controls">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-3 py-1.5 text-sm text-fg" aria-label="Show and alignment controls">
       <button type="button" disabled={sceneCount < 2} onClick={() => setPlaying(!playing)} className="inline-flex h-10 shrink-0 items-center gap-1 rounded-md border border-line px-3 disabled:opacity-40" aria-label={playing ? "Pause scene playlist" : "Play scene playlist"}>
         {playing ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
         {playing ? "Pause" : "Play show"}
@@ -75,7 +75,11 @@ export function ShowBar() {
         />
         <span className="w-10 tabular-nums text-fg">{Math.round(master * 100)}%</span>
       </label>
-      <span className="mx-1 h-7 w-px shrink-0 bg-line" aria-hidden="true" />
+      <details className="relative ml-auto shrink-0">
+        <summary className="flex h-10 cursor-pointer list-none items-center rounded-md border border-line px-3 text-fg marker:hidden">
+          Alignment presets
+        </summary>
+        <div className="absolute right-0 top-full z-30 mt-2 flex w-[min(90vw,34rem)] flex-wrap items-center gap-2 rounded-md border border-line bg-panel p-3 shadow-xl">
       <label className="sr-only" htmlFor="alignment-select">Alignment preset</label>
       <select id="alignment-select" value={selectedPreset} onChange={(event) => { setSelectedPreset(event.target.value); setMessage(""); }} className="h-10 min-w-28 shrink-0 rounded-md border border-line bg-bg px-2" aria-label="Alignment preset">
         <option value="">Presets</option>
@@ -89,6 +93,8 @@ export function ShowBar() {
         <button type="submit" className="h-10 rounded-md border border-line px-2">Save preset</button>
       </form>
       {message ? <span role="status" className="shrink-0 text-xs text-beam">{message}</span> : null}
+        </div>
+      </details>
     </div>
   );
 }
