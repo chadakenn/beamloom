@@ -128,6 +128,7 @@ export function Studio() {
     if (stored) useEditor.getState().replace(stored);
     if (isProjector) setOutput(true);
     setReady(true);
+    if (!isProjector) window.beamloomDesktop?.editorReady();
     return useEditor.subscribe((state) => {
       if (!projectorRef.current) saveStoredProject(snapshot(state));
     });
