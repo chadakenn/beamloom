@@ -9,6 +9,7 @@ type StoredClip = { id: string; name: string; blob: Blob };
 
 const DB_NAME = "beamloom";
 const STORE = "videos";
+export const CLIP_CHANGE_KEY = "beamloom.clips.changed";
 
 let clips: Clip[] = [];
 const listeners = new Set<() => void>();
@@ -20,6 +21,20 @@ function emit() {
 
 export function listClips(): Clip[] {
   return clips;
+}
+
+export async function storedClips(): Promise<StoredClip[]> {
+  await restoreClips();
+  return idbAll();
+}
+
+export async function syncClips(): Promise<void> {
+  await restoreClips();
+  const records = await idbAll();
+  for (const record of records) {
+    if (!clips.some((clip) => clip.id === record.id)) mountClip(record);
+  }
+  emit();
 }
 
 export function getClipVideo(id: string | null): HTMLVideoElement | null {
@@ -47,7 +62,14 @@ export async function importVideoFiles(files: File[]): Promise<string[]> {
     mountClip({ id, name, blob: file });
     ids.push(id);
   }
-  if (ids.length > 0) emit();
+  if (ids.length > 0) {
+    emit();
+    try {
+      localStorage.setItem(CLIP_CHANGE_KEY, crypto.randomUUID());
+    } catch {
+      /* private mode */
+    }
+  }
   return ids;
 }
 
