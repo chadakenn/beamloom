@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { Inspector } from "@/components/studio/inspector";
 import { Library } from "@/components/studio/library";
 import { Stage } from "@/components/studio/stage";
+import { ShowBar } from "@/components/studio/show-bar";
 
 type Dock = "looks" | "adjust";
 const LINEUP_KEY = "beamloom.lineup.v1";
@@ -30,6 +31,8 @@ export function Studio() {
   const removeSurface = useEditor((s) => s.removeSurface);
   const setArmedLook = useEditor((s) => s.setArmedLook);
   const selectedId = useEditor((s) => s.selectedId);
+  const playlistPlaying = useEditor((s) => s.playlistPlaying);
+  const currentDuration = useEditor((s) => activeScene(s).durationSeconds);
   const [dock, setDock] = useState<Dock>("looks");
   const [chrome, setChrome] = useState(true);
   const [ready, setReady] = useState(false);
@@ -90,11 +93,20 @@ export function Studio() {
       }
       if (event.key !== STORAGE_KEY || !event.newValue) return;
       const stored = loadStoredProject();
-      if (stored) useEditor.getState().replace(stored);
+      if (stored) {
+        useEditor.getState().replace(stored);
+        useEditor.getState().setOutput(true);
+      }
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
   }, [projectorWindow]);
+
+  useEffect(() => {
+    if (!playlistPlaying || projectorRef.current) return;
+    const timer = window.setTimeout(() => useEditor.getState().advanceScene(), currentDuration * 1000);
+    return () => window.clearTimeout(timer);
+  }, [playlistPlaying, activeSceneId, currentDuration]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -346,6 +358,7 @@ export function Studio() {
           </button>
         </header>
       )}
+      {output ? null : <ShowBar />}
       {fileMessage && !output ? (
         <div role="status" className="absolute bottom-3 left-3 z-30 max-w-sm rounded-md border border-line bg-panel px-3 py-2 text-sm text-fg">
           {fileMessage}
