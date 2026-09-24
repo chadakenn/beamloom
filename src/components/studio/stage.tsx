@@ -48,6 +48,9 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
         gel: gelRgb(face.gel),
         opacity: face.opacity,
         feather: face.feather,
+        brightness: face.brightness,
+        contrast: face.contrast,
+        saturation: face.saturation,
         blend: face.blend,
         visible: face.visible,
         source: getClipSource(face.videoId),
@@ -206,18 +209,37 @@ function LineupOverlay() {
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      <g fill="none" stroke="#fff" strokeOpacity="0.85" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
-        <rect x="1" y="1" width={VIEW_W - 2} height={VIEW_H - 2} />
+      <LineupMarks ink="#000" gridOpacity={0.9} fine={4} heavy={6} />
+      <LineupMarks ink="#fff" gridOpacity={0.92} fine={1.5} heavy={3} />
+    </svg>
+  );
+}
+
+function LineupMarks({
+  ink,
+  gridOpacity,
+  fine,
+  heavy,
+}: {
+  ink: string;
+  gridOpacity: number;
+  fine: number;
+  heavy: number;
+}) {
+  return (
+    <g fill="none" stroke={ink} strokeWidth={fine} vectorEffect="non-scaling-stroke">
+      <rect x="1" y="1" width={VIEW_W - 2} height={VIEW_H - 2} />
+      {Array.from({ length: 9 }, (_, i) => (
+        <g key={i} strokeOpacity={gridOpacity}>
+          <line x1={((i + 1) * VIEW_W) / 10} y1="0" x2={((i + 1) * VIEW_W) / 10} y2={VIEW_H} />
+          <line x1="0" y1={((i + 1) * VIEW_H) / 10} x2={VIEW_W} y2={((i + 1) * VIEW_H) / 10} />
+        </g>
+      ))}
+      <g strokeWidth={heavy}>
+        <line x1={VIEW_W / 2 - 42} y1={VIEW_H / 2} x2={VIEW_W / 2 + 42} y2={VIEW_H / 2} />
+        <line x1={VIEW_W / 2} y1={VIEW_H / 2 - 42} x2={VIEW_W / 2} y2={VIEW_H / 2 + 42} />
         {Array.from({ length: 9 }, (_, i) => (
-          <g key={i}>
-            <line x1={((i + 1) * VIEW_W) / 10} y1="0" x2={((i + 1) * VIEW_W) / 10} y2={VIEW_H} strokeOpacity="0.5" />
-            <line x1="0" y1={((i + 1) * VIEW_H) / 10} x2={VIEW_W} y2={((i + 1) * VIEW_H) / 10} strokeOpacity="0.5" />
-          </g>
-        ))}
-        <line x1={VIEW_W / 2 - 42} y1={VIEW_H / 2} x2={VIEW_W / 2 + 42} y2={VIEW_H / 2} strokeWidth="3" />
-        <line x1={VIEW_W / 2} y1={VIEW_H / 2 - 42} x2={VIEW_W / 2} y2={VIEW_H / 2 + 42} strokeWidth="3" />
-        {Array.from({ length: 9 }, (_, i) => (
-          <g key={`tick-${i}`} strokeWidth="3">
+          <g key={`tick-${i}`}>
             <line x1={((i + 1) * VIEW_W) / 10} y1="0" x2={((i + 1) * VIEW_W) / 10} y2="18" />
             <line x1={((i + 1) * VIEW_W) / 10} y1={VIEW_H - 18} x2={((i + 1) * VIEW_W) / 10} y2={VIEW_H} />
             <line x1="0" y1={((i + 1) * VIEW_H) / 10} x2="18" y2={((i + 1) * VIEW_H) / 10} />
@@ -225,6 +247,6 @@ function LineupOverlay() {
           </g>
         ))}
       </g>
-    </svg>
+    </g>
   );
 }

@@ -107,6 +107,30 @@ export function Inspector() {
           onChange={(event) => patchSurface(face.id, { feather: Number(event.target.value) })}
         />
       </div>
+      <ColorSlider
+        label="Brightness"
+        value={face.brightness}
+        min={-1}
+        max={1}
+        text={`${face.brightness > 0 ? "+" : ""}${Math.round(face.brightness * 100)}`}
+        onChange={(value) => patchSurface(face.id, { brightness: value })}
+      />
+      <ColorSlider
+        label="Contrast"
+        value={face.contrast}
+        min={0}
+        max={2}
+        text={`${Math.round(face.contrast * 100)}%`}
+        onChange={(value) => patchSurface(face.id, { contrast: value })}
+      />
+      <ColorSlider
+        label="Saturation"
+        value={face.saturation}
+        min={0}
+        max={2}
+        text={`${Math.round(face.saturation * 100)}%`}
+        onChange={(value) => patchSurface(face.id, { saturation: value })}
+      />
       <div>
         <p className="mb-2 text-xs font-medium text-muted">Blend</p>
         <div className="grid grid-cols-3 gap-1">
@@ -170,10 +194,14 @@ export function Inspector() {
         <p className="mb-2 text-xs text-muted">Position in % of the projector frame</p>
         <ol className="grid grid-cols-2 gap-2 text-xs tabular-nums text-muted">
           {face.corners.map((corner, index) => {
-            const cornerName = ["Top left", "Top right", "Bottom right", "Bottom left"][index] ?? `Corner ${index + 1}`;
+            const place = cornerPlaces(face.corners)[index];
+            const cornerName = `Corner ${index + 1} ${place}`;
             return (
               <li key={`${face.id}-${index}`} className="rounded-md border border-line p-2">
-                <span className="mb-1 block font-medium">{cornerName}</span>
+                <span className="mb-1 block font-medium">
+                  Corner {index + 1}
+                  <span className="font-normal text-muted"> · {place}</span>
+                </span>
                 <div className="grid grid-cols-2 gap-1">
                   <CornerNumber
                     label={`${cornerName} X`}
@@ -222,6 +250,54 @@ export function Inspector() {
       <p className="text-xs text-muted">Arrows nudge · Del removes · G guides</p>
     </div>
   );
+}
+
+function ColorSlider({
+  label,
+  value,
+  min,
+  max,
+  text,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  text: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-medium text-muted">{label}</span>
+        <span className="text-xs tabular-nums text-fg">{text}</span>
+      </div>
+      <input
+        className="opacity-range"
+        type="range"
+        min={min}
+        max={max}
+        step={0.01}
+        value={value}
+        aria-label={label}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </div>
+  );
+}
+
+function cornerPlaces(corners: { x: number; y: number }[]): string[] {
+  const ids = [0, 1, 2, 3];
+  const byY = [...ids].sort((a, b) => corners[a].y - corners[b].y || a - b);
+  const top = byY.slice(0, 2).sort((a, b) => corners[a].x - corners[b].x || a - b);
+  const bottom = byY.slice(2).sort((a, b) => corners[a].x - corners[b].x || a - b);
+  const places = ["", "", "", ""];
+  places[top[0]] = "Top left";
+  places[top[1]] = "Top right";
+  places[bottom[0]] = "Bottom left";
+  places[bottom[1]] = "Bottom right";
+  return places;
 }
 
 function CornerNumber({

@@ -13,7 +13,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 - Import your own video files and map them onto a surface. Clips stay on this machine.
 - Import a PNG or JPEG and map it the same way. Stills are saved inside the project file.
 - Play, pause, unmute, loop, and scrub an imported video. Playback stays on this machine.
-- Scenes, opacity, soft edge, normal / add / screen blend, lock, and stack order
+- Scenes, opacity, soft edge, brightness, contrast, saturation, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
 - A lineup grid, center cross, and edge ticks for aiming the projector
 - Projects saved in the browser on this machine

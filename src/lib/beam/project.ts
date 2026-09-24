@@ -10,6 +10,9 @@ export type Surface = {
   gel: number;
   opacity: number;
   feather: number;
+  brightness: number;
+  contrast: number;
+  saturation: number;
   blend: Blend;
   visible: boolean;
   locked: boolean;
@@ -48,6 +51,9 @@ function surface(
     gel: 0,
     opacity: 1,
     feather: 0,
+    brightness: 0,
+    contrast: 1,
+    saturation: 1,
     blend: "normal",
     visible: true,
     locked: false,
@@ -183,6 +189,9 @@ export function sanitizeProject(value: unknown): Project | null {
         gel: Math.max(0, Math.min(4, Math.round(face.gel) || 0)),
         opacity: Math.max(0, Math.min(1, Number(face.opacity) || 0)),
         feather: Math.max(0, Math.min(0.4, Number(face.feather) || 0)),
+        brightness: clampNum(face.brightness, 0, -1, 1),
+        contrast: clampNum(face.contrast, 1, 0, 2),
+        saturation: clampNum(face.saturation, 1, 0, 2),
         blend,
         visible: face.visible !== false,
         locked: face.locked === true,
@@ -217,6 +226,12 @@ export function sanitizeProject(value: unknown): Project | null {
 
 export function drawGel(index: number): [number, number, number] {
   return gelRgb(index);
+}
+
+function clampNum(value: unknown, fallback: number, min: number, max: number) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
 }
 
 export function offsetCorners(corners: Corners, amount = 0.03): Corners {
