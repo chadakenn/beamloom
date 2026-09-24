@@ -8,6 +8,7 @@ import {
   sanitizeProject,
   STORAGE_KEY,
   type Blend,
+  type AlignmentPreset,
   type Project,
   type Surface,
 } from "@/lib/beam/project";
@@ -16,6 +17,14 @@ type EditorState = Project & {
   output: boolean;
   armedLook: LookId;
   armedVideoId: string | null;
+  playlistPlaying: boolean;
+  setPlaylistPlaying: (playing: boolean) => void;
+  advanceScene: () => void;
+  setSceneDuration: (id: string, seconds: number) => void;
+  saveAlignment: (name: string) => boolean;
+  applyAlignment: (id: string) => boolean;
+  updateAlignment: (id: string) => void;
+  deleteAlignment: (id: string) => void;
   replace: (project: Project) => void;
   setName: (name: string) => void;
   setScene: (id: string) => void;
@@ -61,12 +70,59 @@ function freshCorners(index: number): Corners {
   ];
 }
 
+function captureAlignment(project: Project): AlignmentPreset["scenes"] {
+  return project.scenes.map((scene) => ({
+    sceneId: scene.id,
+    surfaces: scene.surfaces.map((face) => ({
+      surfaceId: face.id,
+      corners: face.corners.map((corner) => ({ ...corner })) as Corners,
+    })),
+  }));
+}
+
 export const useEditor = create<EditorState>((set, get) => ({
   ...demoProject(),
   output: false,
   armedLook: "wash",
   armedVideoId: null,
-  replace: (project) => set({ ...project, output: false }),
+  playlistPlaying: false,
+  replace: (project) => set({ ...project, output: false, playlistPlaying: false }),
+  setPlaylistPlaying: (playing) => set({ playlistPlaying: playing && get().scenes.length > 1 }),
+  advanceScene: () => {
+    const scenes = get().scenes;
+    const index = scenes.findIndex((scene) => scene.id === get().activeSceneId);
+    const next = scenes[(index + 1) % scenes.length];
+    if (next) get().setScene(next.id);
+  },
+  setSceneDuration: (id, seconds) => {
+    if (!Number.isFinite(seconds)) return;
+    set({ scenes: get().scenes.map((scene) => scene.id === id ? { ...scene, durationSeconds: Math.max(1, Math.min(3600, Math.round(seconds))) } : scene) });
+  },
+  saveAlignment: (name) => {
+    const trimmed = name.trim().slice(0, 40);
+    if (!trimmed || get().alignments.length >= 24 || get().alignments.some((preset) => preset.name.toLowerCase() === trimmed.toLowerCase())) return false;
+    set({ alignments: [...get().alignments, { id: crypto.randomUUID(), name: trimmed, scenes: captureAlignment(get()) }] });
+    return true;
+  },
+  applyAlignment: (id) => {
+    const preset = get().alignments.find((item) => item.id === id);
+    if (!preset) return false;
+    let matches = 0;
+    const scenes = get().scenes.map((scene) => {
+      const saved = preset.scenes.find((entry) => entry.sceneId === scene.id);
+      if (!saved) return scene;
+      return { ...scene, surfaces: scene.surfaces.map((face) => {
+        const corners = saved.surfaces.find((item) => item.surfaceId === face.id)?.corners;
+        if (!corners) return face;
+        matches++;
+        return { ...face, corners: corners.map((corner) => ({ ...corner })) as Corners };
+      }) };
+    });
+    if (matches) set({ scenes });
+    return matches > 0;
+  },
+  updateAlignment: (id) => set({ alignments: get().alignments.map((preset) => preset.id === id ? { ...preset, scenes: captureAlignment(get()) } : preset) }),
+  deleteAlignment: (id) => set({ alignments: get().alignments.filter((preset) => preset.id !== id) }),
   setName: (name) => set({ name: name.slice(0, 48) }),
   setScene: (id) => {
     const scene = get().scenes.find((item) => item.id === id);
@@ -85,6 +141,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const scene = {
       id,
       name: `Scene ${get().scenes.length + 1}`,
+      durationSeconds: 10,
       surfaces: [
         {
           id: faceId,
@@ -118,6 +175,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const scene = scenes.find((item) => item.id === activeSceneId) ?? scenes[0];
     set({
       scenes,
+      playlistPlaying: get().playlistPlaying && scenes.length > 1,
       activeSceneId: scene.id,
       selectedId: scene.surfaces[0]?.id ?? null,
     });
@@ -253,7 +311,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     });
   },
   reset: () => {
-    set({ ...demoProject(), output: false, armedLook: "wash", armedVideoId: null });
+    set({ ...demoProject(), output: false, playlistPlaying: false, armedLook: "wash", armedVideoId: null });
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -270,6 +328,7 @@ export function snapshot(state: EditorState): Project {
     selectedId: state.selectedId,
     guides: state.guides,
     seq: state.seq,
+    alignments: state.alignments,
   };
 }
 
