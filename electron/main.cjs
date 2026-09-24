@@ -27,6 +27,29 @@ const MIME = {
 
 let editor;
 let projector;
+let splash;
+
+function showEditor() {
+  if (!editor || editor.isDestroyed()) return;
+  editor.show();
+  if (splash && !splash.isDestroyed()) splash.close();
+  splash = undefined;
+}
+
+function createSplash() {
+  splash = new BrowserWindow({
+    width: 640,
+    height: 390,
+    frame: false,
+    resizable: false,
+    center: true,
+    backgroundColor: "#0e0f12",
+    autoHideMenuBar: true,
+    webPreferences: { sandbox: true, nodeIntegration: false, contextIsolation: true },
+  });
+  splash.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  void splash.loadURL("beamloom://app/splash.html");
+}
 
 function fileFromRequest(root, requestUrl) {
   let pathname = "";
@@ -43,9 +66,10 @@ function fileFromRequest(root, requestUrl) {
   return file;
 }
 
-function createWindow({ output = false, display } = {}) {
+function createWindow({ output = false, display, show = true } = {}) {
   const bounds = display?.bounds;
   const window = new BrowserWindow({
+    show,
     width: bounds?.width ?? (output ? 1280 : 1440),
     height: bounds?.height ?? (output ? 720 : 900),
     x: bounds?.x,
@@ -146,7 +170,13 @@ app.whenReady().then(() => {
     });
     return true;
   });
-  editor = createWindow();
+  ipcMain.on("beamloom:editor-ready", (event) => {
+    if (event.sender === editor?.webContents) showEditor();
+  });
+  createSplash();
+  editor = createWindow({ show: false });
+  editor.webContents.on("did-fail-load", showEditor);
+  setTimeout(showEditor, 10000);
   startUpdates();
   editor.on("closed", () => {
     editor = undefined;
