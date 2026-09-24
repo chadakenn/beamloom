@@ -24,6 +24,7 @@ const BLENDS: { id: Blend; label: string }[] = [
 export function Inspector() {
   const face = useEditor((s) => selectedSurface(s));
   const patchSurface = useEditor((s) => s.patchSurface);
+  const setCorner = useEditor((s) => s.setCorner);
   const [clipName, setClipName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -149,10 +150,15 @@ export function Inspector() {
       ) : null}
       <div>
         <p className="mb-2 text-xs font-medium text-muted">Corners</p>
+        <p className="mb-2 text-xs text-muted">Position in % of the projector frame</p>
         <ol className="grid grid-cols-2 gap-2 text-xs tabular-nums text-muted">
           {face.corners.map((corner, index) => (
-            <li key={index} className="rounded-md border border-line px-2 py-2">
-              {index + 1} · {Math.round(corner.x * 100)} , {Math.round(corner.y * 100)}
+            <li key={`${face.id}-${index}`} className="rounded-md border border-line p-2">
+              <span className="mb-1 block font-medium">{["Top left", "Top right", "Bottom right", "Bottom left"][index]}</span>
+              <div className="grid grid-cols-2 gap-1">
+                <CornerNumber label="X" value={corner.x * 100} disabled={face.locked} onCommit={(value) => setCorner(face.id, index, value / 100, corner.y)} />
+                <CornerNumber label="Y" value={corner.y * 100} disabled={face.locked} onCommit={(value) => setCorner(face.id, index, corner.x, value / 100)} />
+              </div>
             </li>
           ))}
         </ol>
@@ -185,6 +191,49 @@ export function Inspector() {
       </div>
       <p className="text-xs text-muted">Arrows nudge · Del removes · G guides</p>
     </div>
+  );
+}
+
+function CornerNumber({ label, value, disabled, onCommit }: { label: string; value: number; disabled: boolean; onCommit: (value: number) => void }) {
+  const display = Math.round(value * 10) / 10;
+  const [draft, setDraft] = useState(String(display));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setDraft(String(display));
+  }, [display, focused]);
+
+  function commit() {
+    setFocused(false);
+    const parsed = Number(draft);
+    if (draft.trim() === "" || !Number.isFinite(parsed)) {
+      setDraft(String(display));
+      return;
+    }
+    const bounded = Math.max(0, Math.min(100, parsed));
+    onCommit(bounded);
+    setDraft(String(Math.round(bounded * 10) / 10));
+  }
+
+  return (
+    <label className="flex items-center gap-1">
+      <span>{label}</span>
+      <input
+        type="number"
+        min="0"
+        max="100"
+        step="0.1"
+        inputMode="decimal"
+        aria-label={`${label} corner position in percent`}
+        disabled={disabled}
+        value={draft}
+        onFocus={() => setFocused(true)}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+        className="h-11 min-w-0 w-full rounded-md border border-line bg-bg px-2 text-sm text-fg disabled:opacity-50"
+      />
+    </label>
   );
 }
 
