@@ -222,8 +222,8 @@ export function Studio() {
         toggleBlackout();
       } else if ((event.key === "f" || event.key === "F") && !projectorRef.current) {
         void enterOutput();
-      } else if (event.key >= "1" && event.key <= "7") {
-        const look = LOOKS[Number(event.key) - 1];
+      } else if (event.key >= "1" && event.key <= "9" || event.key === "0") {
+        const look = LOOKS[event.key === "0" ? 9 : Number(event.key) - 1];
         if (look) setArmedLook(look.id);
       }
     };
@@ -663,7 +663,7 @@ function ShortcutCard({ onClose }: { onClose: () => void }) {
         <Shortcut keys="B" action="Blackout the projector" />
         <Shortcut keys="Alt" action="Drag a corner freely while Lineup is on" />
         <Shortcut keys="F" action="Fullscreen output on this display" />
-        {LOOKS.map((look, index) => <Shortcut key={look.id} keys={String(index + 1)} action={look.name} />)}
+        {LOOKS.map((look, index) => <Shortcut key={look.id} keys={String((index + 1) % 10)} action={look.name} />)}
         <Shortcut keys="?" action="Show or hide this card" />
         <Shortcut keys="Esc" action="Close card, picker, or output" />
       </dl>
