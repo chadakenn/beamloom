@@ -35,7 +35,9 @@ The name, interface, looks, and warp math are written for this project. This is 
 
 Use **Save** to download a portable `.beamloom` project file, including videos and still images used by its surfaces. Use **Open** to restore that file on another computer. Large videos make the file large; the browser needs enough memory and local storage to import them. Opening a file replaces the current editor project but leaves other imported videos in the browser.
 
-A native Windows shell with project files on disk is still later.
+## Windows desktop app
+
+The Electron build opens Beamloom as a desktop app and uses Windows' display list for projector output. A Windows build uses `npm ci` and `npm run make:win`; the installer appears in `out/make/squirrel.windows/x64/`. The **Windows installer** GitHub Actions job also attaches the setup executable to its run. This build is unsigned, so Windows may show a publisher warning until code signing is configured. Keep the source launcher for development; people using the installer do not need Node.js.
 
 ## License
 
