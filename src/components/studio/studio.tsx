@@ -663,7 +663,7 @@ function ShortcutCard({ onClose }: { onClose: () => void }) {
         <Shortcut keys="B" action="Blackout the projector" />
         <Shortcut keys="Alt" action="Drag a corner freely while Lineup is on" />
         <Shortcut keys="F" action="Fullscreen output on this display" />
-        {LOOKS.map((look, index) => <Shortcut key={look.id} keys={String((index + 1) % 10)} action={look.name} />)}
+        {LOOKS.slice(0, 10).map((look, index) => <Shortcut key={look.id} keys={String((index + 1) % 10)} action={look.name} />)}
         <Shortcut keys="?" action="Show or hide this card" />
         <Shortcut keys="Esc" action="Close card, picker, or output" />
       </dl>

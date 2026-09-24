@@ -134,6 +134,26 @@ void main() {
       vec3 hue = 0.5 + 0.5 * cos(6.28318 * (hash(vec2(fi, 7.2)) + vec3(0.0, 0.33, 0.67)));
       col += hue * spark * 1.6;
     }
+  } else if (uKind == 10) {
+    float band = fract(uv.x * 1.4 + uv.y * 0.45 - uTime * 0.12);
+    vec3 hue = 0.55 + 0.45 * cos(6.28318 * (band + vec3(0.0, 0.33, 0.67)));
+    float sweep = exp(-pow(fract(uv.x + uv.y * 0.25 - uTime * 0.18) - 0.5, 2.0) * 18.0);
+    col = hue * (0.28 + sweep);
+  } else if (uKind == 11) {
+    vec2 cell = floor(uv * vec2(8.0, 5.0));
+    float n = hash(cell);
+    float phase = 0.5 + 0.5 * sin(uTime * 1.7 + n * 6.28318);
+    vec3 hue = 0.55 + 0.45 * cos(6.28318 * (n + vec3(0.0, 0.33, 0.67)));
+    col = hue * (0.12 + 0.95 * phase * phase);
+  } else if (uKind == 12) {
+    vec2 p = uv - 0.5;
+    float ang = atan(p.y, p.x);
+    float arm = pow(0.5 + 0.5 * sin(ang * 3.0 - uTime * 1.3), 10.0);
+    float spin = fract(ang / 6.28318 + uTime * 0.08);
+    vec3 hue = 0.55 + 0.45 * cos(6.28318 * (spin + vec3(0.0, 0.33, 0.67)));
+    float fade = 1.0 - smoothstep(0.15, 0.72, length(p * vec2(1.2, 1.0)));
+    col = vec3(0.02, 0.01, 0.05) + hue * arm * fade;
+    col += vec3(1.0, 0.95, 0.9) * exp(-length(p) * 8.0) * 0.35;
   } else {
     col = uGel;
     float sheen = 0.08 * sin(uv.y * 18.0 + uTime * 0.6);

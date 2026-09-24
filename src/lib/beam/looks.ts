@@ -9,6 +9,9 @@ export const LOOKS = [
   { id: "neon", name: "Neon flow", kind: 7, blurb: "Moving neon ribbons" },
   { id: "aurora", name: "Aurora", kind: 8, blurb: "Waves of green and violet" },
   { id: "confetti", name: "Confetti", kind: 9, blurb: "Bright falling sparks" },
+  { id: "prism", name: "Prism sweep", kind: 10, blurb: "A rainbow band crossing the quad" },
+  { id: "tiles", name: "Hue tiles", kind: 11, blurb: "A grid of flashing colors" },
+  { id: "pinwheel", name: "Pinwheel", kind: 12, blurb: "Colored arms turning from the center" },
 ] as const;
 
 export type LookId = (typeof LOOKS)[number]["id"];
