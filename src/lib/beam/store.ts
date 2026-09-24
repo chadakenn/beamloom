@@ -36,13 +36,13 @@ type EditorState = Project & {
   setScene: (id: string) => void;
   renameScene: (id: string, name: string) => void;
   duplicateScene: (id: string) => void;
+  reorderScene: (sourceId: string, targetId: string, after: boolean) => void;
   addScene: () => void;
   removeScene: (id: string) => void;
   select: (id: string | null) => void;
   addSurface: () => void;
   removeSurface: (id: string) => void;
   duplicateSurface: (id: string) => void;
-  copySurfaceToScene: (id: string, sceneId: string) => void;
   patchSurface: (id: string, patch: Partial<Surface>) => void;
   setCorner: (id: string, index: number, x: number, y: number) => void;
   moveSurface: (id: string, origin: Corners, dx: number, dy: number) => void;
@@ -245,6 +245,18 @@ export const useEditor = create<EditorState>((set, get) => ({
       selectedId: surfaces[source.surfaces.findIndex((face) => face.id === get().selectedId)]?.id ?? surfaces[0]?.id ?? null,
     });
   },
+  reorderScene: (sourceId, targetId, after) => {
+    const scenes = get().scenes;
+    const sourceIndex = scenes.findIndex((scene) => scene.id === sourceId);
+    const targetIndex = scenes.findIndex((scene) => scene.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+    const reordered = [...scenes];
+    const [source] = reordered.splice(sourceIndex, 1);
+    const insertAt = reordered.findIndex((scene) => scene.id === targetId) + (after ? 1 : 0);
+    reordered.splice(insertAt, 0, source);
+    if (reordered.every((scene, index) => scene === scenes[index])) return;
+    set({ scenes: reordered });
+  },
   addScene: () => {
     const seq = get().seq + 1;
     const id = `scene-${seq}`;
@@ -344,24 +356,6 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({
       ...mapSceneSurfaces(get(), scene.id, () => surfaces),
       seq,
-      selectedId: copy.id,
-    });
-  },
-  copySurfaceToScene: (id, sceneId) => {
-    const project = get();
-    if (sceneId === project.activeSceneId || !project.scenes.some((scene) => scene.id === sceneId)) return;
-    const source = activeScene(project).surfaces.find((face) => face.id === id);
-    if (!source) return;
-    const seq = project.seq + 1;
-    const copy: Surface = {
-      ...structuredClone(source),
-      id: `surf-${seq}`,
-      name: `${source.name} copy`.slice(0, 40),
-    };
-    set({
-      ...mapSceneSurfaces(project, sceneId, (surfaces) => [...surfaces, copy]),
-      seq,
-      activeSceneId: sceneId,
       selectedId: copy.id,
     });
   },
