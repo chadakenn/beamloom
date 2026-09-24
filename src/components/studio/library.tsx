@@ -268,6 +268,9 @@ function accentFor(kind: number): [number, number, number] {
   if (kind === 7) return [0.98, 0.07, 0.52];
   if (kind === 8) return [0.02, 0.95, 0.55];
   if (kind === 9) return [0.9, 0.85, 0.2];
+  if (kind === 10) return [0.95, 0.2, 0.55];
+  if (kind === 11) return [0.15, 0.75, 1];
+  if (kind === 12) return [0.7, 0.25, 1];
   if (kind === 1) return [0.96, 0.78, 0.42];
   if (kind === 2) return [0.93, 0.88, 0.74];
   if (kind === 3) return [1, 0.46, 0.12];
@@ -368,6 +371,43 @@ function LookThumb({ kind }: { kind: number }) {
           ctx.fillStyle = colors[i % colors.length];
           ctx.fillRect((i * 71) % w, (i * 37 + t * 13) % h, 4, 3);
         }
+      } else if (kind === 10) {
+        const g = ctx.createLinearGradient(-w * 0.2 + ((t * 40) % w), 0, w * 0.8 + ((t * 40) % w), h);
+        g.addColorStop(0, "#ff2d55");
+        g.addColorStop(0.25, "#ffcc00");
+        g.addColorStop(0.5, "#2dff7a");
+        g.addColorStop(0.75, "#2d9bff");
+        g.addColorStop(1, "#c44dff");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      } else if (kind === 11) {
+        const colors = ["#ff3b6a", "#ffd000", "#27e07a", "#2aa7ff", "#b45cff"];
+        const cols = 8;
+        const rows = 5;
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const n = (x * 3 + y * 7) % colors.length;
+            const phase = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 1.7 + (x + y) * 1.3));
+            ctx.globalAlpha = phase;
+            ctx.fillStyle = colors[n];
+            ctx.fillRect((w / cols) * x + 1, (h / rows) * y + 1, w / cols - 2, h / rows - 2);
+          }
+        }
+        ctx.globalAlpha = 1;
+      } else if (kind === 12) {
+        ctx.translate(w / 2, h / 2);
+        ctx.rotate(t * 0.8);
+        const arms = ["#ff4d6d", "#ffe14a", "#3d8bff"];
+        for (let i = 0; i < 3; i++) {
+          ctx.rotate((Math.PI * 2) / 3);
+          ctx.fillStyle = arms[i];
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(w * 0.46, 6);
+          ctx.lineTo(w * 0.46, -6);
+          ctx.fill();
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
       } else {
         ctx.fillStyle = "#e29a28";
         ctx.fillRect(0, 0, w, h);
