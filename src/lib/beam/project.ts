@@ -2,6 +2,7 @@ import { gelRgb, type LookId } from "@/lib/beam/looks";
 import { translateCorners, type Corners, type Pt } from "@/lib/beam/math";
 
 export type Blend = "normal" | "add" | "screen";
+export type Mask = "full" | "window" | "arch";
 
 export type Surface = {
   id: string;
@@ -10,6 +11,7 @@ export type Surface = {
   gel: number;
   opacity: number;
   feather: number;
+  mask: Mask;
   brightness: number;
   contrast: number;
   saturation: number;
@@ -59,6 +61,7 @@ function surface(
     gel: 0,
     opacity: 1,
     feather: 0,
+    mask: "full",
     brightness: 0,
     contrast: 1,
     saturation: 1,
@@ -200,6 +203,7 @@ export function sanitizeProject(value: unknown): Project | null {
         gel: Math.max(0, Math.min(4, Math.round(face.gel) || 0)),
         opacity: Math.max(0, Math.min(1, Number(face.opacity) || 0)),
         feather: Math.max(0, Math.min(0.4, Number(face.feather) || 0)),
+        mask: face.mask === "window" || face.mask === "arch" ? face.mask : "full",
         brightness: clampNum(face.brightness, 0, -1, 1),
         contrast: clampNum(face.contrast, 1, 0, 2),
         saturation: clampNum(face.saturation, 1, 0, 2),

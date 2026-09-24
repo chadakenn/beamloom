@@ -1,6 +1,6 @@
 import { lookKind, type LookId } from "@/lib/beam/looks";
 import { invertHomography, squareToQuad, type Corners } from "@/lib/beam/math";
-import type { Blend } from "@/lib/beam/project";
+import type { Blend, Mask } from "@/lib/beam/project";
 
 export type DrawFace = {
   corners: Corners;
@@ -8,6 +8,7 @@ export type DrawFace = {
   gel: [number, number, number];
   opacity: number;
   feather: number;
+  mask: Mask;
   brightness: number;
   contrast: number;
   saturation: number;
@@ -30,6 +31,7 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform float uOpacity;
 uniform float uFeather;
+uniform int uMask;
 uniform float uBrightness;
 uniform float uContrast;
 uniform float uSaturation;
@@ -121,11 +123,20 @@ void main() {
   float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
   col = mix(vec3(luma), col, uSaturation);
   col = clamp(col, 0.0, 1.0);
-  float soft = 1.0;
-  if (uFeather > 0.001) {
-    float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
-    soft = smoothstep(0.0, uFeather, edge);
+  float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+  if (uMask == 1) {
+    float inset = 0.08;
+    float bar = 0.035;
+    float frame = min(min(uv.x - inset, 1.0 - inset - uv.x), min(uv.y - inset, 1.0 - inset - uv.y));
+    float mullion = min(abs(uv.x - 0.5), abs(uv.y - 0.5)) - bar;
+    edge = min(frame, mullion);
+  } else if (uMask == 2) {
+    float side = min(uv.x, 1.0 - uv.x);
+    float bottom = 1.0 - uv.y;
+    if (uv.y >= 0.5) edge = min(side, bottom);
+    else edge = 0.5 - length(uv - vec2(0.5, 0.5));
   }
+  float soft = uFeather > 0.001 ? smoothstep(0.0, uFeather, edge) : step(0.0, edge);
   float a = clamp(uOpacity, 0.0, 1.0) * soft;
   frag = vec4(col * a, a);
 }`;
@@ -171,6 +182,7 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     time: gl.getUniformLocation(program, "uTime"),
     opacity: gl.getUniformLocation(program, "uOpacity"),
     feather: gl.getUniformLocation(program, "uFeather"),
+    mask: gl.getUniformLocation(program, "uMask"),
     brightness: gl.getUniformLocation(program, "uBrightness"),
     contrast: gl.getUniformLocation(program, "uContrast"),
     saturation: gl.getUniformLocation(program, "uSaturation"),
@@ -233,6 +245,7 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         gl.uniformMatrix3fv(loc.inv, false, inv);
         gl.uniform1f(loc.opacity, face.opacity);
         gl.uniform1f(loc.feather, face.feather);
+        gl.uniform1i(loc.mask, face.mask === "window" ? 1 : face.mask === "arch" ? 2 : 0);
         gl.uniform1f(loc.brightness, face.brightness);
         gl.uniform1f(loc.contrast, face.contrast);
         gl.uniform1f(loc.saturation, face.saturation);
