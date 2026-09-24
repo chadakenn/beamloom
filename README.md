@@ -4,7 +4,9 @@ Beamloom is a projection mapping studio for Windows. Add a surface to a projecto
 
 ## Get started on Windows
 
-**Desktop installer:** Download the `Beamloom-Windows-Installer` artifact from a completed **Windows installer** GitHub Actions run, extract it, and run `Beamloom Setup.exe`. This version does not require Node.js. The installer is unsigned, so Windows may display a publisher warning. Connect your projector and set Windows to **Extend these displays**, then use **Output** in Beamloom to choose the display.
+**Desktop installer:** Download `Beamloom Setup.exe` from the latest [GitHub release](https://github.com/chadakenn/beamloom/releases), or from the `Beamloom-Windows-Installer` artifact on a completed **Windows installer** run. This version does not require Node.js. The installer is unsigned, so Windows may display a publisher warning. Connect your projector and set Windows to **Extend these displays**, then use **Output** in Beamloom to choose the display.
+
+An installed copy checks for a newer release on startup. When one is ready, Beamloom asks you to restart. The project saved on this computer stays put. `Start Beamloom.bat` does not update itself. The first install of a build that can update still has to be done by hand.
 
 **From source:** Install [Node.js LTS](https://nodejs.org/) (version 22 or newer), download and extract this repository, and double-click `Start Beamloom.bat`. The first launch installs dependencies and opens `http://127.0.0.1:4173/`. Keep the command window open while using Beamloom. If the browser cannot pick the projector automatically, open the output window, move it to the projector display, and make it fullscreen. Allow popups; fullscreen may need a click inside the output window.
 
@@ -37,7 +39,7 @@ npm ci
 npm run dev
 ```
 
-The development server listens on `http://127.0.0.1:4173/`. Run `npm run build` to type-check and build the web app. On Windows, `npm run make:win` builds the desktop installer in `out/make/squirrel.windows/x64/`. The **Windows installer** workflow can also be started manually in GitHub Actions; it uploads the installer as an artifact.
+The development server listens on `http://127.0.0.1:4173/`. Run `npm run build` to type-check and build the web app. On Windows, `npm run make:win` builds the desktop installer in `out/make/squirrel.windows/x64/`. The **Windows installer** workflow can also be started manually in GitHub Actions; it uploads the installer as an artifact. **Publish Windows release** uploads that installer, `RELEASES`, and the `.nupkg` to a GitHub Release. The release tag must be the version in `package.json`, such as `0.1.1`, with no `v` in front.
 
 | Path | Purpose |
 | --- | --- |
