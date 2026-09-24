@@ -55,6 +55,7 @@ export async function removeClip(id: string) {
   const clip = clips.find((item) => item.id === id);
   if (!clip) return;
   clip.video.pause();
+  held.delete(id);
   clip.video.remove();
   URL.revokeObjectURL(clip.url);
   clips = clips.filter((item) => item.id !== id);
@@ -62,9 +63,58 @@ export async function removeClip(id: string) {
   emit();
 }
 
+const held = new Set<string>();
+
+export function clipTransport(id: string | null) {
+  const clip = id ? clips.find((item) => item.id === id) : undefined;
+  if (!clip) return null;
+  const duration = Number.isFinite(clip.video.duration) ? clip.video.duration : 0;
+  return {
+    name: clip.name,
+    paused: clip.video.paused,
+    muted: clip.video.muted,
+    loop: clip.video.loop,
+    current: clip.video.currentTime || 0,
+    duration,
+  };
+}
+
+export function setClipPlaying(id: string, playing: boolean) {
+  const video = getClipVideo(id);
+  if (!video) return;
+  if (playing) {
+    held.delete(id);
+    void video.play().catch(() => undefined);
+  } else {
+    held.add(id);
+    video.pause();
+  }
+}
+
+export function setClipMuted(id: string, muted: boolean) {
+  const video = getClipVideo(id);
+  if (!video) return;
+  video.muted = muted;
+  if (!muted && !held.has(id) && video.paused) void video.play().catch(() => undefined);
+}
+
+export function setClipLoop(id: string, loop: boolean) {
+  const video = getClipVideo(id);
+  if (!video) return;
+  video.loop = loop;
+}
+
+export function seekClip(id: string, time: number) {
+  const video = getClipVideo(id);
+  if (!video || !Number.isFinite(video.duration)) return;
+  const next = Math.max(0, Math.min(video.duration, time));
+  if (Number.isFinite(next)) video.currentTime = next;
+}
+
 export function resumeClips() {
   for (const clip of clips) {
-    if (clip.video.paused) void clip.video.play().catch(() => undefined);
+    if (held.has(clip.id) || !clip.video.paused) continue;
+    void clip.video.play().catch(() => undefined);
   }
 }
 
