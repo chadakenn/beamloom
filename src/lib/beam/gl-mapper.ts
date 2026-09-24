@@ -7,6 +7,7 @@ export type DrawFace = {
   look: LookId;
   gel: [number, number, number];
   opacity: number;
+  feather: number;
   blend: Blend;
   visible: boolean;
   source: TexImageSource | null;
@@ -25,6 +26,7 @@ uniform mat3 uInv;
 uniform vec2 uRes;
 uniform float uTime;
 uniform float uOpacity;
+uniform float uFeather;
 uniform int uKind;
 uniform vec3 uGel;
 uniform sampler2D uVideo;
@@ -109,7 +111,12 @@ void main() {
     col += grain;
   }
   col = clamp(col, 0.0, 1.0);
-  float a = clamp(uOpacity, 0.0, 1.0);
+  float soft = 1.0;
+  if (uFeather > 0.001) {
+    float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+    soft = smoothstep(0.0, uFeather, edge);
+  }
+  float a = clamp(uOpacity, 0.0, 1.0) * soft;
   frag = vec4(col * a, a);
 }`;
 
@@ -153,6 +160,7 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     res: gl.getUniformLocation(program, "uRes"),
     time: gl.getUniformLocation(program, "uTime"),
     opacity: gl.getUniformLocation(program, "uOpacity"),
+    feather: gl.getUniformLocation(program, "uFeather"),
     kind: gl.getUniformLocation(program, "uKind"),
     gel: gl.getUniformLocation(program, "uGel"),
     video: gl.getUniformLocation(program, "uVideo"),
@@ -211,6 +219,7 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, clip);
         gl.uniformMatrix3fv(loc.inv, false, inv);
         gl.uniform1f(loc.opacity, face.opacity);
+        gl.uniform1f(loc.feather, face.feather);
         gl.uniform1i(loc.kind, lookKind(face.look));
         gl.uniform3f(loc.gel, face.gel[0], face.gel[1], face.gel[2]);
         const source = face.source;

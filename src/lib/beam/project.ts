@@ -9,6 +9,7 @@ export type Surface = {
   look: LookId;
   gel: number;
   opacity: number;
+  feather: number;
   blend: Blend;
   visible: boolean;
   locked: boolean;
@@ -46,6 +47,7 @@ function surface(
     look,
     gel: 0,
     opacity: 1,
+    feather: 0,
     blend: "normal",
     visible: true,
     locked: false,
@@ -180,6 +182,7 @@ export function sanitizeProject(value: unknown): Project | null {
         look: face.look,
         gel: Math.max(0, Math.min(4, Math.round(face.gel) || 0)),
         opacity: Math.max(0, Math.min(1, Number(face.opacity) || 0)),
+        feather: Math.max(0, Math.min(0.4, Number(face.feather) || 0)),
         blend,
         visible: face.visible !== false,
         locked: face.locked === true,

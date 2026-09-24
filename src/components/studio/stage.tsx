@@ -47,6 +47,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
         look: face.look,
         gel: gelRgb(face.gel),
         opacity: face.opacity,
+        feather: face.feather,
         blend: face.blend,
         visible: face.visible,
         source: getClipSource(face.videoId),
