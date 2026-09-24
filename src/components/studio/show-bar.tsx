@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Pause, Play } from "lucide-react";
 import { getFadeSeconds, setFadeSeconds, subscribeFade } from "@/lib/beam/fade";
+import { getMaster, setMaster, subscribeMaster } from "@/lib/beam/master";
 import { activeScene } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
 
@@ -20,6 +21,7 @@ export function ShowBar() {
   const [selectedPreset, setSelectedPreset] = useState("");
   const [message, setMessage] = useState("");
   const fade = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
+  const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
 
   useEffect(() => setSeconds(String(scene.durationSeconds)), [scene.id, scene.durationSeconds]);
   useEffect(() => {
@@ -58,6 +60,20 @@ export function ShowBar() {
           onChange={(event) => setFadeSeconds(Number(event.target.value))}
         />
         <span className="w-10 tabular-nums text-fg">{fade === 0 ? "Cut" : `${fade.toFixed(1)}s`}</span>
+      </label>
+      <label className="flex shrink-0 items-center gap-2 text-muted">
+        <span>Master</span>
+        <input
+          className="h-10 w-24"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(master * 100)}
+          aria-label="Master brightness"
+          onChange={(event) => setMaster(Number(event.target.value) / 100)}
+        />
+        <span className="w-10 tabular-nums text-fg">{Math.round(master * 100)}%</span>
       </label>
       <span className="mx-1 h-7 w-px shrink-0 bg-line" aria-hidden="true" />
       <label className="sr-only" htmlFor="alignment-select">Alignment preset</label>

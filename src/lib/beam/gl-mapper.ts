@@ -33,6 +33,7 @@ uniform float uOpacity;
 uniform float uFeather;
 uniform int uMask;
 uniform float uBrightness;
+uniform float uMaster;
 uniform float uContrast;
 uniform float uSaturation;
 uniform int uKind;
@@ -183,13 +184,13 @@ void main() {
     else edge = 0.5 - length(uv - vec2(0.5, 0.5));
   }
   float soft = uFeather > 0.001 ? smoothstep(0.0, uFeather, edge) : step(0.0, edge);
-  float a = clamp(uOpacity, 0.0, 1.0) * soft;
+  float a = clamp(uOpacity, 0.0, 1.0) * soft * clamp(uMaster, 0.0, 1.0);
   frag = vec4(col * a, a);
 }`;
 
 export type Mapper = {
   resize: (cssWidth: number, cssHeight: number, dpr: number) => void;
-  draw: (faces: DrawFace[], time: number) => void;
+  draw: (faces: DrawFace[], time: number, master?: number) => void;
   destroy: () => void;
 };
 
@@ -230,6 +231,7 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     feather: gl.getUniformLocation(program, "uFeather"),
     mask: gl.getUniformLocation(program, "uMask"),
     brightness: gl.getUniformLocation(program, "uBrightness"),
+    master: gl.getUniformLocation(program, "uMaster"),
     contrast: gl.getUniformLocation(program, "uContrast"),
     saturation: gl.getUniformLocation(program, "uSaturation"),
     kind: gl.getUniformLocation(program, "uKind"),
@@ -271,13 +273,14 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
       height = h;
       gl.viewport(0, 0, w, h);
     },
-    draw(faces, time) {
+    draw(faces, time, master = 1) {
       gl.viewport(0, 0, width, height);
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
       gl.uniform2f(loc.res, width, height);
       gl.uniform1f(loc.time, time);
+      gl.uniform1f(loc.master, Math.max(0, Math.min(1, master)));
       for (const face of faces) {
         if (!face.visible || face.opacity <= 0.001) continue;
         const px = face.corners.map((c) => ({ x: c.x * width, y: c.y * height }));
