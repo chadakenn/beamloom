@@ -25,6 +25,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 | `src/lib/beam/project.ts` | Scenes, surfaces, and the facade study. |
 | `src/lib/beam/store.ts` | Editor state. |
 | `src/lib/beam/clips.ts` | Local video files and playback. |
+| `src/lib/beam/project-file.ts` | Save and open a portable project. |
 | `src/lib/beam/displays.ts` | Display list and the projector window. |
 | `src/components/studio/` | The editor: looks, frame, inspector. |
 

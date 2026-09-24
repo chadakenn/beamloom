@@ -62,8 +62,14 @@ export async function importVideoFiles(files: File[]): Promise<string[]> {
     mountClip({ id, name, blob: file });
     ids.push(id);
   }
-  if (ids.length > 0) emit();
-  if (ids.length > 0) localStorage.setItem(CLIP_CHANGE_KEY, crypto.randomUUID());
+  if (ids.length > 0) {
+    emit();
+    try {
+      localStorage.setItem(CLIP_CHANGE_KEY, crypto.randomUUID());
+    } catch {
+      /* private mode */
+    }
+  }
   return ids;
 }
 

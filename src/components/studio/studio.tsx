@@ -59,7 +59,10 @@ export function Studio() {
   useEffect(() => {
     if (!projectorWindow) return;
     const sync = (event: StorageEvent) => {
-      if (event.key === CLIP_CHANGE_KEY) { void syncClips(); return; }
+      if (event.key === CLIP_CHANGE_KEY) {
+        void syncClips();
+        return;
+      }
       if (event.key !== STORAGE_KEY || !event.newValue) return;
       const stored = loadStoredProject();
       if (stored) useEditor.getState().replace(stored);
@@ -178,6 +181,7 @@ export function Studio() {
     setFileMessage("");
     try {
       await saveProjectFile(snapshot(useEditor.getState()));
+      setFileMessage("Saved the project file.");
     } catch (error) {
       setFileMessage(error instanceof Error ? error.message : "Could not save the project.");
     } finally {
@@ -262,9 +266,38 @@ export function Studio() {
           >
             <RotateCcw className="size-4" aria-hidden="true" />
           </button>
-          <input ref={fileInput} type="file" accept=".beamloom,application/json" className="sr-only" aria-label="Select Beamloom project file" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void openFile(file); }} />
-          <button type="button" disabled={fileBusy} onClick={() => fileInput.current?.click()} className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm disabled:opacity-50" aria-label="Open project file"><FolderOpen className="size-4" aria-hidden="true" /><span className="hidden xl:inline">Open</span></button>
-          <button type="button" disabled={fileBusy} onClick={() => void saveFile()} className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm disabled:opacity-50" aria-label="Save project file"><Download className="size-4" aria-hidden="true" /><span className="hidden xl:inline">Save</span></button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".beamloom,application/json"
+            className="sr-only"
+            aria-label="Select Beamloom project file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void openFile(file);
+            }}
+          />
+          <button
+            type="button"
+            disabled={fileBusy}
+            onClick={() => fileInput.current?.click()}
+            className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm text-fg disabled:opacity-50"
+            aria-label="Open project file"
+          >
+            <FolderOpen className="size-4" aria-hidden="true" />
+            <span className="hidden xl:inline">Open</span>
+          </button>
+          <button
+            type="button"
+            disabled={fileBusy}
+            onClick={() => void saveFile()}
+            className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm text-fg disabled:opacity-50"
+            aria-label="Save project file"
+          >
+            <Download className="size-4" aria-hidden="true" />
+            <span className="hidden xl:inline">Save</span>
+          </button>
           <button
             type="button"
             onClick={() => void chooseDisplay()}
@@ -275,7 +308,14 @@ export function Studio() {
           </button>
         </header>
       )}
-      {fileMessage && !output ? <div role="status" className="absolute bottom-3 left-3 z-30 max-w-sm rounded-md border border-line bg-panel px-3 py-2 text-sm text-fg">{fileMessage}<button type="button" onClick={() => setFileMessage("")} className="ml-3 text-muted" aria-label="Dismiss message">×</button></div> : null}
+      {fileMessage && !output ? (
+        <div role="status" className="absolute bottom-3 left-3 z-30 max-w-sm rounded-md border border-line bg-panel px-3 py-2 text-sm text-fg">
+          {fileMessage}
+          <button type="button" onClick={() => setFileMessage("")} className="ml-3 h-11 text-muted" aria-label="Dismiss message">
+            Close
+          </button>
+        </div>
+      ) : null}
 
       {picker && !output ? (
         <div

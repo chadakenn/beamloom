@@ -14,7 +14,11 @@ function asDataUrl(blob: Blob): Promise<string> {
 }
 
 export async function saveProjectFile(project: Project): Promise<void> {
-  const ids = new Set(project.scenes.flatMap((scene) => scene.surfaces.map((face) => face.videoId).filter((id): id is string => Boolean(id))));
+  const ids = new Set(
+    project.scenes.flatMap((scene) =>
+      scene.surfaces.map((face) => face.videoId).filter((id): id is string => Boolean(id)),
+    ),
+  );
   const stored = ids.size ? await storedClips() : [];
   const clips: PortableClip[] = [];
   for (const id of ids) {
@@ -27,7 +31,8 @@ export async function saveProjectFile(project: Project): Promise<void> {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${project.name.trim().replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "") || "beamloom"}.beamloom`;
+  const safe = project.name.trim().replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "");
+  anchor.download = `${safe || "beamloom"}.beamloom`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
@@ -35,22 +40,32 @@ export async function saveProjectFile(project: Project): Promise<void> {
 }
 
 export async function openProjectFile(file: File): Promise<Project> {
-  const raw = JSON.parse(await file.text()) as Partial<PortableProject>;
+  let raw: Partial<PortableProject>;
+  try {
+    raw = JSON.parse(await file.text()) as Partial<PortableProject>;
+  } catch {
+    throw new Error("This is not a supported Beamloom project file.");
+  }
   if (raw.format !== "beamloom-project" || raw.version !== 1 || !Array.isArray(raw.clips)) {
     throw new Error("This is not a supported Beamloom project file.");
   }
   const project = sanitizeProject(raw.project);
   if (!project) throw new Error("The project file contains invalid scenes or surfaces.");
-  const ids = new Set(project.scenes.flatMap((scene) => scene.surfaces.map((face) => face.videoId).filter((id): id is string => Boolean(id))));
+  const ids = new Set(
+    project.scenes.flatMap((scene) =>
+      scene.surfaces.map((face) => face.videoId).filter((id): id is string => Boolean(id)),
+    ),
+  );
   const clips = new Map<string, File>();
   for (const clip of raw.clips) {
     if (!clip || typeof clip.id !== "string" || typeof clip.name !== "string" || typeof clip.data !== "string") {
       throw new Error("The project file contains an invalid video.");
     }
     if (!ids.has(clip.id)) continue;
-    if (!/^data:video\/[\w.+-]+;base64,/.test(clip.data)) throw new Error("The project file contains an invalid video.");
+    const mime = /^data:(video\/[\w.+-]+);base64,/.exec(clip.data)?.[1];
+    if (!mime) throw new Error("The project file contains an invalid video.");
     const blob = await (await fetch(clip.data)).blob();
-    clips.set(clip.id, new File([blob], clip.name, { type: blob.type }));
+    clips.set(clip.id, new File([blob], clip.name, { type: mime }));
   }
   if ([...ids].some((id) => !clips.has(id))) throw new Error("The project file is missing a video used by a surface.");
   const oldIds = [...ids];
@@ -61,7 +76,10 @@ export async function openProjectFile(file: File): Promise<Project> {
     ...project,
     scenes: project.scenes.map((scene) => ({
       ...scene,
-      surfaces: scene.surfaces.map((surface) => ({ ...surface, videoId: surface.videoId ? remap.get(surface.videoId)! : null })),
+      surfaces: scene.surfaces.map((surface) => ({
+        ...surface,
+        videoId: surface.videoId ? (remap.get(surface.videoId) ?? null) : null,
+      })),
     })),
   };
 }
