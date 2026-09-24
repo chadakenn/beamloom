@@ -9,9 +9,11 @@ import { useEditor } from "@/lib/beam/store";
 const VIEW_W = 1600;
 const VIEW_H = 900;
 
-export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
+export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boolean; blackout: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapperRef = useRef<Mapper | null>(null);
+  const blackoutRef = useRef(blackout);
+  blackoutRef.current = blackout;
   const dragRef = useRef<
     | { type: "corner"; id: string; index: number }
     | { type: "move"; id: string; startX: number; startY: number; corners: Corners }
@@ -55,7 +57,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
         visible: face.visible,
         source: getClipSource(face.videoId),
       }));
-      mapper?.draw(faces, reduced ? 0 : now / 1000);
+      mapper?.draw(blackoutRef.current ? [] : faces, reduced ? 0 : now / 1000);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -190,7 +192,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
               : null}
           </div>
         ) : null}
-        {lineup ? <LineupOverlay /> : null}
+        {lineup && !blackout ? <LineupOverlay /> : null}
         {edit && scene.surfaces.length === 0 ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted">
             Add a surface, then drag its corners until the light sits on the real object.
