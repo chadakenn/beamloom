@@ -15,6 +15,7 @@ import {
 type EditorState = Project & {
   output: boolean;
   armedLook: LookId;
+  armedVideoId: string | null;
   replace: (project: Project) => void;
   setName: (name: string) => void;
   setScene: (id: string) => void;
@@ -32,6 +33,8 @@ type EditorState = Project & {
   setGuides: (guides: boolean) => void;
   setOutput: (output: boolean) => void;
   setArmedLook: (look: LookId) => void;
+  assignVideo: (videoId: string) => void;
+  clearVideo: (videoId: string) => void;
   reset: () => void;
 };
 
@@ -62,6 +65,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   ...demoProject(),
   output: false,
   armedLook: "wash",
+  armedVideoId: null,
   replace: (project) => set({ ...project, output: false }),
   setName: (name) => set({ name: name.slice(0, 48) }),
   setScene: (id) => {
@@ -86,6 +90,7 @@ export const useEditor = create<EditorState>((set, get) => ({
           id: faceId,
           name: "Surface 1",
           look: get().armedLook,
+          videoId: get().armedVideoId,
           gel: 0,
           opacity: 1,
           blend: "normal" as Blend,
@@ -122,6 +127,7 @@ export const useEditor = create<EditorState>((set, get) => ({
       id,
       name: `Surface ${scene.surfaces.length + 1}`,
       look: get().armedLook,
+      videoId: get().armedVideoId,
       gel: 0,
       opacity: 1,
       blend: "normal",
@@ -219,11 +225,27 @@ export const useEditor = create<EditorState>((set, get) => ({
   setOutput: (output) => set({ output }),
   setArmedLook: (look) => {
     const id = get().selectedId;
-    set({ armedLook: look });
-    if (id) get().patchSurface(id, { look });
+    set({ armedLook: look, armedVideoId: null });
+    if (id) get().patchSurface(id, { look, videoId: null });
+  },
+  assignVideo: (videoId) => {
+    const id = get().selectedId;
+    set({ armedVideoId: videoId });
+    if (id) get().patchSurface(id, { videoId });
+  },
+  clearVideo: (videoId) => {
+    set({
+      armedVideoId: get().armedVideoId === videoId ? null : get().armedVideoId,
+      scenes: get().scenes.map((scene) => ({
+        ...scene,
+        surfaces: scene.surfaces.map((face) =>
+          face.videoId === videoId ? { ...face, videoId: null } : face,
+        ),
+      })),
+    });
   },
   reset: () => {
-    set({ ...demoProject(), output: false, armedLook: "wash" });
+    set({ ...demoProject(), output: false, armedLook: "wash", armedVideoId: null });
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {

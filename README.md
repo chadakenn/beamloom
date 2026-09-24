@@ -10,6 +10,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 
 - Perspective warp of each surface onto the projector frame
 - Looks: tungsten wash, scan loom, lattice, ember lift, halo rings, columns, and gels
+- Import your own video files and map them onto a surface. Clips stay on this machine.
 - Scenes, opacity, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
 - Projects saved in the browser on this machine
@@ -22,6 +23,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 | `src/lib/beam/math.ts` | Unit-square to quad, and back. |
 | `src/lib/beam/project.ts` | Scenes, surfaces, and the facade study. |
 | `src/lib/beam/store.ts` | Editor state. |
+| `src/lib/beam/clips.ts` | Local video files and playback. |
 | `src/components/studio/` | The editor: looks, frame, inspector. |
 
 **Output** opens a display picker in browsers supporting the Window Management API (for example, Chromium with display permission). Pick a display to open a separate projector window, then click **Fullscreen projector** in that window. Browsers without display access offer a window you can move to the projector manually. The editor and projector window share project edits through browser storage. Allow popups for Beamloom and use the same browser profile for both windows. A native Windows shell with project files on disk is still future work.

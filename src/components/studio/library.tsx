@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Eye, EyeOff, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Eye, EyeOff, Film, Plus, Trash2 } from "lucide-react";
+import { importVideoFiles, listClips, removeClip, restoreClips, resumeClips, subscribeClips, type Clip } from "@/lib/beam/clips";
 import { GELS, LOOKS, type LookId } from "@/lib/beam/looks";
 import { activeScene } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
@@ -10,6 +11,8 @@ export function Library() {
   const selectedId = useEditor((s) => s.selectedId);
   const armedLook = useEditor((s) => s.armedLook);
   const setArmedLook = useEditor((s) => s.setArmedLook);
+  const assignVideo = useEditor((s) => s.assignVideo);
+  const clearVideo = useEditor((s) => s.clearVideo);
   const select = useEditor((s) => s.select);
   const addSurface = useEditor((s) => s.addSurface);
   const patchSurface = useEditor((s) => s.patchSurface);
@@ -17,6 +20,14 @@ export function Library() {
 
   return (
     <div className="flex h-full flex-col gap-4 p-3">
+      <VideoShelf
+        selectedVideoId={scene.surfaces.find((face) => face.id === selectedId)?.videoId ?? null}
+        onAssign={assignVideo}
+        onRemove={async (id) => {
+          await removeClip(id);
+          clearVideo(id);
+        }}
+      />
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Looks</h2>
         <button
@@ -68,7 +79,7 @@ export function Library() {
                   onClick={() => select(face.id)}
                   className="flex h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left"
                 >
-                  <LookDot look={face.look} gel={face.gel} />
+                  <LookDot look={face.look} gel={face.gel} video={Boolean(face.videoId)} />
                   <span className="truncate text-sm text-fg">{face.name}</span>
                 </button>
                 <button
@@ -110,7 +121,109 @@ export function Library() {
   );
 }
 
-function LookDot({ look, gel }: { look: LookId; gel: number }) {
+function VideoShelf({
+  selectedVideoId,
+  onAssign,
+  onRemove,
+}: {
+  selectedVideoId: string | null;
+  onAssign: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [clips, setClips] = useState<Clip[]>([]);
+  const [note, setNote] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void restoreClips().then(() => {
+      if (alive) setClips(listClips());
+    });
+    const unsub = subscribeClips(() => setClips(listClips()));
+    const resume = () => resumeClips();
+    window.addEventListener("pointerdown", resume);
+    return () => {
+      alive = false;
+      unsub();
+      window.removeEventListener("pointerdown", resume);
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Your videos</h2>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="inline-flex h-11 items-center gap-1.5 rounded-md border border-line px-3 text-sm text-fg"
+        >
+          <Film className="size-4" aria-hidden="true" />
+          Import
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="video/*"
+          multiple
+          className="sr-only"
+          onChange={(event) => {
+            const files = [...(event.target.files ?? [])];
+            event.target.value = "";
+            if (files.length === 0) return;
+            const videos = files.filter((file) => file.type.startsWith("video/"));
+            if (videos.length === 0) {
+              setNote("That file is not a video.");
+              return;
+            }
+            setNote(null);
+            void importVideoFiles(videos).then((ids) => {
+              if (ids[0]) onAssign(ids[0]);
+            });
+          }}
+        />
+      </div>
+      <p className="text-xs text-muted">Files stay on this machine. Click one to map it.</p>
+      {note ? <p className="text-xs text-beam">{note}</p> : null}
+      {clips.length === 0 ? null : (
+        <ul className="flex flex-col gap-2">
+          {clips.map((clip) => {
+            const active = clip.id === selectedVideoId;
+            return (
+              <li key={clip.id} className={cn("overflow-hidden rounded-md border", active ? "border-beam" : "border-line")}>
+                <button type="button" onClick={() => onAssign(clip.id)} className="block w-full text-left" aria-pressed={active}>
+                  <video
+                    src={clip.url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="aspect-video w-full bg-bg"
+                    aria-hidden="true"
+                  />
+                  <span className="block truncate px-2 py-1.5 text-xs font-medium text-fg">{clip.name}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${clip.name}`}
+                  onClick={() => onRemove(clip.id)}
+                  className="inline-flex h-11 w-full items-center justify-center gap-1 border-t border-line text-sm text-muted"
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                  Remove
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function LookDot({ look, gel, video }: { look: LookId; gel: number; video: boolean }) {
+  if (video) {
+    return <Film className="size-3.5 shrink-0 text-beam" aria-hidden="true" />;
+  }
   const kind = LOOKS.find((item) => item.id === look)?.kind ?? 0;
   const rgb = look === "gel" ? GELS[gel]?.rgb ?? GELS[0].rgb : accentFor(kind);
   return (
