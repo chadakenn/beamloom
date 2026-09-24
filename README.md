@@ -15,6 +15,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 - Play, pause, unmute, loop, and scrub an imported video. Playback stays on this machine.
 - Scenes, opacity, soft edge, brightness, contrast, saturation, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
+- Solo lights only the selected surface. Press S, or use Solo. The other outlines stay in the editor, and the projector window follows.
 - A lineup grid, center cross, and edge ticks for aiming the projector. While it is on, a corner snaps to the nearest 10% line. Hold Alt to place it freely.
 - Blackout cuts the projector to black without moving the mapping. Press B, or use the Blackout button. The projector window follows.
 - Timed scene playlist with per-scene durations and looping playback. Fade mixes the old scene into the next one, from a cut at 0 up to 2 seconds.

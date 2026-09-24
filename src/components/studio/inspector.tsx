@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Copy, Lock, Pause, Play, Repeat, Trash2, Unlock, Volume2, VolumeX } from "lucide-react";
 import { GELS, LOOKS } from "@/lib/beam/looks";
 import {
@@ -13,6 +13,7 @@ import {
   type ClipKind,
 } from "@/lib/beam/clips";
 import { selectedSurface, type Blend } from "@/lib/beam/project";
+import { getSolo, subscribeSolo, toggleSolo } from "@/lib/beam/solo";
 import { useEditor } from "@/lib/beam/store";
 import { cn } from "@/lib/cn";
 
@@ -48,6 +49,7 @@ export function Inspector() {
   }, [face?.videoId, face?.id]);
   const removeSurface = useEditor((s) => s.removeSurface);
   const duplicateSurface = useEditor((s) => s.duplicateSurface);
+  const solo = useSyncExternalStore(subscribeSolo, getSolo, () => false);
 
   if (!face) {
     return (
@@ -58,7 +60,7 @@ export function Inspector() {
             Select a shape on the projector frame, or add one from Looks.
           </p>
         </div>
-        <p className="text-xs text-muted">Arrows nudge · Del removes · G guides · B blackout</p>
+        <p className="text-xs text-muted">Arrows nudge · Del removes · G guides · B blackout · S solo</p>
       </div>
     );
   }
@@ -227,6 +229,17 @@ export function Inspector() {
           })}
         </ol>
       </div>
+      <button
+        type="button"
+        aria-pressed={solo}
+        onClick={toggleSolo}
+        className={cn(
+          "h-11 rounded-md border text-sm",
+          solo ? "border-beam text-beam" : "border-line text-fg",
+        )}
+      >
+        {solo ? "Solo on" : "Solo"}
+      </button>
       <div className="mt-auto grid grid-cols-3 gap-2">
         <button
           type="button"
@@ -253,7 +266,7 @@ export function Inspector() {
           Remove
         </button>
       </div>
-      <p className="text-xs text-muted">Arrows nudge · Del removes · G guides</p>
+      <p className="text-xs text-muted">Arrows nudge · Del removes · G guides · B blackout · S solo</p>
     </div>
   );
 }

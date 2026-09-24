@@ -2,6 +2,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { gelRgb } from "@/lib/beam/looks";
 import { getClipSource } from "@/lib/beam/clips";
 import { getFadeSeconds, subscribeFade } from "@/lib/beam/fade";
+import { getSolo, subscribeSolo, toggleSolo } from "@/lib/beam/solo";
 import { createMapper, type DrawFace, type Mapper } from "@/lib/beam/gl-mapper";
 import type { Corners } from "@/lib/beam/math";
 import { activeScene, type Surface } from "@/lib/beam/project";
@@ -31,6 +32,9 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   const fadeSeconds = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
   const fadeRef = useRef(fadeSeconds);
   fadeRef.current = fadeSeconds;
+  const solo = useSyncExternalStore(subscribeSolo, getSolo, () => false);
+  const soloRef = useRef(solo);
+  soloRef.current = solo;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,21 +62,34 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
         fading = fadeMs > 0 ? { id: shownId, started: now } : null;
         shownId = current.id;
       }
-      let faces = sceneFaces(current);
+      const soloId = soloRef.current ? state.selectedId : null;
+      let faces = sceneFaces(current, soloId);
       if (fading) {
         const amount = fadeMs <= 0 ? 1 : Math.min(1, (now - fading.started) / fadeMs);
         const previous = state.scenes.find((scene) => scene.id === fading?.id);
         if (previous && amount < 1) {
-          faces = [...scaledFaces(sceneFaces(previous), 1 - amount), ...scaledFaces(faces, amount)];
+          faces = [...scaledFaces(sceneFaces(previous, soloId), 1 - amount), ...scaledFaces(faces, amount)];
         } else fading = null;
       }
       mapper?.draw(blackoutRef.current ? [] : faces, reduced ? 0 : now / 1000);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+      if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "s" || event.key === "S") {
+        event.preventDefault();
+        toggleSolo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      window.removeEventListener("keydown", onKey);
       mapper?.destroy();
       mapperRef.current = null;
     };
@@ -224,8 +241,9 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   );
 }
 
-function sceneFaces(scene: { surfaces: Surface[] }): DrawFace[] {
-  return scene.surfaces.map((face) => ({
+function sceneFaces(scene: { surfaces: Surface[] }, soloId: string | null): DrawFace[] {
+  const surfaces = soloId ? scene.surfaces.filter((face) => face.id === soloId) : scene.surfaces;
+  return surfaces.map((face) => ({
     corners: face.corners,
     look: face.look,
     gel: gelRgb(face.gel),
