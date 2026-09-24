@@ -12,6 +12,7 @@ export type Surface = {
   blend: Blend;
   visible: boolean;
   locked: boolean;
+  videoId: string | null;
   corners: Corners;
 };
 
@@ -48,6 +49,7 @@ function surface(
     blend: "normal",
     visible: true,
     locked: false,
+    videoId: null,
     corners,
     ...extra,
   };
@@ -181,6 +183,10 @@ export function sanitizeProject(value: unknown): Project | null {
         blend,
         visible: face.visible !== false,
         locked: face.locked === true,
+        videoId:
+          typeof face.videoId === "string" && face.videoId.length > 0 && face.videoId.length < 80
+            ? face.videoId
+            : null,
         corners: face.corners.map((c) => ({
           x: Math.max(0, Math.min(1, c.x)),
           y: Math.max(0, Math.min(1, c.y)),

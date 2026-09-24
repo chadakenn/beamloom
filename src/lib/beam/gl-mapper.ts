@@ -9,6 +9,7 @@ export type DrawFace = {
   opacity: number;
   blend: Blend;
   visible: boolean;
+  video: HTMLVideoElement | null;
 };
 
 const VERT = `#version 300 es
@@ -26,6 +27,8 @@ uniform float uTime;
 uniform float uOpacity;
 uniform int uKind;
 uniform vec3 uGel;
+uniform sampler2D uVideo;
+uniform int uHasVideo;
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -47,7 +50,9 @@ void main() {
   vec2 uv = h.xy / h.z;
   vec3 col = vec3(0.0);
 
-  if (uKind == 0) {
+  if (uHasVideo == 1) {
+    col = texture(uVideo, uv).rgb;
+  } else if (uKind == 0) {
     float n = noise(uv * 2.4 + vec2(uTime * 0.04, uTime * 0.02));
     float m = noise(uv * 5.0 - vec2(uTime * 0.05, 0.0));
     col = mix(vec3(0.18, 0.05, 0.015), vec3(0.98, 0.72, 0.28), smoothstep(0.15, 0.9, n + uv.y * 0.15));
@@ -99,8 +104,11 @@ void main() {
     col += sheen;
   }
 
-  float grain = (hash(gl_FragCoord.xy + fract(uTime) * 80.0) - 0.5) * 0.035;
-  col = clamp(col + grain, 0.0, 1.0);
+  if (uHasVideo == 0) {
+    float grain = (hash(gl_FragCoord.xy + fract(uTime) * 80.0) - 0.5) * 0.035;
+    col += grain;
+  }
+  col = clamp(col, 0.0, 1.0);
   float a = clamp(uOpacity, 0.0, 1.0);
   frag = vec4(col * a, a);
 }`;
@@ -147,8 +155,28 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     opacity: gl.getUniformLocation(program, "uOpacity"),
     kind: gl.getUniformLocation(program, "uKind"),
     gel: gl.getUniformLocation(program, "uGel"),
+    video: gl.getUniformLocation(program, "uVideo"),
+    hasVideo: gl.getUniformLocation(program, "uHasVideo"),
   };
   const clip = new Float32Array(12);
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    1,
+    1,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 0, 255]),
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.uniform1i(loc.video, 0);
   let width = 2;
   let height = 2;
 
@@ -185,6 +213,20 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         gl.uniform1f(loc.opacity, face.opacity);
         gl.uniform1i(loc.kind, lookKind(face.look));
         gl.uniform3f(loc.gel, face.gel[0], face.gel[1], face.gel[2]);
+        const ready = face.video && face.video.readyState >= 2 && face.video.videoWidth > 0;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        if (ready && face.video) {
+          try {
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.video);
+            gl.uniform1i(loc.hasVideo, 1);
+          } catch {
+            gl.uniform1i(loc.hasVideo, 0);
+          }
+        } else {
+          gl.uniform1i(loc.hasVideo, 0);
+        }
         gl.enable(gl.BLEND);
         if (face.blend === "add") gl.blendFunc(gl.ONE, gl.ONE);
         else if (face.blend === "screen") gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
@@ -193,6 +235,7 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
       }
     },
     destroy() {
+      gl.deleteTexture(texture);
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
       gl.deleteShader(vs);

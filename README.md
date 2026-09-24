@@ -10,6 +10,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 
 - Perspective warp of each surface onto the projector frame
 - Looks: tungsten wash, scan loom, lattice, ember lift, halo rings, columns, and gels
+- Import your own video files and map them onto a surface. Clips stay on this machine.
 - Scenes, opacity, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
 - Projects saved in the browser on this machine
@@ -22,6 +23,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 | `src/lib/beam/math.ts` | Unit-square to quad, and back. |
 | `src/lib/beam/project.ts` | Scenes, surfaces, and the facade study. |
 | `src/lib/beam/store.ts` | Editor state. |
+| `src/lib/beam/clips.ts` | Local video files and playback. |
 | `src/components/studio/` | The editor: looks, frame, inspector. |
 
 A native Windows shell (pick a display, borderless fullscreen, project file on disk) can host this same frame. That shell is not in this commit.
