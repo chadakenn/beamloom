@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Monitor, Plus, RotateCcw, X } from "lucide-react";
+import { Crosshair, Download, FolderOpen, Monitor, Plus, RotateCcw, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
-import { restoreClips } from "@/lib/beam/clips";
+import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
+import { openProjectFile, saveProjectFile } from "@/lib/beam/project-file";
 import { connectedDisplays, openProjector, type Display } from "@/lib/beam/displays";
 import { activeScene, STORAGE_KEY } from "@/lib/beam/project";
 import { loadStoredProject, saveStoredProject, snapshot, useEditor } from "@/lib/beam/store";
@@ -37,6 +38,9 @@ export function Studio() {
   const [projectorWindow, setProjectorWindow] = useState(false);
   const [covering, setCovering] = useState(false);
   const projectorRef = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [fileBusy, setFileBusy] = useState(false);
+  const [fileMessage, setFileMessage] = useState("");
 
   useEffect(() => {
     const isProjector = new URLSearchParams(window.location.search).has("projector");
@@ -55,6 +59,7 @@ export function Studio() {
   useEffect(() => {
     if (!projectorWindow) return;
     const sync = (event: StorageEvent) => {
+      if (event.key === CLIP_CHANGE_KEY) { void syncClips(); return; }
       if (event.key !== STORAGE_KEY || !event.newValue) return;
       const stored = loadStoredProject();
       if (stored) useEditor.getState().replace(stored);
@@ -168,6 +173,32 @@ export function Studio() {
     setPicker(false);
   }
 
+  async function saveFile() {
+    setFileBusy(true);
+    setFileMessage("");
+    try {
+      await saveProjectFile(snapshot(useEditor.getState()));
+    } catch (error) {
+      setFileMessage(error instanceof Error ? error.message : "Could not save the project.");
+    } finally {
+      setFileBusy(false);
+    }
+  }
+
+  async function openFile(file: File) {
+    setFileBusy(true);
+    setFileMessage("");
+    try {
+      const project = await openProjectFile(file);
+      useEditor.getState().replace(project);
+      setFileMessage(`Opened ${project.name}`);
+    } catch (error) {
+      setFileMessage(error instanceof Error ? error.message : "Could not open the project.");
+    } finally {
+      setFileBusy(false);
+    }
+  }
+
   const scene = useEditor((s) => activeScene(s));
 
   return (
@@ -231,6 +262,9 @@ export function Studio() {
           >
             <RotateCcw className="size-4" aria-hidden="true" />
           </button>
+          <input ref={fileInput} type="file" accept=".beamloom,application/json" className="sr-only" aria-label="Select Beamloom project file" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void openFile(file); }} />
+          <button type="button" disabled={fileBusy} onClick={() => fileInput.current?.click()} className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm disabled:opacity-50" aria-label="Open project file"><FolderOpen className="size-4" aria-hidden="true" /><span className="hidden xl:inline">Open</span></button>
+          <button type="button" disabled={fileBusy} onClick={() => void saveFile()} className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm disabled:opacity-50" aria-label="Save project file"><Download className="size-4" aria-hidden="true" /><span className="hidden xl:inline">Save</span></button>
           <button
             type="button"
             onClick={() => void chooseDisplay()}
@@ -241,6 +275,7 @@ export function Studio() {
           </button>
         </header>
       )}
+      {fileMessage && !output ? <div role="status" className="absolute bottom-3 left-3 z-30 max-w-sm rounded-md border border-line bg-panel px-3 py-2 text-sm text-fg">{fileMessage}<button type="button" onClick={() => setFileMessage("")} className="ml-3 text-muted" aria-label="Dismiss message">×</button></div> : null}
 
       {picker && !output ? (
         <div
