@@ -25,6 +25,8 @@ const BLENDS: { id: Blend; label: string }[] = [
 export function Inspector() {
   const face = useEditor((s) => selectedSurface(s));
   const patchSurface = useEditor((s) => s.patchSurface);
+  const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
+  const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
   const setCorner = useEditor((s) => s.setCorner);
   const [clipInfo, setClipInfo] = useState<{ name: string; kind: ClipKind } | null>(null);
 
@@ -71,6 +73,8 @@ export function Inspector() {
           id="surface-name"
           value={face.name}
           maxLength={40}
+          onFocus={beginHistoryGroup}
+          onBlur={endHistoryGroup}
           onChange={(event) => patchSurface(face.id, { name: event.target.value })}
           className="mt-1 h-11 w-full rounded-md border border-line bg-bg px-3 text-sm text-fg"
         />
