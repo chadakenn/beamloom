@@ -249,6 +249,7 @@ function sceneFaces(scene: { surfaces: Surface[] }, soloId: string | null): Draw
     gel: gelRgb(face.gel),
     opacity: face.opacity,
     feather: face.feather,
+    mask: face.mask,
     brightness: face.brightness,
     contrast: face.contrast,
     saturation: face.saturation,

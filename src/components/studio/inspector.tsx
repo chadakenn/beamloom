@@ -12,7 +12,7 @@ import {
   subscribeClips,
   type ClipKind,
 } from "@/lib/beam/clips";
-import { selectedSurface, type Blend } from "@/lib/beam/project";
+import { selectedSurface, type Blend, type Mask } from "@/lib/beam/project";
 import { getSolo, subscribeSolo, toggleSolo } from "@/lib/beam/solo";
 import { useEditor } from "@/lib/beam/store";
 import { cn } from "@/lib/cn";
@@ -120,6 +120,25 @@ export function Inspector() {
           aria-label="Soft edge"
           onChange={(event) => patchSurface(face.id, { feather: Number(event.target.value) })}
         />
+      </div>
+      <div>
+        <p className="mb-2 text-xs font-medium text-muted">Mask</p>
+        <div className="grid grid-cols-3 gap-2">
+          {(["full", "window", "arch"] as const satisfies readonly Mask[]).map((mask) => (
+            <button
+              key={mask}
+              type="button"
+              aria-pressed={face.mask === mask}
+              onClick={() => patchSurface(face.id, { mask })}
+              className={cn(
+                "h-11 rounded-md border text-sm",
+                face.mask === mask ? "border-beam text-beam" : "border-line text-fg",
+              )}
+            >
+              {mask === "full" ? "Full" : mask === "window" ? "Window" : "Arch"}
+            </button>
+          ))}
+        </div>
       </div>
       <ColorSlider
         label="Brightness"
