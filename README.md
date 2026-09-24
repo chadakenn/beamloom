@@ -11,6 +11,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 - Perspective warp of each surface onto the projector frame
 - Looks: tungsten wash, scan loom, lattice, ember lift, halo rings, columns, and gels
 - Import your own video files and map them onto a surface. Clips stay on this machine.
+- Play, pause, unmute, loop, and scrub an imported video. Playback stays on this machine.
 - Scenes, opacity, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
 - Projects saved in the browser on this machine
