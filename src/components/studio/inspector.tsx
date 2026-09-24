@@ -65,7 +65,7 @@ export function Inspector() {
         <div>
           <h2 className="font-display text-sm font-semibold text-fg">Surface</h2>
           <p className="mt-2 text-sm text-muted">
-            Select a shape on the projector frame, or add one from Looks.
+            Select a surface in the left panel, or click Add surface to start mapping.
           </p>
         </div>
         <p className="text-xs text-muted">Arrows nudge · Del removes · G guides · B blackout · S solo</p>

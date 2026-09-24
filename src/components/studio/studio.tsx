@@ -528,8 +528,15 @@ export function Studio() {
           aria-label="Choose projector display"
         >
           <div className="w-full max-w-md rounded-lg border border-line bg-panel p-5 text-fg">
-            <h2 className="font-display text-xl">Choose output display</h2>
-            <p className="mt-2 text-sm text-muted">Open a separate projector window. Your editor stays here.</p>
+            <h2 className="font-display text-xl">Where should the show appear?</h2>
+            <p className="mt-2 text-sm text-muted">Preview on this computer or choose a projector display. Your editor stays open.</p>
+            <button
+              type="button"
+              onClick={() => void launch()}
+              className="mt-3 block min-h-11 w-full rounded-md border border-beam p-3 text-left text-sm text-beam"
+            >
+              Preview in a separate window
+            </button>
             {displays?.map((display, index) => (
               <button
                 key={`${display.left}:${display.top}:${index}`}
@@ -548,20 +555,13 @@ export function Studio() {
             ) : null}
             <button
               type="button"
-              onClick={() => void launch()}
-              className="mt-3 block min-h-11 w-full rounded-md border border-line p-3 text-left text-sm"
-            >
-              Open window to move manually
-            </button>
-            <button
-              type="button"
               onClick={() => {
                 setPicker(false);
                 void enterOutput();
               }}
               className="mt-3 block min-h-11 w-full rounded-md border border-line p-3 text-left text-sm"
             >
-              Fullscreen on this display
+              Fullscreen preview on this display
             </button>
             <button type="button" onClick={() => setPicker(false)} className="mt-3 h-11 text-sm text-muted">
               Cancel
