@@ -58,7 +58,7 @@ export function Inspector() {
             Select a shape on the projector frame, or add one from Looks.
           </p>
         </div>
-        <p className="text-xs text-muted">Arrows nudge · Del removes · G guides</p>
+        <p className="text-xs text-muted">Arrows nudge · Del removes · G guides · B blackout</p>
       </div>
     );
   }
