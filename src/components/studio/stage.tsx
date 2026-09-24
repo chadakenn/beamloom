@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { gelRgb } from "@/lib/beam/looks";
-import { getClipVideo } from "@/lib/beam/clips";
+import { getClipSource } from "@/lib/beam/clips";
 import { createMapper, type DrawFace, type Mapper } from "@/lib/beam/gl-mapper";
 import type { Corners } from "@/lib/beam/math";
 import { activeScene, type Surface } from "@/lib/beam/project";
@@ -49,7 +49,7 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
         opacity: face.opacity,
         blend: face.blend,
         visible: face.visible,
-        video: getClipVideo(face.videoId),
+        source: getClipSource(face.videoId),
       }));
       mapper?.draw(faces, reduced ? 0 : now / 1000);
       raf = requestAnimationFrame(loop);
@@ -199,7 +199,12 @@ export function Stage({ edit, lineup }: { edit: boolean; lineup: boolean }) {
 
 function LineupOverlay() {
   return (
-    <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
       <g fill="none" stroke="#fff" strokeOpacity="0.85" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
         <rect x="1" y="1" width={VIEW_W - 2} height={VIEW_H - 2} />
         {Array.from({ length: 9 }, (_, i) => (

@@ -23,7 +23,7 @@ export async function saveProjectFile(project: Project): Promise<void> {
   const clips: PortableClip[] = [];
   for (const id of ids) {
     const clip = stored.find((item) => item.id === id);
-    if (!clip) throw new Error("A video used by this project is missing. Restore it before saving.");
+    if (!clip) throw new Error("A video or image used by this project is missing. Restore it before saving.");
     clips.push({ id, name: clip.name, data: await asDataUrl(clip.blob) });
   }
   const payload: PortableProject = { format: "beamloom-project", version: 1, project, clips };
@@ -59,18 +59,18 @@ export async function openProjectFile(file: File): Promise<Project> {
   const clips = new Map<string, File>();
   for (const clip of raw.clips) {
     if (!clip || typeof clip.id !== "string" || typeof clip.name !== "string" || typeof clip.data !== "string") {
-      throw new Error("The project file contains an invalid video.");
+      throw new Error("The project file contains an invalid picture.");
     }
     if (!ids.has(clip.id)) continue;
-    const mime = /^data:(video\/[\w.+-]+);base64,/.exec(clip.data)?.[1];
-    if (!mime) throw new Error("The project file contains an invalid video.");
+    const mime = /^data:((?:video\/[\w.+-]+)|image\/(?:png|jpeg));base64,/.exec(clip.data)?.[1];
+    if (!mime) throw new Error("The project file contains an invalid picture.");
     const blob = await (await fetch(clip.data)).blob();
     clips.set(clip.id, new File([blob], clip.name, { type: mime }));
   }
-  if ([...ids].some((id) => !clips.has(id))) throw new Error("The project file is missing a video used by a surface.");
+  if ([...ids].some((id) => !clips.has(id))) throw new Error("The project file is missing a video or image used by a surface.");
   const oldIds = [...ids];
   const newIds = await importVideoFiles(oldIds.map((id) => clips.get(id)!));
-  if (newIds.length !== oldIds.length) throw new Error("The videos could not be saved in this browser.");
+  if (newIds.length !== oldIds.length) throw new Error("The pictures could not be saved in this browser.");
   const remap = new Map(oldIds.map((id, index) => [id, newIds[index]]));
   return {
     ...project,

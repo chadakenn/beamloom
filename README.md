@@ -11,9 +11,11 @@ The name, interface, looks, and warp math are written for this project. This is 
 - Perspective warp of each surface onto the projector frame
 - Looks: tungsten wash, scan loom, lattice, ember lift, halo rings, columns, and gels
 - Import your own video files and map them onto a surface. Clips stay on this machine.
+- Import a PNG or JPEG and map it the same way. Stills are saved inside the project file.
 - Play, pause, unmute, loop, and scrub an imported video. Playback stays on this machine.
 - Scenes, opacity, normal / add / screen blend, lock, and stack order
 - Guides for lining up a facade
+- A lineup grid, center cross, and edge ticks for aiming the projector
 - Projects saved in the browser on this machine
 
 ## Source
@@ -31,7 +33,7 @@ The name, interface, looks, and warp math are written for this project. This is 
 
 **Output** opens a display picker. Where the browser allows it, pick a display and Beamloom opens a separate projector window. Otherwise, open a window and move it onto the projector, or go fullscreen on this display. The projector window follows edits from the editor. Allow popups for Beamloom. Fullscreen inside that window still needs one click there.
 
-Use **Save** to download a portable `.beamloom` project file, including videos used by its surfaces. Use **Open** to restore that file on another computer. Large videos make the file large; the browser needs enough memory and local storage to import them. Opening a file replaces the current editor project but leaves other imported videos in the browser.
+Use **Save** to download a portable `.beamloom` project file, including videos and still images used by its surfaces. Use **Open** to restore that file on another computer. Large videos make the file large; the browser needs enough memory and local storage to import them. Opening a file replaces the current editor project but leaves other imported videos in the browser.
 
 A native Windows shell with project files on disk is still later.
 
