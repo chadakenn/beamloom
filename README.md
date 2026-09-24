@@ -35,7 +35,12 @@ The name, interface, looks, and warp math are written for this project. This is 
 
 Use **Save** to download a portable `.beamloom` project file, including videos and still images used by its surfaces. Use **Open** to restore that file on another computer. Large videos make the file large; the browser needs enough memory and local storage to import them. Opening a file replaces the current editor project but leaves other imported videos in the browser.
 
-A native Windows shell with project files on disk is still later.
+## Windows
+
+Install [Node.js LTS](https://nodejs.org/) once. Download this repository, extract it, and double-click **Start Beamloom.bat**. The first run installs dependencies and opens `http://127.0.0.1:4173/`. Leave the command window open. Connect the projector, choose **Extend these displays** in Windows, then click **Output** in Beamloom.
+
+The desktop installer does not need Node.js. From a checkout, `npm ci` and `npm run make:win` write `Beamloom Setup.exe` to `out/make/squirrel.windows/x64/`. The **Windows installer** GitHub Actions job also uploads that file. The build is unsigned, so Windows may warn about the publisher until it is signed. The installer uses the Windows display list for projector output.
+
 
 ## License
 

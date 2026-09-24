@@ -193,8 +193,8 @@ export function Studio() {
     }
   }
 
-  function launch(display?: Display) {
-    if (!openProjector(display)) {
+  async function launch(display?: Display) {
+    if (!(await openProjector(display))) {
       setDisplayError("The browser blocked the projector window. Allow popups for Beamloom and try again.");
       return;
     }
@@ -369,7 +369,7 @@ export function Studio() {
               <button
                 key={`${display.left}:${display.top}:${index}`}
                 type="button"
-                onClick={() => launch(display)}
+                onClick={() => void launch(display)}
                 className="mt-3 block min-h-11 w-full rounded-md border border-line p-3 text-left text-sm"
               >
                 {display.label}
@@ -383,7 +383,7 @@ export function Studio() {
             ) : null}
             <button
               type="button"
-              onClick={() => launch()}
+              onClick={() => void launch()}
               className="mt-3 block min-h-11 w-full rounded-md border border-line p-3 text-left text-sm"
             >
               Open window to move manually

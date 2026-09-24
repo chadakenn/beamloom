@@ -1,4 +1,5 @@
 export type Display = {
+  id?: number;
   label: string;
   left: number;
   top: number;
@@ -18,7 +19,17 @@ type ScreenDetail = {
 
 type ScreenDetails = { screens: ScreenDetail[] };
 
+declare global {
+  interface Window {
+    beamloomDesktop?: {
+      displays: () => Promise<Display[]>;
+      openProjector: (displayId: number | null) => Promise<boolean>;
+    };
+  }
+}
+
 export async function connectedDisplays(): Promise<Display[] | null> {
+  if (window.beamloomDesktop) return window.beamloomDesktop.displays();
   const browser = window as Window & { getScreenDetails?: () => Promise<ScreenDetails> };
   if (!browser.getScreenDetails) return null;
   const details = await browser.getScreenDetails();
@@ -32,11 +43,12 @@ export async function connectedDisplays(): Promise<Display[] | null> {
   }));
 }
 
-export function openProjector(display?: Display): Window | null {
+export async function openProjector(display?: Display): Promise<boolean> {
+  if (window.beamloomDesktop) return window.beamloomDesktop.openProjector(display?.id ?? null);
   const url = new URL(window.location.href);
   url.searchParams.set("projector", "1");
   const features = display
     ? `popup=yes,left=${Math.round(display.left)},top=${Math.round(display.top)},width=${Math.round(display.width)},height=${Math.round(display.height)}`
     : "popup=yes,width=1280,height=720";
-  return window.open(url.href, "beamloom-projector", features);
+  return Boolean(window.open(url.href, "beamloom-projector", features));
 }
