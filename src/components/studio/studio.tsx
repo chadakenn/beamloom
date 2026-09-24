@@ -26,6 +26,7 @@ export function Studio() {
   const setScene = useEditor((s) => s.setScene);
   const renameScene = useEditor((s) => s.renameScene);
   const duplicateScene = useEditor((s) => s.duplicateScene);
+  const reorderScene = useEditor((s) => s.reorderScene);
   const addScene = useEditor((s) => s.addScene);
   const setGuides = useEditor((s) => s.setGuides);
   const setOutput = useEditor((s) => s.setOutput);
@@ -59,6 +60,8 @@ export function Studio() {
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
   const [sceneNameDraft, setSceneNameDraft] = useState("");
   const cancelRename = useRef(false);
+  const draggedSceneId = useRef<string | null>(null);
+  const [sceneDrop, setSceneDrop] = useState<{ id: string; after: boolean } | null>(null);
   const [blackout, setBlackout] = useState(false);
   const blackoutRef = useRef(false);
 
@@ -334,7 +337,30 @@ export function Studio() {
           />
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto sm:flex-none">
             {scenes.map((item) => (
-              <div key={item.id} className={cn("flex shrink-0 items-center rounded-md", item.id === activeSceneId ? "bg-panel text-fg" : "text-muted")}>
+              <div
+                key={item.id}
+                className={cn(
+                  "flex shrink-0 items-center rounded-md border-x-2 border-transparent",
+                  item.id === activeSceneId ? "bg-panel text-fg" : "text-muted",
+                  sceneDrop?.id === item.id && (sceneDrop.after ? "border-r-beam" : "border-l-beam"),
+                )}
+                onDragOver={(event) => {
+                  if (!draggedSceneId.current || draggedSceneId.current === item.id) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  const after = event.clientX >= bounds.left + bounds.width / 2;
+                  setSceneDrop((current) => current?.id === item.id && current.after === after ? current : { id: item.id, after });
+                }}
+                onDrop={(event) => {
+                  if (!draggedSceneId.current) return;
+                  event.preventDefault();
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  reorderScene(draggedSceneId.current, item.id, event.clientX >= bounds.left + bounds.width / 2);
+                  draggedSceneId.current = null;
+                  setSceneDrop(null);
+                }}
+              >
                 {editingSceneId === item.id ? (
                   <input
                     autoFocus
@@ -351,7 +377,21 @@ export function Studio() {
                     className="h-11 w-32 rounded-md border border-beam bg-bg px-2 text-sm text-fg"
                   />
                 ) : (
-                  <button type="button" aria-pressed={item.id === activeSceneId} onClick={() => setScene(item.id)} onDoubleClick={() => startSceneRename(item.id, item.name)} className="h-11 rounded-md px-3 text-sm" title="Double-click to rename scene">{item.name}</button>
+                  <button
+                    type="button"
+                    draggable
+                    aria-pressed={item.id === activeSceneId}
+                    onClick={() => setScene(item.id)}
+                    onDoubleClick={() => startSceneRename(item.id, item.name)}
+                    onDragStart={(event) => {
+                      draggedSceneId.current = item.id;
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", item.id);
+                    }}
+                    onDragEnd={() => { draggedSceneId.current = null; setSceneDrop(null); }}
+                    className="h-11 cursor-grab rounded-md px-3 text-sm active:cursor-grabbing"
+                    title="Drag to reorder; double-click to rename scene"
+                  >{item.name}</button>
                 )}
                 {item.id === activeSceneId && editingSceneId !== item.id ? (
                   <>
