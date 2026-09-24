@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { gelRgb } from "@/lib/beam/looks";
 import { getClipSource } from "@/lib/beam/clips";
+import { getFadeSeconds, subscribeFade } from "@/lib/beam/fade";
 import { createMapper, type DrawFace, type Mapper } from "@/lib/beam/gl-mapper";
 import type { Corners } from "@/lib/beam/math";
 import { activeScene, type Surface } from "@/lib/beam/project";
@@ -27,6 +28,9 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   const moveSurface = useEditor((s) => s.moveSurface);
   const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
   const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
+  const fadeSeconds = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
+  const fadeRef = useRef(fadeSeconds);
+  fadeRef.current = fadeSeconds;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -43,22 +47,25 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
     const observer = new ResizeObserver(fit);
     observer.observe(bay);
     let raf = 0;
+    let shownId: string | null = null;
+    let fading: { id: string; started: number } | null = null;
     const loop = (now: number) => {
       const state = useEditor.getState();
       const current = activeScene(state);
-      const faces: DrawFace[] = current.surfaces.map((face) => ({
-        corners: face.corners,
-        look: face.look,
-        gel: gelRgb(face.gel),
-        opacity: face.opacity,
-        feather: face.feather,
-        brightness: face.brightness,
-        contrast: face.contrast,
-        saturation: face.saturation,
-        blend: face.blend,
-        visible: face.visible,
-        source: getClipSource(face.videoId),
-      }));
+      const fadeMs = reduced ? 0 : fadeRef.current * 1000;
+      if (shownId === null) shownId = current.id;
+      else if (shownId !== current.id) {
+        fading = fadeMs > 0 ? { id: shownId, started: now } : null;
+        shownId = current.id;
+      }
+      let faces = sceneFaces(current);
+      if (fading) {
+        const amount = fadeMs <= 0 ? 1 : Math.min(1, (now - fading.started) / fadeMs);
+        const previous = state.scenes.find((scene) => scene.id === fading?.id);
+        if (previous && amount < 1) {
+          faces = [...scaledFaces(sceneFaces(previous), 1 - amount), ...scaledFaces(faces, amount)];
+        } else fading = null;
+      }
       mapper?.draw(blackoutRef.current ? [] : faces, reduced ? 0 : now / 1000);
       raf = requestAnimationFrame(loop);
     };
@@ -215,6 +222,26 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
       </div>
     </div>
   );
+}
+
+function sceneFaces(scene: { surfaces: Surface[] }): DrawFace[] {
+  return scene.surfaces.map((face) => ({
+    corners: face.corners,
+    look: face.look,
+    gel: gelRgb(face.gel),
+    opacity: face.opacity,
+    feather: face.feather,
+    brightness: face.brightness,
+    contrast: face.contrast,
+    saturation: face.saturation,
+    blend: face.blend,
+    visible: face.visible,
+    source: getClipSource(face.videoId),
+  }));
+}
+
+function scaledFaces(faces: DrawFace[], amount: number): DrawFace[] {
+  return faces.map((face) => ({ ...face, opacity: face.opacity * amount }));
 }
 
 function snapLine(value: number, lineup: boolean, bypass: boolean) {

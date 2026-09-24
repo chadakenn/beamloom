@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Pause, Play } from "lucide-react";
+import { getFadeSeconds, setFadeSeconds, subscribeFade } from "@/lib/beam/fade";
 import { activeScene } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
 
@@ -18,6 +19,7 @@ export function ShowBar() {
   const [presetName, setPresetName] = useState("");
   const [selectedPreset, setSelectedPreset] = useState("");
   const [message, setMessage] = useState("");
+  const fade = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
 
   useEffect(() => setSeconds(String(scene.durationSeconds)), [scene.id, scene.durationSeconds]);
   useEffect(() => {
@@ -42,6 +44,20 @@ export function ShowBar() {
         <span>{scene.name}:</span>
         <input type="number" min="1" max="3600" step="1" value={seconds} onChange={(event) => setSeconds(event.target.value)} onBlur={commitSeconds} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} aria-label="Scene duration in seconds" className="h-10 w-16 rounded-md border border-line bg-bg px-2 text-fg" />
         <span>sec</span>
+      </label>
+      <label className="flex shrink-0 items-center gap-2 text-muted">
+        <span>Fade</span>
+        <input
+          className="h-10 w-24"
+          type="range"
+          min={0}
+          max={2}
+          step={0.1}
+          value={fade}
+          aria-label="Scene fade"
+          onChange={(event) => setFadeSeconds(Number(event.target.value))}
+        />
+        <span className="w-10 tabular-nums text-fg">{fade === 0 ? "Cut" : `${fade.toFixed(1)}s`}</span>
       </label>
       <span className="mx-1 h-7 w-px shrink-0 bg-line" aria-hidden="true" />
       <label className="sr-only" htmlFor="alignment-select">Alignment preset</label>
