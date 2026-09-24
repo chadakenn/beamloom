@@ -265,6 +265,9 @@ function LookDot({
 }
 
 function accentFor(kind: number): [number, number, number] {
+  if (kind === 7) return [0.98, 0.07, 0.52];
+  if (kind === 8) return [0.02, 0.95, 0.55];
+  if (kind === 9) return [0.9, 0.85, 0.2];
   if (kind === 1) return [0.96, 0.78, 0.42];
   if (kind === 2) return [0.93, 0.88, 0.74];
   if (kind === 3) return [1, 0.46, 0.12];
@@ -347,6 +350,23 @@ function LookThumb({ kind }: { kind: number }) {
           const bw = w / lanes * 0.7;
           const x = (w / lanes) * i + 2;
           ctx.fillRect(x, h - h * bh, bw, h * bh);
+        }
+      } else if (kind === 7 || kind === 8) {
+        const g = ctx.createLinearGradient(0, h * (0.3 + Math.sin(t) * 0.2), w, h);
+        g.addColorStop(0, kind === 7 ? "#ff36ad" : "#062448");
+        g.addColorStop(0.5, kind === 7 ? "#6846ff" : "#02e1a8");
+        g.addColorStop(1, kind === 7 ? "#02d9ef" : "#b24cff");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, h * (0.5 + Math.sin(t) * 0.2), w, 2);
+        ctx.globalAlpha = 1;
+      } else if (kind === 9) {
+        const colors = ["#ff4a80", "#ffe43b", "#15dcff", "#8aff62", "#bc70ff"];
+        for (let i = 0; i < 40; i++) {
+          ctx.fillStyle = colors[i % colors.length];
+          ctx.fillRect((i * 71) % w, (i * 37 + t * 13) % h, 4, 3);
         }
       } else {
         ctx.fillStyle = "#e29a28";
