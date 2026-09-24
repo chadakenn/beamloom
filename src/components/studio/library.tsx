@@ -18,53 +18,22 @@ export function Library() {
   const patchSurface = useEditor((s) => s.patchSurface);
   const reorder = useEditor((s) => s.reorder);
   const clips = useClipList();
+  const selectedIndex = scene.surfaces.findIndex((face) => face.id === selectedId);
 
   return (
     <div className="flex h-full flex-col gap-4 p-3">
-      <VideoShelf
-        clips={clips}
-        selectedVideoId={scene.surfaces.find((face) => face.id === selectedId)?.videoId ?? null}
-        onAssign={assignVideo}
-        onRemove={async (id) => {
-          await removeClip(id);
-          clearVideo(id);
-        }}
-      />
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Looks</h2>
+        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Surfaces</h2>
         <button
           type="button"
           onClick={addSurface}
           className="inline-flex h-11 items-center gap-1.5 rounded-md bg-beam px-3 text-sm font-medium text-ink"
         >
           <Plus className="size-4" aria-hidden="true" />
-          Surface
+          Add surface
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {LOOKS.map((look) => {
-          const active = armedLook === look.id;
-          return (
-            <button
-              key={look.id}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setArmedLook(look.id)}
-              className={cn(
-                "overflow-hidden rounded-md border text-left",
-                active ? "border-beam" : "border-line",
-              )}
-            >
-              <LookThumb kind={look.kind} />
-              <span className="block px-2 py-1.5 text-xs font-medium text-fg">{look.name}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-1 flex items-center justify-between">
-        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Stack</h2>
-        <p className="text-xs text-muted">Top draws last</p>
-      </div>
+      <p className="-mt-3 text-xs text-muted">Select a surface to change its look. Top item draws last.</p>
       <ul className="flex flex-col gap-1">
         {[...scene.surfaces].reverse().map((face) => {
           const active = face.id === selectedId;
@@ -110,19 +79,56 @@ export function Library() {
           <button
             type="button"
             onClick={() => reorder(selectedId, 1)}
-            className="h-11 flex-1 rounded-md border border-line text-sm text-fg"
+            disabled={selectedIndex >= scene.surfaces.length - 1}
+            className="h-11 flex-1 rounded-md border border-line text-sm text-fg disabled:opacity-40"
           >
-            Forward
+            Move up
           </button>
           <button
             type="button"
             onClick={() => reorder(selectedId, -1)}
-            className="h-11 flex-1 rounded-md border border-line text-sm text-fg"
+            disabled={selectedIndex <= 0}
+            className="h-11 flex-1 rounded-md border border-line text-sm text-fg disabled:opacity-40"
           >
-            Back
+            Move down
           </button>
         </div>
       ) : null}
+      <div className="border-t border-line pt-3">
+        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Looks</h2>
+        <p className="mt-1 text-xs text-muted">Click to change the selected surface, or choose a look before adding one.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {LOOKS.map((look) => {
+          const active = armedLook === look.id;
+          return (
+            <button
+              key={look.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setArmedLook(look.id)}
+              className={cn(
+                "overflow-hidden rounded-md border text-left",
+                active ? "border-beam" : "border-line",
+              )}
+            >
+              <LookThumb kind={look.kind} />
+              <span className="block px-2 py-1.5 text-xs font-medium text-fg">{look.name}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="border-t border-line pt-3">
+        <VideoShelf
+          clips={clips}
+          selectedVideoId={scene.surfaces.find((face) => face.id === selectedId)?.videoId ?? null}
+          onAssign={assignVideo}
+          onRemove={async (id) => {
+            await removeClip(id);
+            clearVideo(id);
+          }}
+        />
+      </div>
     </div>
   );
 }
