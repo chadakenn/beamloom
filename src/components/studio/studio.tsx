@@ -44,6 +44,7 @@ export function Studio() {
   const [fileBusy, setFileBusy] = useState(false);
   const [fileMessage, setFileMessage] = useState("");
   const [lineup, setLineup] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [blackout, setBlackout] = useState(false);
   const blackoutRef = useRef(false);
 
@@ -125,6 +126,10 @@ export function Studio() {
         target?.tagName === "INPUT" ||
         target?.tagName === "TEXTAREA" ||
         target?.isContentEditable;
+      if (event.key === "Escape" && shortcutsOpen) {
+        setShortcutsOpen(false);
+        return;
+      }
       if (event.key === "Escape" && picker) {
         setPicker(false);
         return;
@@ -135,6 +140,12 @@ export function Studio() {
         return;
       }
       if (typing) return;
+      if (event.key === "?" && !projectorRef.current) {
+        event.preventDefault();
+        setShortcutsOpen((open) => !open);
+        return;
+      }
+      if (shortcutsOpen) return;
       const step = event.shiftKey ? 0.02 : 0.006;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -168,7 +179,7 @@ export function Studio() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nudge, picker, removeSurface, setArmedLook, setGuides, setOutput]);
+  }, [nudge, picker, removeSurface, setArmedLook, setGuides, setOutput, shortcutsOpen]);
 
   useEffect(() => {
     const onFull = () => {
@@ -336,6 +347,15 @@ export function Studio() {
           </button>
           <button
             type="button"
+            onClick={() => setShortcutsOpen(true)}
+            className="inline-flex size-11 items-center justify-center rounded-md border border-line text-lg font-medium text-muted"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            ?
+          </button>
+          <button
+            type="button"
             onClick={reset}
             className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted"
             aria-label="Reset to the facade study"
@@ -384,6 +404,7 @@ export function Studio() {
           </button>
         </header>
       )}
+      {shortcutsOpen && !output ? <ShortcutCard onClose={() => setShortcutsOpen(false)} /> : null}
       {fileMessage && !output ? (
         <div role="status" className="absolute bottom-3 left-3 z-30 max-w-sm rounded-md border border-line bg-panel px-3 py-2 text-sm text-fg">
           {fileMessage}
@@ -504,6 +525,46 @@ export function Studio() {
       </span>
     </div>
   );
+}
+
+function ShortcutCard({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onCancel={onClose}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      aria-labelledby="shortcut-title"
+      className="max-h-[85dvh] w-[min(92vw,28rem)] overflow-y-auto rounded-lg border border-line bg-panel p-5 text-fg shadow-2xl backdrop:bg-black/75"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <h2 id="shortcut-title" className="font-display text-xl font-semibold">Keyboard shortcuts</h2>
+        <button type="button" onClick={onClose} className="inline-flex size-11 items-center justify-center rounded-md border border-line" aria-label="Close shortcuts"><X className="size-4" aria-hidden="true" /></button>
+      </div>
+      <dl className="mt-3 space-y-2 text-sm">
+        <Shortcut keys="Arrow keys" action="Nudge selected surface" />
+        <Shortcut keys="Shift + Arrow keys" action="Nudge farther" />
+        <Shortcut keys="Delete / Backspace" action="Remove selected surface" />
+        <Shortcut keys="G" action="Toggle editor guides" />
+        <Shortcut keys="B" action="Blackout the projector" />
+        <Shortcut keys="F" action="Fullscreen output on this display" />
+        {LOOKS.map((look, index) => <Shortcut key={look.id} keys={String(index + 1)} action={look.name} />)}
+        <Shortcut keys="?" action="Show or hide this card" />
+        <Shortcut keys="Esc" action="Close card, picker, or output" />
+      </dl>
+      <p className="mt-4 text-xs text-muted">Shortcuts pause while you type in a field.</p>
+    </dialog>
+  );
+}
+
+function Shortcut({ keys, action }: { keys: string; action: string }) {
+  return <div className="flex items-center justify-between gap-3 border-b border-line py-1"><dt>{action}</dt><dd className="shrink-0 rounded border border-line px-2 py-1 font-mono text-xs text-beam">{keys}</dd></div>;
 }
 
 function DockTab({
