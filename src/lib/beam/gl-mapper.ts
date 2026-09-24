@@ -9,7 +9,7 @@ export type DrawFace = {
   opacity: number;
   blend: Blend;
   visible: boolean;
-  video: HTMLVideoElement | null;
+  source: TexImageSource | null;
 };
 
 const VERT = `#version 300 es
@@ -213,13 +213,13 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         gl.uniform1f(loc.opacity, face.opacity);
         gl.uniform1i(loc.kind, lookKind(face.look));
         gl.uniform3f(loc.gel, face.gel[0], face.gel[1], face.gel[2]);
-        const ready = face.video && face.video.readyState >= 2 && face.video.videoWidth > 0;
+        const source = face.source;
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture);
-        if (ready && face.video) {
+        if (source) {
           try {
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.video);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
             gl.uniform1i(loc.hasVideo, 1);
           } catch {
             gl.uniform1i(loc.hasVideo, 0);

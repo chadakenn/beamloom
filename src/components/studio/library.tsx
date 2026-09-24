@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, Film, Plus, Trash2 } from "lucide-react";
-import { importVideoFiles, listClips, removeClip, restoreClips, resumeClips, subscribeClips, type Clip } from "@/lib/beam/clips";
+import { Eye, EyeOff, Film, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
+import { importVideoFiles, listClips, mediaFile, removeClip, restoreClips, resumeClips, subscribeClips, type Clip } from "@/lib/beam/clips";
 import { GELS, LOOKS, type LookId } from "@/lib/beam/looks";
 import { activeScene } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
@@ -17,10 +17,12 @@ export function Library() {
   const addSurface = useEditor((s) => s.addSurface);
   const patchSurface = useEditor((s) => s.patchSurface);
   const reorder = useEditor((s) => s.reorder);
+  const clips = useClipList();
 
   return (
     <div className="flex h-full flex-col gap-4 p-3">
       <VideoShelf
+        clips={clips}
         selectedVideoId={scene.surfaces.find((face) => face.id === selectedId)?.videoId ?? null}
         onAssign={assignVideo}
         onRemove={async (id) => {
@@ -79,7 +81,11 @@ export function Library() {
                   onClick={() => select(face.id)}
                   className="flex h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left"
                 >
-                  <LookDot look={face.look} gel={face.gel} video={Boolean(face.videoId)} />
+                  <LookDot
+                    look={face.look}
+                    gel={face.gel}
+                    media={clips.find((clip) => clip.id === face.videoId)?.kind}
+                  />
                   <span className="truncate text-sm text-fg">{face.name}</span>
                 </button>
                 <button
@@ -121,69 +127,77 @@ export function Library() {
   );
 }
 
-function VideoShelf({
-  selectedVideoId,
-  onAssign,
-  onRemove,
-}: {
-  selectedVideoId: string | null;
-  onAssign: (id: string) => void;
-  onRemove: (id: string) => void;
-}) {
+function useClipList() {
   const [clips, setClips] = useState<Clip[]>([]);
-  const [note, setNote] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     let alive = true;
     void restoreClips().then(() => {
       if (alive) setClips(listClips());
     });
-    const unsub = subscribeClips(() => setClips(listClips()));
-    const resume = () => resumeClips();
-    window.addEventListener("pointerdown", resume);
+    const stop = subscribeClips(() => setClips(listClips()));
     return () => {
       alive = false;
-      unsub();
-      window.removeEventListener("pointerdown", resume);
+      stop();
     };
+  }, []);
+  return clips;
+}
+
+function VideoShelf({
+  clips,
+  selectedVideoId,
+  onAssign,
+  onRemove,
+}: {
+  clips: Clip[];
+  selectedVideoId: string | null;
+  onAssign: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [note, setNote] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const resume = () => resumeClips();
+    window.addEventListener("pointerdown", resume);
+    return () => window.removeEventListener("pointerdown", resume);
   }, []);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Your videos</h2>
+        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Your media</h2>
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           className="inline-flex h-11 items-center gap-1.5 rounded-md border border-line px-3 text-sm text-fg"
         >
-          <Film className="size-4" aria-hidden="true" />
+          <ImageIcon className="size-4" aria-hidden="true" />
           Import
         </button>
         <input
           ref={inputRef}
           type="file"
-          accept="video/*"
+          accept="video/*,image/png,image/jpeg,.png,.jpg,.jpeg"
           multiple
           className="sr-only"
           onChange={(event) => {
             const files = [...(event.target.files ?? [])];
             event.target.value = "";
             if (files.length === 0) return;
-            const videos = files.filter((file) => file.type.startsWith("video/"));
-            if (videos.length === 0) {
-              setNote("That file is not a video.");
+            const pictures = files.filter((file) => mediaFile(file));
+            if (pictures.length === 0) {
+              setNote("Use a video, PNG, or JPEG.");
               return;
             }
             setNote(null);
-            void importVideoFiles(videos).then((ids) => {
+            void importVideoFiles(pictures).then((ids) => {
               if (ids[0]) onAssign(ids[0]);
             });
           }}
         />
       </div>
-      <p className="text-xs text-muted">Files stay on this machine. Click one to map it.</p>
+      <p className="text-xs text-muted">Video, PNG, or JPEG. Files stay on this machine.</p>
       {note ? <p className="text-xs text-beam">{note}</p> : null}
       {clips.length === 0 ? null : (
         <ul className="flex flex-col gap-2">
@@ -192,14 +206,18 @@ function VideoShelf({
             return (
               <li key={clip.id} className={cn("overflow-hidden rounded-md border", active ? "border-beam" : "border-line")}>
                 <button type="button" onClick={() => onAssign(clip.id)} className="block w-full text-left" aria-pressed={active}>
-                  <video
-                    src={clip.url}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="aspect-video w-full bg-bg"
-                    aria-hidden="true"
-                  />
+                  {clip.kind === "image" ? (
+                    <img src={clip.url} alt="" className="aspect-video w-full object-cover bg-bg" />
+                  ) : (
+                    <video
+                      src={clip.url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="aspect-video w-full bg-bg"
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="block truncate px-2 py-1.5 text-xs font-medium text-fg">{clip.name}</span>
                 </button>
                 <button
@@ -220,8 +238,19 @@ function VideoShelf({
   );
 }
 
-function LookDot({ look, gel, video }: { look: LookId; gel: number; video: boolean }) {
-  if (video) {
+function LookDot({
+  look,
+  gel,
+  media,
+}: {
+  look: LookId;
+  gel: number;
+  media?: "video" | "image";
+}) {
+  if (media === "image") {
+    return <ImageIcon className="size-3.5 shrink-0 text-beam" aria-hidden="true" />;
+  }
+  if (media === "video") {
     return <Film className="size-3.5 shrink-0 text-beam" aria-hidden="true" />;
   }
   const kind = LOOKS.find((item) => item.id === look)?.kind ?? 0;
