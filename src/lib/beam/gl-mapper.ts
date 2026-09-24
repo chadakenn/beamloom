@@ -108,6 +108,32 @@ void main() {
     float bar = step(1.0 - h, uv.y) * inside;
     col = vec3(0.98, 0.58, 0.16) * bar;
     col += vec3(0.2, 0.08, 0.03) * inside * (1.0 - bar) * 0.35;
+  } else if (uKind == 7) {
+    float ribbon = sin(uv.x * 12.0 + sin(uv.y * 9.0 + uTime * 0.65) * 2.0 - uTime * 0.9);
+    float ripple = sin(uv.y * 13.0 - uv.x * 7.0 + uTime * 0.7);
+    float glow = pow(0.5 + 0.5 * ribbon, 5.0);
+    col = mix(vec3(0.12, 0.015, 0.24), vec3(0.98, 0.07, 0.52), 0.5 + 0.5 * ripple);
+    col = mix(col, vec3(0.05, 0.94, 0.98), 0.5 + 0.5 * sin(uv.x * 6.0 - uTime * 0.4));
+    col *= 0.22 + 0.9 * glow;
+  } else if (uKind == 8) {
+    float wave = sin(uv.x * 9.0 + uTime * 0.55 + sin(uv.x * 3.0 - uTime * 0.3) * 1.5);
+    float band = exp(-pow((uv.y - 0.5 - wave * 0.22) * 5.0, 2.0));
+    float second = exp(-pow((uv.y - 0.48 + wave * 0.2) * 7.0, 2.0));
+    col = vec3(0.006, 0.04, 0.09);
+    col += vec3(0.02, 0.95, 0.55) * band * (0.5 + 0.5 * sin(uv.x * 6.0 + uTime * 0.4));
+    col += vec3(0.64, 0.12, 0.98) * second * 0.85;
+    col += vec3(0.08, 0.32, 0.9) * (band + second) * 0.25;
+  } else if (uKind == 9) {
+    col = vec3(0.025, 0.012, 0.09);
+    for (int i = 0; i < 25; i++) {
+      float fi = float(i);
+      float x = hash(vec2(fi, 4.1));
+      float y = fract(hash(vec2(fi, 8.3)) + uTime * (0.08 + hash(vec2(fi, 2.1)) * 0.08));
+      vec2 delta = (uv - vec2(x, y)) * vec2(1.0, 1.5);
+      float spark = exp(-dot(delta, delta) * 2200.0);
+      vec3 hue = 0.5 + 0.5 * cos(6.28318 * (hash(vec2(fi, 7.2)) + vec3(0.0, 0.33, 0.67)));
+      col += hue * spark * 1.6;
+    }
   } else {
     col = uGel;
     float sheen = 0.08 * sin(uv.y * 18.0 + uTime * 0.6);
