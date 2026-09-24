@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, screen } = require("electron");
+const { app, BrowserWindow, dialog, autoUpdater, ipcMain, protocol, screen } = require("electron");
 const { readFile } = require("node:fs/promises");
 const path = require("node:path");
 
@@ -68,6 +68,45 @@ function createWindow({ output = false, display } = {}) {
   return window;
 }
 
+function startUpdates() {
+  if (!app.isPackaged || process.platform !== "win32") return;
+  const feed = `https://update.electronjs.org/chadakenn/beamloom/win32-x64/${app.getVersion()}`;
+  try {
+    autoUpdater.setFeedURL({ url: feed });
+  } catch {
+    return;
+  }
+  let told = false;
+  autoUpdater.on("error", () => {});
+  autoUpdater.on("update-downloaded", () => {
+    if (told) return;
+    told = true;
+    dialog
+      .showMessageBox({
+        type: "info",
+        buttons: ["Restart", "Later"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Update Beamloom",
+        message: "An update is ready",
+        detail: "Restart to finish the update. The project saved on this computer stays put.",
+      })
+      .then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      })
+      .catch(() => {});
+  });
+  const check = () => {
+    try {
+      autoUpdater.checkForUpdates();
+    } catch {
+      /* no release published yet */
+    }
+  };
+  setTimeout(check, 8000);
+  setInterval(check, 30 * 60 * 1000);
+}
+
 app.whenReady().then(() => {
   const root = path.join(__dirname, "..", "dist");
   protocol.handle("beamloom", async (request) => {
@@ -108,6 +147,7 @@ app.whenReady().then(() => {
     return true;
   });
   editor = createWindow();
+  startUpdates();
   editor.on("closed", () => {
     editor = undefined;
     if (projector && !projector.isDestroyed()) projector.close();

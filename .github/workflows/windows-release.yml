@@ -1,0 +1,46 @@
+name: Publish Windows release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run make:win
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "${{ steps.version.outputs.value }}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json ${{ steps.version.outputs.value }}"
+            echo "Use a tag like 0.1.1, with no v prefix."
+            exit 1
+          fi
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.value }}
+          name: Beamloom ${{ steps.version.outputs.value }}
+          make_latest: true
+          generate_release_notes: true
+          files: |
+            out/make/squirrel.windows/x64/RELEASES
+            out/make/squirrel.windows/x64/*.nupkg
+            out/make/squirrel.windows/x64/*.exe
