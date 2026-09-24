@@ -195,7 +195,9 @@ export function Inspector() {
       ) : null}
       <div>
         <p className="mb-2 text-xs font-medium text-muted">Corners</p>
-        <p className="mb-2 text-xs text-muted">Position in % of the projector frame</p>
+        <p className="mb-2 text-xs text-muted">
+          Position in % of the projector frame. Lineup snaps to the 10% grid. Hold Alt to place freely.
+        </p>
         <ol className="grid grid-cols-2 gap-2 text-xs tabular-nums text-muted">
           {face.corners.map((corner, index) => {
             const place = cornerPlaces(face.corners)[index];
