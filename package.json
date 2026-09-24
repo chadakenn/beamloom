@@ -1,6 +1,8 @@
 {
   "name": "beamloom",
   "version": "0.1.0",
+  "description": "Projection mapping studio for Windows",
+  "author": "Chad Kennedy",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
