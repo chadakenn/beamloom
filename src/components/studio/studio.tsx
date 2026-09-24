@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Crosshair, Monitor, Plus, RotateCcw, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
-import { activeScene } from "@/lib/beam/project";
+import { restoreClips } from "@/lib/beam/clips";
+import { connectedDisplays, openProjector, type Display } from "@/lib/beam/displays";
+import { activeScene, STORAGE_KEY } from "@/lib/beam/project";
 import { loadStoredProject, saveStoredProject, snapshot, useEditor } from "@/lib/beam/store";
 import { cn } from "@/lib/cn";
 import { Inspector } from "@/components/studio/inspector";
@@ -29,15 +31,37 @@ export function Studio() {
   const [dock, setDock] = useState<Dock>("looks");
   const [chrome, setChrome] = useState(true);
   const [ready, setReady] = useState(false);
+  const [picker, setPicker] = useState(false);
+  const [displays, setDisplays] = useState<Display[] | null>(null);
+  const [displayError, setDisplayError] = useState("");
+  const [projectorWindow, setProjectorWindow] = useState(false);
+  const [covering, setCovering] = useState(false);
+  const projectorRef = useRef(false);
 
   useEffect(() => {
+    const isProjector = new URLSearchParams(window.location.search).has("projector");
+    projectorRef.current = isProjector;
+    setProjectorWindow(isProjector);
+    void restoreClips();
     const stored = loadStoredProject();
     if (stored) useEditor.getState().replace(stored);
+    if (isProjector) setOutput(true);
     setReady(true);
     return useEditor.subscribe((state) => {
-      saveStoredProject(snapshot(state));
+      if (!projectorRef.current) saveStoredProject(snapshot(state));
     });
-  }, []);
+  }, [setOutput]);
+
+  useEffect(() => {
+    if (!projectorWindow) return;
+    const sync = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY || !event.newValue) return;
+      const stored = loadStoredProject();
+      if (stored) useEditor.getState().replace(stored);
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, [projectorWindow]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -46,7 +70,11 @@ export function Studio() {
         target?.tagName === "INPUT" ||
         target?.tagName === "TEXTAREA" ||
         target?.isContentEditable;
-      if (event.key === "Escape" && useEditor.getState().output) {
+      if (event.key === "Escape" && picker) {
+        setPicker(false);
+        return;
+      }
+      if (event.key === "Escape" && useEditor.getState().output && !projectorRef.current) {
         setOutput(false);
         if (document.fullscreenElement) void document.exitFullscreen();
         return;
@@ -73,7 +101,7 @@ export function Studio() {
         }
       } else if (event.key === "g" || event.key === "G") {
         setGuides(!useEditor.getState().guides);
-      } else if (event.key === "f" || event.key === "F") {
+      } else if ((event.key === "f" || event.key === "F") && !projectorRef.current) {
         void enterOutput();
       } else if (event.key >= "1" && event.key <= "7") {
         const look = LOOKS[Number(event.key) - 1];
@@ -82,11 +110,13 @@ export function Studio() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nudge, removeSurface, setArmedLook, setGuides, setOutput]);
+  }, [nudge, picker, removeSurface, setArmedLook, setGuides, setOutput]);
 
   useEffect(() => {
     const onFull = () => {
-      if (!document.fullscreenElement) setOutput(false);
+      const active = Boolean(document.fullscreenElement);
+      setCovering(active);
+      if (!active && !projectorRef.current) setOutput(false);
     };
     document.addEventListener("fullscreenchange", onFull);
     return () => document.removeEventListener("fullscreenchange", onFull);
@@ -117,6 +147,25 @@ export function Studio() {
     } catch {
       /* iframe preview stays in the in-app output frame */
     }
+  }
+
+  async function chooseDisplay() {
+    setPicker(true);
+    setDisplayError("");
+    try {
+      setDisplays(await connectedDisplays());
+    } catch {
+      setDisplays(null);
+      setDisplayError("Display access was denied. You can still move the projector window manually.");
+    }
+  }
+
+  function launch(display?: Display) {
+    if (!openProjector(display)) {
+      setDisplayError("The browser blocked the projector window. Allow popups for Beamloom and try again.");
+      return;
+    }
+    setPicker(false);
   }
 
   const scene = useEditor((s) => activeScene(s));
@@ -184,7 +233,7 @@ export function Studio() {
           </button>
           <button
             type="button"
-            onClick={() => void enterOutput()}
+            onClick={() => void chooseDisplay()}
             className="inline-flex h-11 items-center gap-2 rounded-md bg-beam px-3 text-sm font-medium text-ink"
           >
             <Monitor className="size-4" aria-hidden="true" />
@@ -192,6 +241,56 @@ export function Studio() {
           </button>
         </header>
       )}
+
+      {picker && !output ? (
+        <div
+          className="absolute inset-0 z-30 grid place-items-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose projector display"
+        >
+          <div className="w-full max-w-md rounded-lg border border-line bg-panel p-5 text-fg">
+            <h2 className="font-display text-xl">Choose output display</h2>
+            <p className="mt-2 text-sm text-muted">Open a separate projector window. Your editor stays here.</p>
+            {displays?.map((display, index) => (
+              <button
+                key={`${display.left}:${display.top}:${index}`}
+                type="button"
+                onClick={() => launch(display)}
+                className="mt-3 block min-h-11 w-full rounded-md border border-line p-3 text-left text-sm"
+              >
+                {display.label}
+                {display.primary ? " (main display)" : ""} · {display.width} × {display.height}
+              </button>
+            ))}
+            {displayError ? (
+              <p role="alert" className="mt-3 text-sm text-beam">
+                {displayError}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => launch()}
+              className="mt-3 block min-h-11 w-full rounded-md border border-line p-3 text-left text-sm"
+            >
+              Open window to move manually
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPicker(false);
+                void enterOutput();
+              }}
+              className="mt-3 block min-h-11 w-full rounded-md border border-line p-3 text-left text-sm"
+            >
+              Fullscreen on this display
+            </button>
+            <button type="button" onClick={() => setPicker(false)} className="mt-3 h-11 text-sm text-muted">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className={cn("flex min-h-0 flex-1", output ? "flex-col" : "flex-col lg:flex-row")}>
         {output ? null : (
@@ -222,9 +321,22 @@ export function Studio() {
 
       {output && chrome ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end p-3">
+          {projectorWindow && !covering ? (
+            <button
+              type="button"
+              onClick={() => void document.getElementById("beamloom-output")?.requestFullscreen()}
+              className="pointer-events-auto mr-2 inline-flex h-11 items-center rounded-md bg-beam px-3 text-sm font-medium text-ink"
+            >
+              Fullscreen projector
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
+              if (projectorWindow) {
+                window.close();
+                return;
+              }
               setOutput(false);
               if (document.fullscreenElement) void document.exitFullscreen();
             }}
