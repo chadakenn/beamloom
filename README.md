@@ -1,22 +1,30 @@
 # Beamloom
 
-Original projection-mapping studio for Windows.
+Original projection-mapping studio.
 
-Beamloom lets you place visuals on real surfaces: drop a canvas, warp it to a wall or object, stack scenes, and send the result to a projector. The idea belongs to a whole category of live visual tools. The name, interface, file format, and code in this repo are written from scratch for this project.
+Beamloom places light on real surfaces. You drop a surface on a 16:9 projector frame, assign a look, and drag the corners until the picture sits on the wall, pier, or object. **Output** sends that frame fullscreen to the display feeding your projector.
 
-This is **not** a copy, fork, or rebrand of HeavyM or any other commercial mapping product. Do not paste their assets, strings, presets, or decompiled code here.
+The name, interface, looks, and warp math are written for this project. This is not a copy of any commercial mapping tool. Do not add their assets, presets, or decompiled code.
 
-## What it will do
+## What the studio does
 
-- Canvas editor with quad and mesh warps
-- Image and video sources, plus generated looks
-- Scenes, layers, and simple sequencing
-- Fullscreen output aimed at a projector display
-- Project files you can save and reopen
+- Perspective warp of each surface onto the projector frame
+- Looks: tungsten wash, scan loom, lattice, ember lift, halo rings, columns, and gels
+- Scenes, opacity, normal / add / screen blend, lock, and stack order
+- Guides for lining up a facade
+- Projects saved in the browser on this machine
 
-## Status
+## Source
 
-Public repo, day one. The Windows app has not been scaffolded yet.
+| Path | Role |
+| --- | --- |
+| `src/lib/beam/gl-mapper.ts` | WebGL projector. Homography fills each quad. |
+| `src/lib/beam/math.ts` | Unit-square to quad, and back. |
+| `src/lib/beam/project.ts` | Scenes, surfaces, and the facade study. |
+| `src/lib/beam/store.ts` | Editor state. |
+| `src/components/studio/` | The editor: looks, frame, inspector. |
+
+A native Windows shell (pick a display, borderless fullscreen, project file on disk) can host this same frame. That shell is not in this commit.
 
 ## License
 
