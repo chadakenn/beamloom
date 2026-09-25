@@ -1,5 +1,6 @@
 IMG_NAME='beamloom'
 RELEASE=trixie
+ARCH=arm64
 TARGET_HOSTNAME=beamloom
 FIRST_USER_NAME=beamloom
 FIRST_USER_PASS=beamloom-player
