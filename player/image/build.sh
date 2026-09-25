@@ -21,6 +21,8 @@ cp -a "$root/player/image/stage-beamloom/." "$work/stage-beamloom/"
 cp "$root/player/beamloom_player.py" "$root/player/wifi.py" "$work/stage-beamloom/00-install/files/"
 cp "$root/player/systemd/"*.service "$work/stage-beamloom/00-install/files/"
 cp "$root/player/image/config" "$work/config"
+# Current pi-gen forces a 32-bit image after reading config. Pi 4 and Pi 5 use 64-bit.
+sed -i 's/^export ARCH=armhf$/export ARCH="${ARCH:-arm64}"/' "$work/build.sh"
 chmod +x "$work/stage-beamloom/00-install/00-run.sh" "$work/stage-beamloom/01-enable/00-run-chroot.sh"
 
 touch "$work/stage3/SKIP" "$work/stage4/SKIP" "$work/stage5/SKIP"
