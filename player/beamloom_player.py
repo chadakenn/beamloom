@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import sys
 import threading
 from html import escape
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import wifi
+import updater
 CONFIG = Path(os.environ.get("BEAMLOOM_PLAYER_CONFIG", ROOT / "player.json"))
 PORT = int(os.environ.get("BEAMLOOM_PLAYER_PORT", "8080"))
 HOST = os.environ.get("BEAMLOOM_PLAYER_HOST", "0.0.0.0")
@@ -186,7 +188,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/health":
-            data = json.dumps({**load_config(), "wifi": wifi.status()}).encode("utf-8")
+            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status()}).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(data)))
@@ -204,6 +206,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
+        if path == "/update":
+            configured = urlparse(load_config()["pcUrl"]).hostname
+            try:
+                allowed = configured and self.client_address[0] in {
+                    entry[4][0] for entry in socket.getaddrinfo(configured, None)
+                }
+            except OSError:
+                allowed = False
+            if not allowed or self.headers.get("X-Beamloom-Update") != "1":
+                self.send_error(403, "Only the configured show PC can update this Pi")
+                return
+            result = updater.start()
+            self.send_html(json.dumps({"started": result == "started", "current": result == "current"}))
+            return
         length = int(self.headers.get("content-length", "0") or "0")
         if length > 4000:
             self.send_error(413)

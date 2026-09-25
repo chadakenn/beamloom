@@ -1,6 +1,7 @@
 const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen } = require("electron");
 const { readFile } = require("node:fs/promises");
 const https = require("node:https");
+const http = require("node:http");
 const { startLiveServer } = require("./live.cjs");
 
 protocol.registerSchemesAsPrivileged([
@@ -29,6 +30,30 @@ const MIME = {
 let editor;
 let projector;
 let live;
+
+function piAddress(host) {
+  if (typeof host !== "string" || host.length > 100 || !/^[a-z0-9.-]+$/i.test(host)) throw new Error("Enter the Pi's local address");
+  if (host !== "beamloom.local" && !/^([a-z0-9-]+\.)+local$/i.test(host) && !/^(10\.\d{1,3}|192\.168|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}$/.test(host)) throw new Error("Use a local Pi address");
+  return host;
+}
+
+function piRequest(host, method = "GET") {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const request = http.request({ hostname: piAddress(host), port: 80, path: method === "POST" ? "/update" : "/health", method, timeout: 2500,
+      headers: method === "POST" ? { "X-Beamloom-Update": "1" } : {} }, (response) => {
+      let body = "";
+      response.on("data", (chunk) => { body += chunk; if (body.length > 10000) request.destroy(new Error("Pi response too large")); });
+      response.on("end", () => {
+        if (response.statusCode !== 200) return reject(new Error(`Pi returned ${response.statusCode}`));
+        try { resolve({ ...JSON.parse(body), latencyMs: Date.now() - started }); } catch { reject(new Error("Invalid Pi response")); }
+      });
+    });
+    request.on("timeout", () => request.destroy(new Error("Pi did not respond")));
+    request.on("error", reject);
+    request.end();
+  });
+}
 
 function fileFromRequest(root, requestUrl) {
   let pathname = "";
@@ -183,6 +208,16 @@ app.whenReady().then(() => {
       }
     }
     return { port: live.port, urls: live.urls };
+  });
+  ipcMain.handle("beamloom:pi-status", async (event, host) => {
+    if (event.sender !== editor?.webContents) return null;
+    try { return { ...(await piRequest(host)), viewers: live?.stats().viewers ?? 0 }; }
+    catch (error) { return { error: error.message, viewers: live?.stats().viewers ?? 0 }; }
+  });
+  ipcMain.handle("beamloom:pi-update", async (event, host) => {
+    if (event.sender !== editor?.webContents) return null;
+    try { return await piRequest(host, "POST"); }
+    catch (error) { return { error: error.message }; }
   });
   ipcMain.handle("beamloom:live-stop", async (event) => {
     if (event.sender !== editor?.webContents) return false;
