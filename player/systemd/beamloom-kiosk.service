@@ -1,0 +1,16 @@
+[Unit]
+Description=Beamloom projector output
+After=beamloom-player.service systemd-user-sessions.service
+Wants=beamloom-player.service
+
+[Service]
+ExecStart=/usr/bin/cage -s -- /usr/bin/chromium --kiosk --ozone-platform=wayland --autoplay-policy=no-user-gesture-required --noerrdialogs http://127.0.0.1/screen
+Restart=on-failure
+RestartSec=3
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
