@@ -30,35 +30,63 @@ Large videos produce large project files and need enough memory and local storag
 
 ## Set up one Raspberry Pi
 
-Beamloom stays on the Windows PC. The Pi does not run the editor. It opens a page from the PC and shows that page on the Epson. This is for lining up one projector. Photos, videos, and a show that keeps playing after the PC is turned off are not part of this step yet.
+Beamloom stays on the Windows PC. The Pi does not run the editor. It opens a page from the PC and fills the Epson with that page, so you can line up one projector. Photos, videos, and a show that keeps playing after the PC is off are later steps.
 
-This is not in the 0.1.3 installer. Use a build published after this change.
+This is included in Beamloom **0.1.4** and later.
 
-### What you need
+### Which Pi
 
-- A Raspberry Pi 4 or Pi 5, its power supply, and a microSD card.
-- A monitor cable from the Pi to the Epson. Use the HDMI port on the Pi and the HDMI input on the projector.
-- The PC and the Pi on the same home network. Ethernet is steadier than Wi-Fi, but either works.
+Use a Pi with a desktop and a normal HDMI path to the projector.
 
-### Prepare the Pi
+| Pi | Use it for Beamloom? | What to know |
+| --- | --- | --- |
+| Raspberry Pi 5 | Yes. This is the best choice. | 4 GB of memory or more. Official 27 W USB-C power supply. Two micro-HDMI ports. |
+| Raspberry Pi 4 Model B | Yes. | 2 GB can run it. 4 GB is more comfortable. Official 15 W USB-C power supply. Two micro-HDMI ports. |
+| Raspberry Pi 400 or 500 | Yes. | These are the keyboard models. The live page is the same. Check whether the HDMI plug on that model is micro-HDMI or full-size HDMI. |
+| Raspberry Pi 3 | No for this step. | The desktop is too slow for a fullscreen live page. |
+| Pi Zero and Pi Zero 2 W | No. | Not enough for this page. |
+| Compute Module | No. | Those need a separate carrier board. This guide is for a normal Pi board. |
 
-1. On the PC, install [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
-2. Choose **Raspberry Pi OS (64-bit)**, the desktop version, and write it to the microSD card. In Imager's settings, set a username and password. If the Pi will use Wi-Fi, enter that network here too.
-3. Put the card in the Pi, connect the Epson's HDMI input, and power the Pi on.
-4. On the Epson, select the HDMI input that the Pi is plugged into. You should see the Raspberry Pi desktop on the projector. Finish the first-boot questions on that desktop.
-5. Open Chromium on the Pi once, so you know the browser is there. Raspberry Pi OS desktop includes it.
+![Raspberry Pi 5 with its official cooler](docs/pi/pi-5.jpg)
+
+![Raspberry Pi 4 ports, including the two micro-HDMI sockets and the USB-C power port](docs/pi/pi-4-ports.jpg)
+
+### Which operating system
+
+Use **Raspberry Pi OS (64-bit)** with the desktop. The current image is Debian 13, called Trixie. Do not use **Raspberry Pi OS Lite**. Lite has no desktop, so there is no Chromium window to put on the projector. You do not need Ubuntu or any other system for this step.
+
+Use a microSD card of 32 GB or larger. In [Raspberry Pi Imager](https://www.raspberrypi.com/software/) the choices are:
+
+1. **Device:** Raspberry Pi 5, or Raspberry Pi 4 if that is the board you have.
+2. **Operating system:** Raspberry Pi OS (64-bit). Pick the desktop image, not Lite.
+3. **Storage:** the microSD card. Leave system drives excluded so you do not erase the PC's disk.
+4. Open the Imager settings before you write. Set a username and password. If the Pi will join Wi-Fi, enter that network here. A hostname such as `beamloom` makes the Pi easier to recognize later.
+
+Write the card, wait until Imager says it is safe to remove, then put the card in the Pi.
+
+### Cable the Epson
+
+Pi 4 and Pi 5 do not have a full-size HDMI socket. The two small sockets are micro-HDMI. The Epson has a full-size HDMI input. Use a micro-HDMI to HDMI cable. Plug the small end into the Pi port labeled **HDMI0**, next to the USB-C power port. Plug the large end into the Epson.
+
+![The two micro-HDMI ports on a Pi 4](docs/pi/micro-hdmi-ports.jpg)
+
+![A micro-HDMI plug for the Pi and a full-size HDMI plug for the projector](docs/pi/micro-hdmi-cable.jpg)
+
+On the Epson, choose the HDMI input you plugged into. Power the Pi from its official USB-C supply, not from a weak phone charger. The Pi desktop should appear on the projector. Finish the first-boot questions there. Open Chromium once so you know the browser starts. Raspberry Pi OS with the desktop already includes Chromium.
+
+The PC and the Pi must be on the same network. A cable from the Pi's Ethernet port to the router is steadier than Wi-Fi. Wi-Fi is fine if that is how you set the card.
 
 ### Turn on live output
 
-1. Install and open Beamloom on the PC.
-2. The first time you click **Pi**, Windows may ask whether Beamloom can use the network. Allow it on private networks. If the Pi stays on "Waiting for the PC", allow inbound TCP port **8751** for private networks in Windows Firewall.
-3. In Beamloom's show bar, click **Pi**. The bar shows an address like `http://192.168.1.20:8751/?player=1`. That address is the PC, not the Pi.
-4. On the Pi, open Chromium and go to that exact address. Press **F11** so the page fills the projector.
-5. On the PC, drag a surface corner. The projector should follow. **Master** and **Blackout** follow too. Built-in looks play on the Pi. An imported photo or video still plays only on the PC.
+1. Install Beamloom 0.1.4 or later on the PC and open it.
+2. Click **Pi** in the show bar. The first time, Windows may ask if Beamloom can use the network. Allow it on private networks. If the Pi stays on "Waiting for the PC", allow inbound TCP port **8751** for private networks in Windows Firewall.
+3. The show bar prints an address like `http://192.168.1.20:8751/?player=1`. That address is the PC.
+4. On the Pi, open Chromium, paste that address, and press **F11** so it covers the desktop.
+5. On the PC, drag a surface corner. The Epson should follow. **Master** and **Blackout** follow too. Built-in looks play on the Pi. An imported photo or video still plays only on the PC.
 
 You can open the same address in a browser on the PC before the Pi is ready. That checks the live page without the projector.
 
-Click **Stop Pi** when you are finished. While **Pi** is on, anyone on the same network who opens the address can see the looks. They do not get your photo or video files.
+Click **Stop Pi** when you are done. While **Pi** is on, anyone on the same network who opens the address can see the looks. They do not get your photo or video files.
 
 A second Pi, copying the show onto the Pi, and playback with the PC switched off are later steps.
 
