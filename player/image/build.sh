@@ -14,7 +14,14 @@ if [[ "$(id -u)" -eq 0 ]]; then
 fi
 
 rm -rf "$work"
-git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git "$work"
+# This revision produced a successful Beamloom image. Review upstream changes
+# before advancing it; pi-gen's build script and stages are part of our image.
+pigen_revision="6a0419c199dbb1f561c3b372d2e2c7d496461d8c"
+git init -q "$work"
+git -C "$work" remote add origin https://github.com/RPi-Distro/pi-gen.git
+git -C "$work" fetch --depth 1 origin "$pigen_revision"
+git -C "$work" checkout --detach FETCH_HEAD
+[[ "$(git -C "$work" rev-parse HEAD)" == "$pigen_revision" ]] || { echo "Wrong pi-gen revision" >&2; exit 1; }
 
 mkdir -p "$work/stage-beamloom/00-install/files"
 cp -a "$root/player/image/stage-beamloom/." "$work/stage-beamloom/"
@@ -22,7 +29,9 @@ cp "$root/player/beamloom_player.py" "$root/player/wifi.py" "$root/player/update
 cp "$root/player/systemd/"*.service "$work/stage-beamloom/00-install/files/"
 cp "$root/player/image/config" "$work/config"
 # Current pi-gen forces a 32-bit image after reading config. Pi 4 and Pi 5 use 64-bit.
+grep -qx 'export ARCH=armhf' "$work/build.sh" || { echo "pi-gen architecture setting changed; review build.sh" >&2; exit 1; }
 sed -i 's/^export ARCH=armhf$/export ARCH="${ARCH:-arm64}"/' "$work/build.sh"
+grep -Fqx 'export ARCH="${ARCH:-arm64}"' "$work/build.sh" || { echo "Could not set pi-gen to arm64" >&2; exit 1; }
 chmod +x "$work/stage-beamloom/00-install/00-run.sh" "$work/stage-beamloom/01-enable/00-run-chroot.sh"
 
 touch "$work/stage3/SKIP" "$work/stage4/SKIP" "$work/stage5/SKIP"

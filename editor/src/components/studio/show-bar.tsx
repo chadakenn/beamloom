@@ -9,6 +9,7 @@ import { useEditor } from "@/lib/beam/store";
 export function ShowBar() {
   const scene = useEditor((s) => activeScene(s));
   const sceneCount = useEditor((s) => s.scenes.length);
+  const hasImportedMedia = useEditor((s) => s.scenes.some((item) => item.surfaces.some((face) => Boolean(face.videoId))));
   const playing = useEditor((s) => s.playlistPlaying);
   const setPlaying = useEditor((s) => s.setPlaylistPlaying);
   const setDuration = useEditor((s) => s.setSceneDuration);
@@ -116,6 +117,9 @@ export function ShowBar() {
           On the Pi, open {piUrls[0]}
         </span>
       ) : null}
+      {piOn && hasImportedMedia && (
+        <span className="text-xs text-amber-400" role="status">Pi/LAN output shows built-in looks instead of imported photos or videos.</span>
+      )}
       {window.beamloomDesktop?.piStatus && (
         <details className="relative shrink-0">
           <summary className="cursor-pointer rounded-md border border-line px-3 py-2" aria-label="Pi link and update controls">
