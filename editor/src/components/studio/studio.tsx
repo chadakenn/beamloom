@@ -149,9 +149,27 @@ export function Studio() {
     if (stored) useEditor.getState().replace(stored);
     if (isProjector) setOutput(true);
     setReady(true);
-    return useEditor.subscribe((state) => {
-      if (!projectorRef.current) saveStoredProject(snapshot(state));
+    let pending: number | undefined;
+    const save = () => {
+      if (pending === undefined) return;
+      window.clearTimeout(pending);
+      pending = undefined;
+      saveStoredProject(snapshot(useEditor.getState()));
+    };
+    const onVisibility = () => { if (document.visibilityState === "hidden") save(); };
+    const unsubscribe = useEditor.subscribe(() => {
+      if (projectorRef.current) return;
+      if (pending !== undefined) window.clearTimeout(pending);
+      pending = window.setTimeout(save, 300);
     });
+    window.addEventListener("pagehide", save);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", onVisibility);
+      save();
+    };
   }, [setOutput]);
 
   useEffect(() => {

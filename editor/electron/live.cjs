@@ -24,6 +24,7 @@ const MIME = {
 };
 
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+const MAX_CLIENT_FRAME = 64 * 1024;
 
 function lanUrls(port) {
   const urls = [];
@@ -82,6 +83,10 @@ function takeFrame(buffer) {
 function attachSocket(socket, clients) {
   let buffer = Buffer.alloc(0);
   socket.on("data", (chunk) => {
+    if (buffer.length + chunk.length > MAX_CLIENT_FRAME) {
+      socket.destroy();
+      return;
+    }
     buffer = Buffer.concat([buffer, chunk]);
     for (;;) {
       const frame = takeFrame(buffer);

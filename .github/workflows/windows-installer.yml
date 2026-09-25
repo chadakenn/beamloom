@@ -19,6 +19,8 @@ jobs:
           cache-dependency-path: editor/package-lock.json
       - run: npm ci
         working-directory: editor
+      - run: node --test electron/live.test.cjs
+        working-directory: editor
       - run: npm run make:win
         working-directory: editor
       - uses: actions/upload-artifact@v4
