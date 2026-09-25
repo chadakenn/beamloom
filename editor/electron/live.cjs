@@ -25,6 +25,13 @@ const MIME = {
 
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_CLIENT_FRAME = 64 * 1024;
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+const CLIP_ID = /^[a-zA-Z0-9_-]{1,64}$/;
+
+function validImage(mime, bytes) {
+  return (mime === "image/png" && bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) ||
+    (mime === "image/jpeg" && bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255);
+}
 
 function lanUrls(port) {
   const urls = [];
@@ -115,9 +122,22 @@ function attachSocket(socket, clients) {
 
 function startLiveServer({ root, port = 8751 }) {
   const clients = new Set();
+  const images = new Map();
   let last = null;
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    if (url.pathname.startsWith("/media/")) {
+      const id = url.pathname.slice("/media/".length);
+      const image = request.method === "GET" && CLIP_ID.test(id) ? images.get(id) : null;
+      if (!image) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+      response.writeHead(200, { "content-type": image.mime, "content-length": image.bytes.length, "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      response.end(image.bytes);
+      return;
+    }
     if (url.pathname === "/" || url.pathname === "/index.html") {
       if (!url.searchParams.has("player")) {
         response.writeHead(302, { location: "/?player=1" });
@@ -182,11 +202,20 @@ function startLiveServer({ root, port = 8751 }) {
         stats() {
           return { viewers: clients.size };
         },
+        registerImage(id, mime, data) {
+          if (typeof id !== "string" || !CLIP_ID.test(id) || !ArrayBuffer.isView(data) && !(data instanceof ArrayBuffer)) return false;
+          const bytes = Buffer.from(data.buffer ?? data, data.byteOffset ?? 0, data.byteLength);
+          if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || !validImage(mime, bytes)) return false;
+          if (!images.has(id)) images.set(id, { mime, bytes: Buffer.from(bytes) });
+          return true;
+        },
         publish(frame) {
           last = JSON.stringify(frame);
           for (const socket of clients) sendText(socket, last);
         },
         stop() {
+          images.clear();
+          last = null;
           for (const socket of clients) socket.destroy();
           clients.clear();
           return new Promise((done) => server.close(() => done()));

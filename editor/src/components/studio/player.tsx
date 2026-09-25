@@ -3,7 +3,7 @@ import { createMapper, type DrawFace } from "@/lib/beam/gl-mapper";
 import { parseLiveFrame, type LiveFrame, type LiveSurface } from "@/lib/beam/live";
 import { gelRgb } from "@/lib/beam/looks";
 
-function drawFaces(frame: LiveFrame): DrawFace[] {
+function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>): DrawFace[] {
   if (frame.blackout) return [];
   return frame.surfaces.map((face: LiveSurface) => ({
     corners: face.corners,
@@ -17,7 +17,7 @@ function drawFaces(frame: LiveFrame): DrawFace[] {
     saturation: face.saturation,
     blend: face.blend,
     visible: face.visible,
-    source: null,
+    source: face.mediaId ? images.get(face.mediaId) ?? null : null,
   }));
 }
 
@@ -33,13 +33,31 @@ export function Player() {
     let socket: WebSocket | null = null;
     let retry = 0;
     let stopped = false;
+    const images = new Map<string, HTMLImageElement>();
+    const loading = new Set<string>();
+    let mediaEpoch = 0;
+    const loadImages = (current: LiveFrame) => {
+      for (const face of current.surfaces) {
+        const id = face.mediaId;
+        if (!id || images.has(id) || loading.has(id)) continue;
+        loading.add(id);
+        const epoch = mediaEpoch;
+        const image = new Image();
+        image.onload = () => {
+          if (!stopped && epoch === mediaEpoch && image.naturalWidth > 0) images.set(id, image);
+          if (epoch === mediaEpoch) loading.delete(id);
+        };
+        image.onerror = () => { if (epoch === mediaEpoch) loading.delete(id); };
+        image.src = `/media/${id}`;
+      }
+    };
     const fit = () => mapper?.resize(window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, 2));
     fit();
     window.addEventListener("resize", fit);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0;
     const loop = (now: number) => {
-      mapper?.draw(frame ? drawFaces(frame) : [], reduced ? 0 : now / 1000, frame?.master ?? 1);
+      mapper?.draw(frame ? drawFaces(frame, images) : [], reduced ? 0 : now / 1000, frame?.master ?? 1);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -50,9 +68,16 @@ export function Player() {
       next.onopen = () => setWaiting(false);
       next.onmessage = (event) => {
         const parsed = parseLiveFrame(event.data);
-        if (parsed) frame = parsed;
+        if (parsed) {
+          frame = parsed;
+          loadImages(parsed);
+        }
       };
       next.onclose = () => {
+        mediaEpoch += 1;
+        images.clear();
+        loading.clear();
+        frame = null;
         setWaiting(true);
         if (!stopped) retry = window.setTimeout(connect, 2000);
       };
@@ -60,6 +85,9 @@ export function Player() {
     connect();
     return () => {
       stopped = true;
+      mediaEpoch += 1;
+      images.clear();
+      loading.clear();
       window.clearTimeout(retry);
       cancelAnimationFrame(raf);
       socket?.close();
