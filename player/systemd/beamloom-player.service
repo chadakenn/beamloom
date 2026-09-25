@@ -1,0 +1,15 @@
+[Unit]
+Description=Beamloom player settings
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=BEAMLOOM_PLAYER_PORT=80
+Environment=BEAMLOOM_PLAYER_CONFIG=/var/lib/beamloom/player.json
+ExecStart=/usr/bin/python3 /opt/beamloom-player/beamloom_player.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

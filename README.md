@@ -93,7 +93,19 @@ You can open the same address in a browser on the PC before the Pi is ready. Tha
 
 Click **Stop Pi** when you are done. While **Pi** is on, anyone on the same network who opens the address can see the looks. They do not get your photo or video files.
 
-A second Pi, copying the show onto the Pi, and playback with the PC switched off are later steps.
+A second Pi, copying the show onto the Pi, and playback with the PC switched off come after the player below.
+
+## Player, in the Falcon Player style
+
+The steps above still use the Pi desktop. The player we are building is the other way: write a card, power the Pi, and never sign in on it. The Epson shows the output by itself. Settings are a web page on the show PC at **http://beamloom.local/**, the same idea as Falcon Player's `fpp.local`. This is Beamloom's own player. It does not use Falcon Player's code.
+
+There is no flashable image yet. What is in `player/` is the software that image will boot:
+
+- `player/beamloom_player.py` is the settings page and the waiting screen.
+- `player/install.sh` is run once on Raspberry Pi OS. It names the Pi `beamloom`, starts the page at boot, and fills HDMI without a desktop login.
+- After that, bookmark `http://beamloom.local/` on the PC. Paste the address from Beamloom's **Pi** button. The projector follows. If Windows cannot open the `.local` name, use the Pi's address from the router.
+
+The page is open to anyone on the same network, the same as a new Falcon Player. Do not put the Pi on the internet.
 
 ## Develop from source
 
@@ -114,6 +126,7 @@ The development server listens on `http://127.0.0.1:4173/`. Run `npm run build` 
 | `src/lib/beam/displays.ts` | Projector display selection |
 | `src/components/studio/` | Editor, projector frame, and inspector |
 | `electron/` | Windows desktop window and display integration |
+| `player/` | Pi player settings page and boot services |
 
 Beamloom's interface, looks, and mapping code are original to this project. Do not add assets, presets, or decompiled code from commercial mapping tools.
 
