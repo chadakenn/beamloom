@@ -15,6 +15,7 @@ export function Library() {
   const clearVideo = useEditor((s) => s.clearVideo);
   const select = useEditor((s) => s.select);
   const addSurface = useEditor((s) => s.addSurface);
+  const addLayerAbove = useEditor((s) => s.addLayerAbove);
   const patchSurface = useEditor((s) => s.patchSurface);
   const reorder = useEditor((s) => s.reorder);
   const clips = useClipList();
@@ -75,7 +76,16 @@ export function Library() {
         })}
       </ul>
       {selectedId ? (
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => addLayerAbove(selectedId)}
+            className="h-11 rounded-md border border-beam text-sm font-medium text-beam"
+          >
+            + Add layer on top
+          </button>
+          <p className="text-xs text-muted">Same corners, 65% opacity and Screen blend. Choose another look below.</p>
+          <div className="flex gap-2">
           <button
             type="button"
             onClick={() => reorder(selectedId, 1)}
@@ -92,6 +102,7 @@ export function Library() {
           >
             Move down
           </button>
+          </div>
         </div>
       ) : null}
       <div className="border-t border-line pt-3">
