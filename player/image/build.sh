@@ -6,6 +6,13 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 work="${BEAMLOOM_PIGEN_DIR:-/tmp/pi-gen}"
+
+if [[ "$(id -u)" -eq 0 ]]; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y quilt qemu-user-binfmt qemu-user-static debootstrap libarchive-tools arch-test parted dosfstools e2fsprogs zip xz-utils zerofree
+fi
+
 rm -rf "$work"
 git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git "$work"
 
