@@ -2,6 +2,7 @@ const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen } = require("
 const { readFile } = require("node:fs/promises");
 const https = require("node:https");
 const http = require("node:http");
+const path = require("node:path");
 const { startLiveServer } = require("./live.cjs");
 
 protocol.registerSchemesAsPrivileged([
