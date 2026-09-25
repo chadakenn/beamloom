@@ -4,12 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "electron/**"
-      - "src/**"
-      - "package.json"
-      - "package-lock.json"
-      - "forge.config.cjs"
-      - "vite.config.ts"
+      - "editor/**"
       - ".github/workflows/windows-installer.yml"
 
 jobs:
@@ -21,10 +16,13 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: editor/package-lock.json
       - run: npm ci
+        working-directory: editor
       - run: npm run make:win
+        working-directory: editor
       - uses: actions/upload-artifact@v4
         with:
           name: Beamloom-Windows-Installer
-          path: out/make/squirrel.windows/x64/*.exe
+          path: editor/out/make/squirrel.windows/x64/*.exe
           if-no-files-found: error
