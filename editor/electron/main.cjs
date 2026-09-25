@@ -235,6 +235,18 @@ app.whenReady().then(() => {
     if (event.sender !== editor?.webContents || !live) return false;
     return live.registerImage(id, mime, bytes);
   });
+  ipcMain.handle("beamloom:live-video-begin", (event, id, mime, size) => {
+    if (event.sender !== editor?.webContents || !live) return false;
+    return live.beginVideo(id, mime, size);
+  });
+  ipcMain.handle("beamloom:live-video-chunk", (event, id, offset, bytes) => {
+    if (event.sender !== editor?.webContents || !live) return false;
+    return live.videoChunk(id, offset, bytes);
+  });
+  ipcMain.handle("beamloom:live-video-finish", (event, id) => {
+    if (event.sender !== editor?.webContents || !live) return false;
+    return live.finishVideo(id);
+  });
   editor = createWindow();
   startUpdates();
   editor.on("closed", () => {

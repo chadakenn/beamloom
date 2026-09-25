@@ -26,11 +26,31 @@ const MIME = {
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_CLIENT_FRAME = 64 * 1024;
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 512 * 1024 * 1024;
 const CLIP_ID = /^[a-zA-Z0-9_-]{1,64}$/;
+const VIDEO_MIME = new Set(["video/mp4", "video/webm", "video/quicktime"]);
+
+function asBuffer(data) {
+  if (ArrayBuffer.isView(data)) return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  return null;
+}
 
 function validImage(mime, bytes) {
   return (mime === "image/png" && bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) ||
     (mime === "image/jpeg" && bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255);
+}
+
+function validVideo(mime, file) {
+  const head = Buffer.alloc(12);
+  const fd = fs.openSync(file, "r");
+  try {
+    const read = fs.readSync(fd, head, 0, 12, 0);
+    if (mime === "video/webm") return read >= 4 && head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3;
+    return read >= 8 && head.toString("ascii", 4, 8) === "ftyp";
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function lanUrls(port) {
@@ -123,19 +143,73 @@ function attachSocket(socket, clients) {
 function startLiveServer({ root, port = 8751 }) {
   const clients = new Set();
   const images = new Map();
+  const videos = new Map();
+  const pendingVideos = new Map();
+  let mediaDir = null;
   let last = null;
+  const ensureDir = () => {
+    if (!mediaDir) mediaDir = fs.mkdtempSync(path.join(os.tmpdir(), "beamloom-live-"));
+    return mediaDir;
+  };
+  const serveVideo = (request, response, video) => {
+    const size = video.size;
+    const range = request.headers.range;
+    if (!range) {
+      response.writeHead(200, {
+        "content-type": video.mime,
+        "content-length": size,
+        "accept-ranges": "bytes",
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff",
+      });
+      const stream = fs.createReadStream(video.file);
+      stream.on("error", () => response.destroy());
+      stream.pipe(response);
+      return;
+    }
+    const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+    const start = match ? Number(match[1]) : NaN;
+    let end = match && match[2] ? Number(match[2]) : size - 1;
+    if (!match || start >= size || end < start) {
+      response.writeHead(416, { "content-range": `bytes */${size}` });
+      response.end();
+      return;
+    }
+    end = Math.min(end, size - 1);
+    response.writeHead(206, {
+      "content-type": video.mime,
+      "content-length": end - start + 1,
+      "content-range": `bytes ${start}-${end}/${size}`,
+      "accept-ranges": "bytes",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    });
+    const stream = fs.createReadStream(video.file, { start, end });
+    stream.on("error", () => response.destroy());
+    stream.pipe(response);
+  };
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (url.pathname.startsWith("/media/")) {
       const id = url.pathname.slice("/media/".length);
-      const image = request.method === "GET" && CLIP_ID.test(id) ? images.get(id) : null;
-      if (!image) {
+      if (request.method !== "GET" || !CLIP_ID.test(id)) {
         response.writeHead(404);
         response.end();
         return;
       }
-      response.writeHead(200, { "content-type": image.mime, "content-length": image.bytes.length, "cache-control": "no-store", "x-content-type-options": "nosniff" });
-      response.end(image.bytes);
+      const image = images.get(id);
+      if (image) {
+        response.writeHead(200, { "content-type": image.mime, "content-length": image.bytes.length, "cache-control": "no-store", "x-content-type-options": "nosniff" });
+        response.end(image.bytes);
+        return;
+      }
+      const video = videos.get(id);
+      if (video) {
+        serveVideo(request, response, video);
+        return;
+      }
+      response.writeHead(404);
+      response.end();
       return;
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {
@@ -203,10 +277,42 @@ function startLiveServer({ root, port = 8751 }) {
           return { viewers: clients.size };
         },
         registerImage(id, mime, data) {
-          if (typeof id !== "string" || !CLIP_ID.test(id) || !ArrayBuffer.isView(data) && !(data instanceof ArrayBuffer)) return false;
-          const bytes = Buffer.from(data.buffer ?? data, data.byteOffset ?? 0, data.byteLength);
-          if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || !validImage(mime, bytes)) return false;
+          if (typeof id !== "string" || !CLIP_ID.test(id) || videos.has(id) || pendingVideos.has(id)) return false;
+          const bytes = asBuffer(data);
+          if (!bytes || !bytes.length || bytes.length > MAX_IMAGE_BYTES || !validImage(mime, bytes)) return false;
           if (!images.has(id)) images.set(id, { mime, bytes: Buffer.from(bytes) });
+          return true;
+        },
+        beginVideo(id, mime, size) {
+          if (typeof id !== "string" || !CLIP_ID.test(id) || !VIDEO_MIME.has(mime) || images.has(id)) return false;
+          if (!Number.isInteger(size) || size < 12 || size > MAX_VIDEO_BYTES) return false;
+          if (videos.has(id)) return "ready";
+          if (pendingVideos.has(id)) return false;
+          const file = path.join(ensureDir(), id);
+          fs.writeFileSync(file, Buffer.alloc(0));
+          pendingVideos.set(id, { mime, file, received: 0, size });
+          return "started";
+        },
+        videoChunk(id, offset, data) {
+          const item = typeof id === "string" ? pendingVideos.get(id) : null;
+          const bytes = asBuffer(data);
+          if (!item || !Number.isInteger(offset) || offset !== item.received || !bytes || !bytes.length) return false;
+          if (item.received + bytes.length > item.size) return false;
+          fs.appendFileSync(item.file, bytes);
+          item.received += bytes.length;
+          return true;
+        },
+        finishVideo(id) {
+          const item = typeof id === "string" ? pendingVideos.get(id) : null;
+          if (!item || item.received !== item.size || !validVideo(item.mime, item.file)) {
+            if (item) {
+              pendingVideos.delete(id);
+              fs.rmSync(item.file, { force: true });
+            }
+            return false;
+          }
+          pendingVideos.delete(id);
+          videos.set(id, { mime: item.mime, file: item.file, size: item.size });
           return true;
         },
         publish(frame) {
@@ -215,6 +321,10 @@ function startLiveServer({ root, port = 8751 }) {
         },
         stop() {
           images.clear();
+          videos.clear();
+          pendingVideos.clear();
+          if (mediaDir) fs.rmSync(mediaDir, { recursive: true, force: true });
+          mediaDir = null;
           last = null;
           for (const socket of clients) socket.destroy();
           clients.clear();
