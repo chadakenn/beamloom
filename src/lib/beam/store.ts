@@ -43,6 +43,7 @@ type EditorState = Project & {
   addSurface: () => void;
   removeSurface: (id: string) => void;
   duplicateSurface: (id: string) => void;
+  addLayerAbove: (id: string) => void;
   copySurfaceToScene: (id: string, sceneId: string) => void;
   patchSurface: (id: string, patch: Partial<Surface>) => void;
   setCorner: (id: string, index: number, x: number, y: number) => void;
@@ -360,6 +361,31 @@ export const useEditor = create<EditorState>((set, get) => ({
       ...mapSceneSurfaces(get(), scene.id, () => surfaces),
       seq,
       selectedId: copy.id,
+    });
+  },
+  addLayerAbove: (id) => {
+    const project = get();
+    const scene = activeScene(project);
+    const index = scene.surfaces.findIndex((face) => face.id === id);
+    if (index < 0) return;
+    const source = scene.surfaces[index];
+    const seq = project.seq + 1;
+    const layer: Surface = {
+      ...structuredClone(source),
+      id: `surf-${seq}`,
+      name: `${source.name} overlay`.slice(0, 40),
+      videoId: null,
+      blend: "screen",
+      opacity: 0.65,
+      locked: false,
+      visible: true,
+    };
+    const surfaces = [...scene.surfaces];
+    surfaces.splice(index + 1, 0, layer);
+    set({
+      ...mapSceneSurfaces(project, scene.id, () => surfaces),
+      seq,
+      selectedId: layer.id,
     });
   },
   copySurfaceToScene: (id, sceneId) => {
