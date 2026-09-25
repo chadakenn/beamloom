@@ -19,12 +19,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: editor/package-lock.json
       - run: npm ci
+        working-directory: editor
       - run: npm run make:win
+        working-directory: editor
       - name: Read version
         id: version
         shell: bash
-        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+        run: echo "value=$(node -p "require('./editor/package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Check the tag matches the app version
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
@@ -41,6 +44,6 @@ jobs:
           make_latest: true
           generate_release_notes: true
           files: |
-            out/make/squirrel.windows/x64/RELEASES
-            out/make/squirrel.windows/x64/*.nupkg
-            out/make/squirrel.windows/x64/*.exe
+            editor/out/make/squirrel.windows/x64/RELEASES
+            editor/out/make/squirrel.windows/x64/*.nupkg
+            editor/out/make/squirrel.windows/x64/*.exe

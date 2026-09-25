@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/beamloom-logo.svg" alt="Beamloom mapped diamond logo" width="420">
+  <img src="editor/public/beamloom-logo.svg" alt="Beamloom mapped diamond logo" width="420">
 </p>
 
 # Beamloom
@@ -12,7 +12,7 @@ Beamloom is a projection mapping studio for Windows. Add a surface to a projecto
 
 An installed copy checks for a newer release a few seconds after it opens, then again every 30 minutes. When one exists, a bar at the top of the editor offers **Update**. The download starts only after you click it, and **Restart** appears when it is ready. The project saved on this computer stays put. `Start Beamloom.bat` does not update itself. The first install of a build that shows this bar still has to be done by hand.
 
-**From source:** Install [Node.js LTS](https://nodejs.org/) (version 22 or newer), download and extract this repository, and double-click `Start Beamloom.bat`. The first launch installs dependencies and opens `http://127.0.0.1:4173/`. Keep the command window open while using Beamloom. If the browser cannot pick the projector automatically, open the output window, move it to the projector display, and make it fullscreen. Allow popups; fullscreen may need a click inside the output window.
+**From source:** Install [Node.js LTS](https://nodejs.org/) (version 22 or newer), download and extract this repository, and double-click `editor/Start Beamloom.bat`. The first launch installs dependencies and opens `http://127.0.0.1:4173/`. Keep the command window open while using Beamloom. If the browser cannot pick the projector automatically, open the output window, move it to the projector display, and make it fullscreen. Allow popups; fullscreen may need a click inside the output window.
 
 For a quick office test, start with one projector or a second display. Add a surface, choose a look, drag its corners to fit something in the image, then try **Lineup** and **Blackout** before building a longer show.
 
@@ -117,22 +117,23 @@ Until the first **Build Pi image** run finishes, there is nothing to flash. Do n
 ## Develop from source
 
 ```bash
+cd editor
 npm ci
 npm run dev
 ```
 
-The development server listens on `http://127.0.0.1:4173/`. Run `npm run build` to type-check and build the web app. On Windows, `npm run make:win` builds the desktop installer in `out/make/squirrel.windows/x64/`. The **Windows installer** workflow can also be started manually in GitHub Actions; it uploads the installer as an artifact. **Publish Windows release** uploads that installer, `RELEASES`, and the `.nupkg` to a GitHub Release. The release tag must be the version in `package.json`, such as `0.1.1`, with no `v` in front.
+The development server listens on `http://127.0.0.1:4173/`. From `editor/`, run `npm run build` to type-check and build the web app. On Windows, `npm run make:win` builds the desktop installer in `editor/out/make/squirrel.windows/x64/`. The **Windows installer** workflow can also be started manually in GitHub Actions; it uploads the installer as an artifact. **Publish Windows release** uploads that installer, `RELEASES`, and the `.nupkg` to a GitHub Release. The release tag must be the version in `editor/package.json`, such as `0.1.1`, with no `v` in front.
 
 | Path | Purpose |
 | --- | --- |
-| `src/lib/beam/project.ts` | Project, scenes, surfaces, and saved project data |
-| `src/lib/beam/store.ts` | Editor actions and undo history |
-| `src/lib/beam/gl-mapper.ts` | WebGL rendering, quad mapping, and masks |
-| `src/lib/beam/clips.ts` | Imported media and playback |
-| `src/lib/beam/project-file.ts` | Portable project save/open |
-| `src/lib/beam/displays.ts` | Projector display selection |
-| `src/components/studio/` | Editor, projector frame, and inspector |
-| `electron/` | Windows desktop window and display integration |
+| `editor/src/lib/beam/project.ts` | Project, scenes, surfaces, and saved project data |
+| `editor/src/lib/beam/store.ts` | Editor actions and undo history |
+| `editor/src/lib/beam/gl-mapper.ts` | WebGL rendering, quad mapping, and masks |
+| `editor/src/lib/beam/clips.ts` | Imported media and playback |
+| `editor/src/lib/beam/project-file.ts` | Portable project save/open |
+| `editor/src/lib/beam/displays.ts` | Projector display selection |
+| `editor/src/components/studio/` | Editor, projector frame, and inspector |
+| `editor/electron/` | Windows desktop window and display integration |
 | `player/` | Pi player settings page and boot services |
 
 Beamloom's interface, looks, and mapping code are original to this project. Do not add assets, presets, or decompiled code from commercial mapping tools.
