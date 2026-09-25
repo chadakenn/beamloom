@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Pause, Play } from "lucide-react";
 import { getFadeSeconds, setFadeSeconds, subscribeFade } from "@/lib/beam/fade";
 import { getMaster, setMaster, subscribeMaster } from "@/lib/beam/master";
+import { liveRunning, liveUrls, startLive, stopLive, subscribeLive } from "@/lib/beam/live-link";
 import { activeScene } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
 
@@ -22,6 +23,8 @@ export function ShowBar() {
   const [message, setMessage] = useState("");
   const fade = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
   const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
+  const piOn = useSyncExternalStore(subscribeLive, liveRunning, () => false);
+  const piUrls = useSyncExternalStore(subscribeLive, liveUrls, () => [] as string[]);
 
   useEffect(() => setSeconds(String(scene.durationSeconds)), [scene.id, scene.durationSeconds]);
   useEffect(() => {
@@ -75,6 +78,20 @@ export function ShowBar() {
         />
         <span className="w-10 tabular-nums text-fg">{Math.round(master * 100)}%</span>
       </label>
+      <button
+        type="button"
+        disabled={!window.beamloomDesktop?.liveStart}
+        onClick={() => void (piOn ? stopLive() : startLive())}
+        className="inline-flex h-10 shrink-0 items-center rounded-md border border-line px-3 disabled:opacity-40"
+        aria-pressed={piOn}
+      >
+        {piOn ? "Stop Pi" : "Pi"}
+      </button>
+      {piOn && piUrls[0] ? (
+        <span className="shrink-0 text-xs text-muted" role="status">
+          On the Pi, open {piUrls[0]}
+        </span>
+      ) : null}
       <details className="relative ml-auto shrink-0">
         <summary className="flex h-10 cursor-pointer list-none items-center rounded-md border border-line px-3 text-fg marker:hidden">
           Alignment presets

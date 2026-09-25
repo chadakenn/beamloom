@@ -28,9 +28,16 @@ The editor saves the working project in local browser storage on this computer. 
 
 Large videos produce large project files and need enough memory and local storage during import. Opening a project replaces the current editor project; other previously imported clips on the machine are retained. Alignment presets travel with the project. A newly added surface will not have saved corners in an older preset until you update that preset.
 
-## Pi projector players: planned direction
+## One Raspberry Pi
 
-The goal is to edit shows on a Windows PC and use a Raspberry Pi at each projector. **Live setup** would send changes from the PC to the projector while adjusting surfaces. **Show playback** would transfer the show and media to the Pi for local playback without requiring the PC to stay connected. Multiple Pi players would eventually stay in sync, with the PC providing controls and status. These Pi modes are a design goal; they are not part of the current Windows app.
+This step sends the current scene from the Windows app to one Pi. It is not in the 0.1.3 installer; it is in the app from the next published build. Photos, videos, and a saved show on the Pi come later.
+
+1. Install Beamloom from the Windows setup file and open it.
+2. In the show bar, click **Pi**. The bar shows an address such as `http://192.168.1.20:8751/?player=1`.
+3. On the Pi, open that address in Chromium and press F11 so it fills the screen. The Epson should be on the Pi's HDMI port.
+4. Drag a corner on the PC. The Pi follows. **Master** and **Blackout** follow too. Built-in looks play on the Pi. An imported photo or video stays on the PC for now.
+
+The PC and the Pi have to be on the same network. Anyone on that network can open the address while **Pi** is on, and they only see the looks, not your media files. Click **Stop Pi** when you are done. You can try the address in a browser on the PC before the Pi is connected.
 
 ## Develop from source
 
