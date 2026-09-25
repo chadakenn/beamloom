@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld("beamloomDesktop", {
   liveStop: () => ipcRenderer.invoke("beamloom:live-stop"),
   liveFrame: (frame) => ipcRenderer.send("beamloom:live-frame", frame),
   liveMedia: (id, mime, bytes) => ipcRenderer.invoke("beamloom:live-media", id, mime, bytes),
+  liveVideoBegin: (id, mime, size) => ipcRenderer.invoke("beamloom:live-video-begin", id, mime, size),
+  liveVideoChunk: (id, offset, bytes) => ipcRenderer.invoke("beamloom:live-video-chunk", id, offset, bytes),
+  liveVideoFinish: (id) => ipcRenderer.invoke("beamloom:live-video-finish", id),
   piStatus: (host) => ipcRenderer.invoke("beamloom:pi-status", host),
   piUpdate: (host) => ipcRenderer.invoke("beamloom:pi-update", host),
 });

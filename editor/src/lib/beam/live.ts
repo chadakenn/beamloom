@@ -15,6 +15,9 @@ export type LiveSurface = {
   blend: Blend;
   visible: boolean;
   mediaId?: string;
+  mediaPlaying?: boolean;
+  mediaTime?: number;
+  mediaLoop?: boolean;
   corners: Corners;
 };
 
@@ -73,6 +76,13 @@ function parseSurface(value: unknown): LiveSurface | null {
     blend,
     visible: face.visible !== false,
     mediaId: typeof face.mediaId === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(face.mediaId) ? face.mediaId : undefined,
+    ...(typeof face.mediaPlaying === "boolean"
+      ? {
+          mediaPlaying: face.mediaPlaying,
+          mediaTime: numberBetween(face.mediaTime, 0, 0, 24 * 60 * 60),
+          mediaLoop: face.mediaLoop === true,
+        }
+      : {}),
     corners: corners as Corners,
   };
 }

@@ -78,3 +78,50 @@ test("live server accepts a fragmented ping and closes an oversized incomplete f
     os.networkInterfaces = interfaces;
   }
 });
+test("a finished MP4 is served in ranges and a bad video is rejected", async () => {
+  const interfaces = os.networkInterfaces;
+  os.networkInterfaces = () => ({});
+  const server = await startLiveServer({ root: __dirname, port: 0 });
+  try {
+    const body = Buffer.alloc(16);
+    body.writeUInt32BE(16, 0);
+    body.write("ftyp", 4);
+    body.write("mp42", 8);
+    assert.equal(server.beginVideo("clip-1", "video/mp4", body.length), "started");
+    assert.equal(server.videoChunk("clip-1", 0, body.subarray(0, 8)), true);
+    assert.equal(server.videoChunk("clip-1", 8, body.subarray(8)), true);
+    assert.equal(server.finishVideo("clip-1"), true);
+    assert.equal(server.beginVideo("clip-1", "video/mp4", body.length), "ready");
+    assert.equal(server.beginVideo("../clip", "video/mp4", body.length), false);
+    assert.equal(server.beginVideo("huge", "video/mp4", 512 * 1024 * 1024 + 1), false);
+    assert.equal(server.beginVideo("text", "video/avi", 16), false);
+    const whole = await get(server.port, "/media/clip-1");
+    assert.equal(whole.status, 200);
+    assert.equal(whole.type, "video/mp4");
+    assert.deepEqual(whole.body, body);
+    const part = await new Promise((resolve, reject) => {
+      const request = http.request({ hostname: "127.0.0.1", port: server.port, path: "/media/clip-1", headers: { range: "bytes=4-7" } }, (response) => {
+        const chunks = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => resolve({ status: response.statusCode, range: response.headers["content-range"], body: Buffer.concat(chunks) }));
+      });
+      request.on("error", reject);
+      request.end();
+    });
+    assert.equal(part.status, 206);
+    assert.equal(part.range, "bytes 4-7/16");
+    assert.deepEqual(part.body, Buffer.from("ftyp"));
+    const webm = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(8)]);
+    assert.equal(server.beginVideo("clip-2", "video/webm", webm.length), "started");
+    assert.equal(server.videoChunk("clip-2", 0, webm), true);
+    assert.equal(server.finishVideo("clip-2"), true);
+    const fake = Buffer.alloc(16);
+    assert.equal(server.beginVideo("clip-3", "video/mp4", fake.length), "started");
+    assert.equal(server.videoChunk("clip-3", 0, fake), true);
+    assert.equal(server.finishVideo("clip-3"), false);
+    assert.equal((await get(server.port, "/media/clip-3")).status, 404);
+  } finally {
+    await server.stop();
+    os.networkInterfaces = interfaces;
+  }
+});

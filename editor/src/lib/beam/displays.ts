@@ -31,6 +31,9 @@ declare global {
       liveStop?: () => Promise<boolean>;
       liveFrame?: (frame: unknown) => void;
       liveMedia?: (id: string, mime: string, bytes: Uint8Array) => Promise<boolean>;
+      liveVideoBegin?: (id: string, mime: string, size: number) => Promise<"started" | "ready" | false>;
+      liveVideoChunk?: (id: string, offset: number, bytes: Uint8Array) => Promise<boolean>;
+      liveVideoFinish?: (id: string) => Promise<boolean>;
       piStatus?: (host: string) => Promise<{ error?: string; latencyMs?: number; viewers?: number; update?: { state: string; version?: string; available?: string | null; message?: string } } | null>;
       piUpdate?: (host: string) => Promise<{ error?: string; started?: boolean; current?: boolean } | null>;
     };
