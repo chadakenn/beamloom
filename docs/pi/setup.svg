@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" role="img" aria-label="Show PC talks to the Pi over the network. The Pi sends HDMI to the Epson.">
+  <rect width="960" height="340" rx="18" fill="#14161B"/>
+  <text x="40" y="42" fill="#F4F1EA" font-family="Segoe UI, sans-serif" font-size="22" font-weight="650">One projector</text>
+  <text x="198" y="42" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="16">Edit on the PC. The Pi only plays.</text>
+
+  <rect x="36" y="78" width="250" height="168" rx="16" fill="#1C1F26" stroke="#3A3D44"/>
+  <text x="56" y="118" fill="#E2A12B" font-family="Segoe UI, sans-serif" font-size="13" letter-spacing="1.5">SHOW PC</text>
+  <text x="56" y="154" fill="#F4F1EA" font-family="Segoe UI, sans-serif" font-size="22">Beamloom</text>
+  <text x="56" y="184" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="15">Map the corners here.</text>
+  <text x="56" y="214" fill="#F3C769" font-family="Segoe UI, sans-serif" font-size="15">Open beamloom.local</text>
+
+  <path d="M300 150h78" stroke="#E2A12B" stroke-width="2"/>
+  <path d="M370 144l10 6-10 6z" fill="#E2A12B"/>
+  <text x="304" y="138" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="12">network</text>
+
+  <rect x="392" y="78" width="220" height="168" rx="16" fill="#1C1F26" stroke="#E2A12B"/>
+  <text x="412" y="118" fill="#E2A12B" font-family="Segoe UI, sans-serif" font-size="13" letter-spacing="1.5">RASPBERRY PI</text>
+  <text x="412" y="154" fill="#F4F1EA" font-family="Segoe UI, sans-serif" font-size="22">Player</text>
+  <text x="412" y="184" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="15">No sign-in on the Pi.</text>
+  <text x="412" y="214" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="15">HDMI0 to the Epson.</text>
+
+  <path d="M626 150h78" stroke="#E2A12B" stroke-width="2"/>
+  <path d="M696 144l10 6-10 6z" fill="#E2A12B"/>
+  <text x="636" y="138" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="12">micro-HDMI</text>
+
+  <rect x="718" y="78" width="206" height="168" rx="16" fill="#1C1F26" stroke="#3A3D44"/>
+  <text x="738" y="118" fill="#E2A12B" font-family="Segoe UI, sans-serif" font-size="13" letter-spacing="1.5">EPSON</text>
+  <text x="738" y="154" fill="#F4F1EA" font-family="Segoe UI, sans-serif" font-size="22">The show</text>
+  <text x="738" y="184" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="15">Corners follow the PC</text>
+  <text x="738" y="208" fill="#B7B2A8" font-family="Segoe UI, sans-serif" font-size="15">as you drag them.</text>
+
+  <text x="40" y="292" fill="#8E897F" font-family="Segoe UI, sans-serif" font-size="14">Pi 5 or Pi 4. Raspberry Pi OS 64-bit desktop. Settings stay in the browser on the PC.</text>
+</svg>
