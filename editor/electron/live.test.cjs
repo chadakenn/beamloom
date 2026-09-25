@@ -1,8 +1,48 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const net = require("node:net");
+const http = require("node:http");
 const os = require("node:os");
 const { startLiveServer } = require("./live.cjs");
+
+function get(port, path) {
+  return new Promise((resolve, reject) => {
+    http.get({ hostname: "127.0.0.1", port, path }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => resolve({ status: response.statusCode, type: response.headers["content-type"], body: Buffer.concat(chunks) }));
+    }).on("error", reject);
+  });
+}
+
+test("registered PNG is served by clip id; invalid and unknown ids are rejected", async () => {
+  const interfaces = os.networkInterfaces;
+  os.networkInterfaces = () => ({});
+  const server = await startLiveServer({ root: __dirname, port: 0 });
+  try {
+    const bytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLytQAAAABJRU5ErkJggg==", "base64");
+    assert.equal(server.registerImage("photo-1", "image/png", bytes), true);
+    const jpeg = Buffer.from([255, 216, 255, 217]);
+    assert.equal(server.registerImage("photo-2", "image/jpeg", jpeg), true);
+    assert.equal(server.registerImage("bad/id", "image/png", bytes), false);
+    assert.equal(server.registerImage("fake-video", "video/mp4", bytes), false);
+    const oversized = Buffer.alloc(25 * 1024 * 1024 + 1);
+    bytes.copy(oversized, 0, 0, 8);
+    assert.equal(server.registerImage("too-large", "image/png", oversized), false);
+    const image = await get(server.port, "/media/photo-1");
+    assert.equal(image.status, 200);
+    assert.equal(image.type, "image/png");
+    assert.deepEqual(image.body, bytes);
+    const jpegResponse = await get(server.port, "/media/photo-2");
+    assert.equal(jpegResponse.type, "image/jpeg");
+    assert.deepEqual(jpegResponse.body, jpeg);
+    assert.equal((await get(server.port, "/media/unknown-id")).status, 404);
+    assert.equal((await get(server.port, "/media/bad%2Fid")).status, 404);
+  } finally {
+    await server.stop();
+    os.networkInterfaces = interfaces;
+  }
+});
 
 function connected(port) {
   return new Promise((resolve, reject) => {

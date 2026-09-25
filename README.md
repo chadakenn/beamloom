@@ -41,7 +41,7 @@ Large videos produce large project files and need enough memory and local storag
 
 Beamloom stays on the Windows PC. The Pi does not run the editor. After it is set up, you do not sign in on the Pi. The Epson shows the output, and the settings page is **[http://beamloom.local/](http://beamloom.local/)** on the show PC. This is the same idea as Falcon Player's `fpp.local`, built as Beamloom's own player.
 
-**Pi and LAN viewer limitation:** They show built-in animated looks only. Imported photos and videos are currently displayed only in the Windows editor and a projector connected directly to that PC. On the Pi, surfaces using imported media show their built-in look instead. Do not rely on Pi output for a photo or video show yet.
+**Pi and LAN viewer media:** While the Windows PC is on and Pi output is running, imported PNG and JPEG images up to 25 MB show inside their mapped surfaces. The image stays on the PC and is served over the local network; it is not copied onto the Pi. Larger images and imported videos still show their built-in look on Pi and LAN output. Use the Windows projector output for video shows.
 
 The SD card uses the ready-made Beamloom Pi image. Download it from [Build Pi image on GitHub Actions](https://github.com/chadakenn/beamloom/actions/workflows/pi-image.yml), then follow the steps below. You do not need to run any commands on the Pi.
 

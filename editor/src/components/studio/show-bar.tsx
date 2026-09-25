@@ -5,11 +5,15 @@ import { getMaster, setMaster, subscribeMaster } from "@/lib/beam/master";
 import { liveRunning, liveUrls, startLive, stopLive, subscribeLive } from "@/lib/beam/live-link";
 import { activeScene } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
+import { listClips, subscribeClips } from "@/lib/beam/clips";
 
 export function ShowBar() {
   const scene = useEditor((s) => activeScene(s));
   const sceneCount = useEditor((s) => s.scenes.length);
-  const hasImportedMedia = useEditor((s) => s.scenes.some((item) => item.surfaces.some((face) => Boolean(face.videoId))));
+  const scenes = useEditor((s) => s.scenes);
+  const clips = useSyncExternalStore(subscribeClips, listClips, listClips);
+  const videoIds = new Set(clips.filter((clip) => clip.kind === "video").map((clip) => clip.id));
+  const hasVideo = scenes.some((item) => item.surfaces.some((face) => face.videoId && videoIds.has(face.videoId)));
   const playing = useEditor((s) => s.playlistPlaying);
   const setPlaying = useEditor((s) => s.setPlaylistPlaying);
   const setDuration = useEditor((s) => s.setSceneDuration);
@@ -117,8 +121,8 @@ export function ShowBar() {
           On the Pi, open {piUrls[0]}
         </span>
       ) : null}
-      {piOn && hasImportedMedia && (
-        <span className="text-xs text-amber-400" role="status">Pi/LAN output shows built-in looks instead of imported photos or videos.</span>
+      {piOn && hasVideo && (
+        <span className="text-xs text-amber-400" role="status">Pi/LAN output shows built-in looks instead of imported videos.</span>
       )}
       {window.beamloomDesktop?.piStatus && (
         <details className="relative shrink-0">

@@ -222,13 +222,18 @@ app.whenReady().then(() => {
   });
   ipcMain.handle("beamloom:live-stop", async (event) => {
     if (event.sender !== editor?.webContents) return false;
-    if (live) await live.stop();
+    const stopping = live;
     live = undefined;
+    if (stopping) await stopping.stop();
     return true;
   });
   ipcMain.on("beamloom:live-frame", (event, frame) => {
     if (event.sender !== editor?.webContents || !live || !frame || typeof frame !== "object") return;
     live.publish(frame);
+  });
+  ipcMain.handle("beamloom:live-media", (event, id, mime, bytes) => {
+    if (event.sender !== editor?.webContents || !live) return false;
+    return live.registerImage(id, mime, bytes);
   });
   editor = createWindow();
   startUpdates();
