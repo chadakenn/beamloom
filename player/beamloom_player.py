@@ -217,7 +217,8 @@ class Handler(BaseHTTPRequestHandler):
             if not allowed or self.headers.get("X-Beamloom-Update") != "1":
                 self.send_error(403, "Only the configured show PC can update this Pi")
                 return
-            self.send_html(json.dumps({"started": updater.start()}))
+            result = updater.start()
+            self.send_html(json.dumps({"started": result == "started", "current": result == "current"}))
             return
         length = int(self.headers.get("content-length", "0") or "0")
         if length > 4000:

@@ -30,6 +30,7 @@ install -d /opt/beamloom-player /var/lib/beamloom
 install -m 0644 "$(dirname "$0")/beamloom_player.py" /opt/beamloom-player/beamloom_player.py
 install -m 0644 "$(dirname "$0")/wifi.py" /opt/beamloom-player/wifi.py
 install -m 0644 "$(dirname "$0")/updater.py" /opt/beamloom-player/updater.py
+install -m 0644 "$(dirname "$0")/VERSION" /opt/beamloom-player/version
 if [[ ! -f /var/lib/beamloom/player.json ]]; then
   printf '%s\n' '{"pcUrl": ""}' > /var/lib/beamloom/player.json
 fi

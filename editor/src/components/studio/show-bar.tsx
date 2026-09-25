@@ -21,6 +21,7 @@ export function ShowBar() {
   const [presetName, setPresetName] = useState("");
   const [selectedPreset, setSelectedPreset] = useState("");
   const [message, setMessage] = useState("");
+  const [piMessage, setPiMessage] = useState("");
   const [piHost, setPiHost] = useState(() => localStorage.getItem("beamloom-pi-host") || "beamloom.local");
   const [piStatus, setPiStatus] = useState<Awaited<ReturnType<NonNullable<NonNullable<Window["beamloomDesktop"]>["piStatus"]>>>>(null);
   const [updatingPi, setUpdatingPi] = useState(false);
@@ -41,11 +42,14 @@ export function ShowBar() {
   }, [piHost]);
 
   async function updatePi() {
-    if (!window.confirm(`Update the Beamloom player on ${piHost}? Its output may briefly disconnect.`)) return;
+    const available = piStatus?.update?.available;
+    const version = piStatus?.update?.version ?? "the current player";
+    if (!available) return;
+    if (!window.confirm(`Update the Beamloom player on ${piHost} to ${available}? It is running ${version}. The picture may go dark for a few seconds.`)) return;
     setUpdatingPi(true);
     const result = await window.beamloomDesktop?.piUpdate?.(piHost);
     setUpdatingPi(false);
-    setMessage(result?.error ?? (result?.started ? "Pi update started; watch its status below." : "Pi update is already running."));
+    setPiMessage(result?.error ?? (result?.started ? `Update to ${available} started.` : result?.current ? "This Pi is already on the published release." : "Pi update is already running."));
   }
   useEffect(() => {
     if (selectedPreset && !alignments.some((preset) => preset.id === selectedPreset)) {
@@ -120,9 +124,9 @@ export function ShowBar() {
           <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-md border border-line bg-panel p-3 shadow-xl">
             <label htmlFor="pi-host" className="block">Pi address</label>
             <input id="pi-host" value={piHost} onChange={(event) => { setPiHost(event.target.value.trim()); setPiStatus(null); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="beamloom.local" />
-            <p className="mt-2 text-xs text-muted" role="status">{piStatus?.error ?? (piStatus ? `Response time: ${piStatus.latencyMs} ms. ${piStatus.update ? `Player: ${piStatus.update.state}${piStatus.update.message ? ` — ${piStatus.update.message}` : ""}` : "Reflash once with the new Pi image to enable remote updates."}` : "Checking Pi...")}</p>
-            <button type="button" disabled={!!piStatus?.error || !piStatus?.update || updatingPi || piStatus.update?.state === "downloading"} onClick={() => void updatePi()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{updatingPi ? "Starting..." : "Update Pi player"}</button>
-            {message && <p className="mt-2 text-xs" role="status">{message}</p>}
+            <p className="mt-2 text-xs text-muted" role="status">{piStatus?.error ?? (piStatus ? `Response time: ${piStatus.latencyMs} ms. ${piStatus.update ? (piStatus.update.message ? piStatus.update.message : piStatus.update.available ? `Player ${piStatus.update.version}. Release ${piStatus.update.available} is ready.` : `Player ${piStatus.update.version} matches the published release.`) : "This card has no player updater. Build a new image before flashing."}` : "Checking Pi...")}</p>
+            <button type="button" disabled={!!piStatus?.error || !piStatus?.update?.available || updatingPi || piStatus.update?.state === "downloading" || piStatus.update?.state === "restarting"} onClick={() => void updatePi()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{updatingPi ? "Starting..." : piStatus?.update?.available ? `Update Pi player to ${piStatus.update.available}` : "Update Pi player"}</button>
+            {piMessage && <p className="mt-2 text-xs" role="status">{piMessage}</p>}
           </div>
         </details>
       )}
