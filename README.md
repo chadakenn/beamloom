@@ -41,7 +41,7 @@ Large videos produce large project files and need enough memory and local storag
 
 Beamloom stays on the Windows PC. The Pi does not run the editor. After it is set up, you do not sign in on the Pi. The Epson shows the output, and the settings page is **[http://beamloom.local/](http://beamloom.local/)** on the show PC. This is the same idea as Falcon Player's `fpp.local`, built as Beamloom's own player.
 
-There is no Beamloom SD card image to download yet. Write Raspberry Pi OS, run the player installer once, and use the browser after that. Live output is in Beamloom **0.1.4** and later. Photos, videos, and a show that keeps playing with the PC off come later.
+The SD card is a Beamloom image, not a Raspberry Pi OS desktop you set up by hand. **Build Pi image** in GitHub Actions makes a zip. Write that zip with Raspberry Pi Imager and boot the Pi. Do not run `player/install.sh` on that card. The image already contains the player. `install.sh` is only a fallback for a plain Raspberry Pi OS card.
 
 ### 1. Pick the board
 
@@ -66,15 +66,9 @@ There is no Beamloom SD card image to download yet. Write Raspberry Pi OS, run t
 
 ### 2. Write the card
 
-Use **Raspberry Pi OS (64-bit)** with the desktop. The current image is Debian 13, Trixie. Do not use **Lite**. Lite has no screen to put on the projector. You do not need Ubuntu.
+Use the Beamloom image from a finished **Build Pi image** run, not Raspberry Pi OS from the Imager list. In Imager, choose **Use custom**, pick the zip, and choose a microSD card of **32 GB** or larger. Leave system drives excluded so you do not erase the PC disk. You do not enter a username or your home Wi-Fi. The card already knows it is Beamloom.
 
-1. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on the PC.
-2. Choose the device: **Raspberry Pi 5** or **Raspberry Pi 4**.
-3. Choose **Raspberry Pi OS (64-bit)**, the desktop image, not Lite.
-4. Choose a microSD card of **32 GB** or larger. Leave system drives excluded so you do not erase the PC disk.
-5. Open Imager's settings before you write. Set a username and password. You do not have to type your home Wi-Fi here. The Pi can ask for it from the browser on first boot.
-
-Write the card, wait until Imager says it is safe to remove, and put it in the Pi.
+The image is Raspberry Pi OS Lite, 64-bit, Debian 13 Trixie, with the player already installed. SSH is off. If a keyboard is ever plugged in, the emergency account is `beamloom` and the password is `beamloom-player`. Day to day you only use the browser.
 
 ### 3. Cable the Epson
 
@@ -105,9 +99,7 @@ The home password is given to the Pi and is not saved in the Beamloom project. A
 
 ### 5. Open the player
 
-The player installer is in this repository at `player/install.sh`. On the Pi, run it once with `sudo`. It names the Pi `beamloom`, starts the setup network when needed, and fills the Epson without a desktop login. It will not run on a Windows PC.
-
-Then, on the show PC, back on your home Wi-Fi:
+Back on your home Wi-Fi:
 
 1. Install Beamloom 0.1.4 or later and click **Pi** in the show bar. Allow it on private networks if Windows asks. If the picture never starts, allow inbound TCP port **8751**.
 2. Open **[http://beamloom.local/](http://beamloom.local/)**. If that name fails, find the Pi in the router's device list and open that address instead.
@@ -118,9 +110,9 @@ The settings page is open to anyone on the same network. They can see the looks,
 
 You can open the same PC address in a browser on the PC before the Pi is ready. That checks the live page without the projector.
 
-### Try it before the player is installed
+### If the image is not ready yet
 
-If you have not run `player/install.sh` yet, the Pi still shows its desktop. Open Chromium on that desktop, paste the address from the **Pi** button, and press **F11**. That is only the temporary way to see a corner move. The player above is the setup to keep.
+Until the first **Build Pi image** run finishes, there is nothing to flash. Do not use `player/install.sh` unless you are trying a normal Raspberry Pi OS card on purpose. On that card, open Chromium, paste the address from the **Pi** button, and press **F11**. That is only a temporary look, not the setup to keep.
 
 ## Develop from source
 

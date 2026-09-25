@@ -1,0 +1,19 @@
+name: Build Pi image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the SD card image
+        run: sudo bash player/image/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Beamloom-Pi-image
+          path: /tmp/pi-gen/deploy/*
+          if-no-files-found: error
+          retention-days: 14
