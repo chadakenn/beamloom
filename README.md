@@ -28,16 +28,39 @@ The editor saves the working project in local browser storage on this computer. 
 
 Large videos produce large project files and need enough memory and local storage during import. Opening a project replaces the current editor project; other previously imported clips on the machine are retained. Alignment presets travel with the project. A newly added surface will not have saved corners in an older preset until you update that preset.
 
-## One Raspberry Pi
+## Set up one Raspberry Pi
 
-This step sends the current scene from the Windows app to one Pi. It is not in the 0.1.3 installer; it is in the app from the next published build. Photos, videos, and a saved show on the Pi come later.
+Beamloom stays on the Windows PC. The Pi does not run the editor. It opens a page from the PC and shows that page on the Epson. This is for lining up one projector. Photos, videos, and a show that keeps playing after the PC is turned off are not part of this step yet.
 
-1. Install Beamloom from the Windows setup file and open it.
-2. In the show bar, click **Pi**. The bar shows an address such as `http://192.168.1.20:8751/?player=1`.
-3. On the Pi, open that address in Chromium and press F11 so it fills the screen. The Epson should be on the Pi's HDMI port.
-4. Drag a corner on the PC. The Pi follows. **Master** and **Blackout** follow too. Built-in looks play on the Pi. An imported photo or video stays on the PC for now.
+This is not in the 0.1.3 installer. Use a build published after this change.
 
-The PC and the Pi have to be on the same network. Anyone on that network can open the address while **Pi** is on, and they only see the looks, not your media files. Click **Stop Pi** when you are done. You can try the address in a browser on the PC before the Pi is connected.
+### What you need
+
+- A Raspberry Pi 4 or Pi 5, its power supply, and a microSD card.
+- A monitor cable from the Pi to the Epson. Use the HDMI port on the Pi and the HDMI input on the projector.
+- The PC and the Pi on the same home network. Ethernet is steadier than Wi-Fi, but either works.
+
+### Prepare the Pi
+
+1. On the PC, install [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
+2. Choose **Raspberry Pi OS (64-bit)**, the desktop version, and write it to the microSD card. In Imager's settings, set a username and password. If the Pi will use Wi-Fi, enter that network here too.
+3. Put the card in the Pi, connect the Epson's HDMI input, and power the Pi on.
+4. On the Epson, select the HDMI input that the Pi is plugged into. You should see the Raspberry Pi desktop on the projector. Finish the first-boot questions on that desktop.
+5. Open Chromium on the Pi once, so you know the browser is there. Raspberry Pi OS desktop includes it.
+
+### Turn on live output
+
+1. Install and open Beamloom on the PC.
+2. The first time you click **Pi**, Windows may ask whether Beamloom can use the network. Allow it on private networks. If the Pi stays on "Waiting for the PC", allow inbound TCP port **8751** for private networks in Windows Firewall.
+3. In Beamloom's show bar, click **Pi**. The bar shows an address like `http://192.168.1.20:8751/?player=1`. That address is the PC, not the Pi.
+4. On the Pi, open Chromium and go to that exact address. Press **F11** so the page fills the projector.
+5. On the PC, drag a surface corner. The projector should follow. **Master** and **Blackout** follow too. Built-in looks play on the Pi. An imported photo or video still plays only on the PC.
+
+You can open the same address in a browser on the PC before the Pi is ready. That checks the live page without the projector.
+
+Click **Stop Pi** when you are finished. While **Pi** is on, anyone on the same network who opens the address can see the looks. They do not get your photo or video files.
+
+A second Pi, copying the show onto the Pi, and playback with the PC switched off are later steps.
 
 ## Develop from source
 
