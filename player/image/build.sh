@@ -10,7 +10,7 @@ work="${BEAMLOOM_PIGEN_DIR:-/tmp/pi-gen}"
 if [[ "$(id -u)" -eq 0 ]]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install -y quilt qemu-user-binfmt qemu-user-static debootstrap libarchive-tools arch-test parted dosfstools e2fsprogs zip xz-utils zerofree
+  apt-get install -y quilt parted coreutils qemu-user-binfmt debootstrap zerofree zip dosfstools e2fsprogs libcap2-bin libarchive-tools grep rsync xz-utils curl xxd file git kmod bc gpg pigz arch-test
 fi
 
 rm -rf "$work"
