@@ -8,7 +8,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --open false",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run check:electron && tsc --noEmit && vite build",
+    "check:electron": "node scripts/check-electron.cjs",
     "preview": "vite preview",
     "desktop": "npm run build && electron .",
     "make:win": "npm run build && electron-forge make --platform win32 --arch x64"
