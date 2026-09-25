@@ -41,7 +41,7 @@ Large videos produce large project files and need enough memory and local storag
 
 Beamloom stays on the Windows PC. The Pi does not run the editor. After it is set up, you do not sign in on the Pi. The Epson shows the output, and the settings page is **[http://beamloom.local/](http://beamloom.local/)** on the show PC. This is the same idea as Falcon Player's `fpp.local`, built as Beamloom's own player.
 
-The SD card is a Beamloom image, not a Raspberry Pi OS desktop you set up by hand. **Build Pi image** in GitHub Actions makes a zip. Write that zip with Raspberry Pi Imager and boot the Pi. Do not run `player/install.sh` on that card. The image already contains the player. `install.sh` is only a fallback for a plain Raspberry Pi OS card.
+The SD card uses the ready-made Beamloom Pi image. Download it from [Build Pi image on GitHub Actions](https://github.com/chadakenn/beamloom/actions/workflows/pi-image.yml), then follow the steps below. You do not need to run any commands on the Pi.
 
 ### 1. Pick the board
 
@@ -66,7 +66,13 @@ The SD card is a Beamloom image, not a Raspberry Pi OS desktop you set up by han
 
 ### 2. Write the card
 
-Use the Beamloom image from a finished **Build Pi image** run, not Raspberry Pi OS from the Imager list. In Imager, choose **Use custom**, pick the zip, and choose a microSD card of **32 GB** or larger. Leave system drives excluded so you do not erase the PC disk. You do not enter a username or your home Wi-Fi. The card already knows it is Beamloom.
+1. Open [Build Pi image](https://github.com/chadakenn/beamloom/actions/workflows/pi-image.yml) and click the newest run with a **green check mark**. If GitHub asks you to sign in to download, sign in first.
+2. At the bottom of that run's page, under **Artifacts**, click **Beamloom-Pi-image**. This downloads `Beamloom-Pi-image.zip`.
+3. **Extract `Beamloom-Pi-image.zip`** on your PC. Inside is another zip named `image_...-beamloom.zip`. Keep this **inner zip**; it is the one to flash.
+4. Install and open [Raspberry Pi Imager](https://www.raspberrypi.com/software/). Choose your Pi model. For the operating system, choose **Use custom** and select the **inner** `image_...-beamloom.zip` from step 3. Do not choose Raspberry Pi OS from the list or the outer `Beamloom-Pi-image.zip`.
+5. Insert a **32 GB or larger microSD card** into the PC, select that card in Imager, and click **Write**. Double-check that you selected the microSD card: writing erases it. When Imager finishes, remove the card and put it in the Pi.
+
+You do not need to enter a username or home Wi-Fi in Imager. The card already contains Beamloom. If the download is gone, the repository owner needs to run **Build Pi image** again.
 
 The image is Raspberry Pi OS Lite, 64-bit, Debian 13 Trixie, with the player already installed. SSH is off. If a keyboard is ever plugged in, the emergency account is `beamloom` and the password is `beamloom-player`. Day to day you only use the browser.
 
@@ -109,10 +115,6 @@ Back on your home Wi-Fi:
 The settings page is open to anyone on the same network. They can see the looks, not your photo or video files. Do not put the Pi on the internet. Click **Stop Pi** in Beamloom when you are done.
 
 You can open the same PC address in a browser on the PC before the Pi is ready. That checks the live page without the projector.
-
-### If the image is not ready yet
-
-Until the first **Build Pi image** run finishes, there is nothing to flash. Do not use `player/install.sh` unless you are trying a normal Raspberry Pi OS card on purpose. On that card, open Chromium, paste the address from the **Pi** button, and press **F11**. That is only a temporary look, not the setup to keep.
 
 ## Develop from source
 
