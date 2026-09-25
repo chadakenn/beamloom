@@ -21,20 +21,22 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y python3 avahi-daemon cage
+apt-get install -y python3 avahi-daemon cage network-manager
 if ! apt-get install -y chromium; then
   apt-get install -y chromium-browser
 fi
 
 install -d /opt/beamloom-player /var/lib/beamloom
 install -m 0644 "$(dirname "$0")/beamloom_player.py" /opt/beamloom-player/beamloom_player.py
+install -m 0644 "$(dirname "$0")/wifi.py" /opt/beamloom-player/wifi.py
 if [[ ! -f /var/lib/beamloom/player.json ]]; then
   printf '%s\n' '{"pcUrl": ""}' > /var/lib/beamloom/player.json
 fi
 
 hostnamectl set-hostname beamloom
+install -m 0644 "$(dirname "$0")/systemd/beamloom-wifi.service" /etc/systemd/system/beamloom-wifi.service
 install -m 0644 "$(dirname "$0")/systemd/beamloom-player.service" /etc/systemd/system/beamloom-player.service
 install -m 0644 "$(dirname "$0")/systemd/beamloom-kiosk.service" /etc/systemd/system/beamloom-kiosk.service
 systemctl daemon-reload
-systemctl enable --now avahi-daemon beamloom-player.service beamloom-kiosk.service
-echo "Player settings: http://beamloom.local/"
+systemctl enable --now avahi-daemon beamloom-wifi.service beamloom-player.service beamloom-kiosk.service
+echo "If the Pi is not on Ethernet, join Wi-Fi Beamloom, password beamloom, then open http://192.168.4.1/"

@@ -72,7 +72,7 @@ Use **Raspberry Pi OS (64-bit)** with the desktop. The current image is Debian 1
 2. Choose the device: **Raspberry Pi 5** or **Raspberry Pi 4**.
 3. Choose **Raspberry Pi OS (64-bit)**, the desktop image, not Lite.
 4. Choose a microSD card of **32 GB** or larger. Leave system drives excluded so you do not erase the PC disk.
-5. Open Imager's settings before you write. Set a username and password. If the Pi will use Wi-Fi, enter that network here.
+5. Open Imager's settings before you write. Set a username and password. You do not have to type your home Wi-Fi here. The Pi can ask for it from the browser on first boot.
 
 Write the card, wait until Imager says it is safe to remove, and put it in the Pi.
 
@@ -90,13 +90,24 @@ The Pi's video plug is smaller than the Epson's. You need a **micro-HDMI to HDMI
 1. Plug the cable into the Pi, then into the Epson.
 2. On the Epson, select that HDMI input.
 3. Power the Pi from its official USB-C supply, not a phone charger.
-4. Put the PC and the Pi on the same network. Ethernet is steadier than Wi-Fi.
+4. Ethernet is optional. If you plug the Pi into the router, skip the setup network below.
 
-### 4. Open it from the PC
+### 4. Give it your Wi-Fi
 
-The player installer is in this repository at `player/install.sh`. On the Pi, run it once with `sudo`. It names the Pi `beamloom`, starts the settings page at boot, and fills the Epson without a desktop login. It will not run on a Windows PC.
+This works like Falcon Player. If the Pi is not on Ethernet and does not already know a network, it starts its own.
 
-Then, on the show PC:
+1. On the show PC, join the Wi-Fi network **Beamloom**. The password is **beamloom**.
+2. Open **http://192.168.4.1/**.
+3. Enter your home Wi-Fi name and password and press **Join Wi-Fi**. Leave the password empty only if that network is open.
+4. The setup network turns off. Rejoin your home Wi-Fi.
+
+The home password is given to the Pi and is not saved in the Beamloom project. Anyone on the setup network can open the page, so use it only while you are standing there. Do not forward it to the internet.
+
+### 5. Open the player
+
+The player installer is in this repository at `player/install.sh`. On the Pi, run it once with `sudo`. It names the Pi `beamloom`, starts the setup network when needed, and fills the Epson without a desktop login. It will not run on a Windows PC.
+
+Then, on the show PC, back on your home Wi-Fi:
 
 1. Install Beamloom 0.1.4 or later and click **Pi** in the show bar. Allow it on private networks if Windows asks. If the picture never starts, allow inbound TCP port **8751**.
 2. Open **[http://beamloom.local/](http://beamloom.local/)**. If that name fails, find the Pi in the router's device list and open that address instead.

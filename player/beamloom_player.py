@@ -9,12 +9,17 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import threading
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+import wifi
 CONFIG = Path(os.environ.get("BEAMLOOM_PLAYER_CONFIG", ROOT / "player.json"))
 PORT = int(os.environ.get("BEAMLOOM_PLAYER_PORT", "8080"))
 HOST = os.environ.get("BEAMLOOM_PLAYER_HOST", "0.0.0.0")
@@ -63,6 +68,15 @@ def settings_page(config: dict, error: str = "") -> str:
     url = escape(config["pcUrl"])
     current = url or "Not set. The projector stays on the waiting screen."
     problem = f"<p>{escape(error)}</p>" if error else ""
+    network = wifi.status()
+    if network["mode"] == "setup":
+        wifi_note = f"This Pi is on its setup network. Join Wi-Fi <strong>{escape(network['setupSsid'])}</strong>, password <strong>{escape(network['setupPassword'])}</strong>, then stay on this page."
+    elif network["mode"] == "home":
+        wifi_note = f"Joined {escape(network['ssid'] or 'the home network')}."
+    elif network["mode"] == "ethernet":
+        wifi_note = "This Pi is on Ethernet."
+    else:
+        wifi_note = f"If the Pi is not on your network yet, join Wi-Fi <strong>{escape(wifi.SETUP_SSID)}</strong>, password <strong>{escape(wifi.SETUP_PASSWORD)}</strong>, and open <strong>http://{escape(wifi.SETUP_ADDRESS)}/</strong>."
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -85,7 +99,15 @@ def settings_page(config: dict, error: str = "") -> str:
   <main>
     <h1>Beamloom player</h1>
     <p>This Pi is the projector. Set it from this page on the show PC. You do not sign in on the Pi.</p>
-    <p>Open this page at <a href="http://beamloom.local/">http://beamloom.local/</a>. If that name does not open on Windows, use the Pi's address from the router instead.</p>
+    <p>{wifi_note}</p>
+    <form method="post" action="/wifi">
+      <label for="ssid">Home Wi-Fi name</label>
+      <input id="ssid" name="ssid" autocomplete="off" />
+      <label for="password">Home Wi-Fi password</label>
+      <input id="password" name="password" type="password" autocomplete="off" />
+      <p>Leave the password empty only if that network is open. The Pi turns off the setup network after this succeeds.</p>
+      <button type="submit">Join Wi-Fi</button>
+    </form>
     <form method="post" action="/settings">
       <label for="pcUrl">Beamloom PC address</label>
       <input id="pcUrl" name="pcUrl" value="{url}" placeholder="http://192.168.1.20:8751/?player=1" autocomplete="off" />
@@ -124,6 +146,9 @@ def screen_page() -> str:
         const url = typeof data.pcUrl === "string" ? data.pcUrl : "";
         const frame = document.getElementById("out");
         const wait = document.getElementById("wait");
+        if (data.wifi && data.wifi.mode === "setup") {
+          wait.textContent = "Join Wi-Fi " + data.wifi.setupSsid + ", password " + data.wifi.setupPassword + ", then open http://" + data.wifi.setupAddress;
+        }
         if (url && url !== current) {
           current = url;
           frame.hidden = false;
@@ -161,7 +186,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/health":
-            data = json.dumps(load_config()).encode("utf-8")
+            data = json.dumps({**load_config(), "wifi": wifi.status()}).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(data)))
@@ -178,14 +203,27 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_POST(self) -> None:
-        if self.path.split("?", 1)[0] != "/settings":
-            self.send_error(404)
-            return
+        path = self.path.split("?", 1)[0]
         length = int(self.headers.get("content-length", "0") or "0")
         if length > 4000:
             self.send_error(413)
             return
         fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
+        if path == "/wifi":
+            try:
+                ssid, password = wifi.clean_wifi((fields.get("ssid") or [""])[0], (fields.get("password") or [""])[0])
+            except ValueError as error:
+                self.send_html(settings_page(load_config(), str(error)), 400)
+                return
+            self.send_html(
+                "<!doctype html><html lang=en><body style=\"background:#0e0f12;color:#f4f1ea;font:18px sans-serif;padding:2rem\">"
+                "<p>Saved. Rejoin your home Wi-Fi, then open http://beamloom.local/</p></body></html>"
+            )
+            threading.Timer(1.5, lambda: self._join_home(ssid, password)).start()
+            return
+        if path != "/settings":
+            self.send_error(404)
+            return
         try:
             url = clean_url((fields.get("pcUrl") or [""])[0])
         except ValueError:
@@ -195,6 +233,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(303)
         self.send_header("location", "/")
         self.end_headers()
+
+    @staticmethod
+    def _join_home(ssid: str, password: str) -> None:
+        try:
+            wifi.join(ssid, password)
+        except RuntimeError:
+            return
 
 
 def main() -> None:
