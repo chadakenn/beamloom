@@ -30,6 +30,8 @@ declare global {
       liveStart?: () => Promise<{ port: number; urls: string[] } | null>;
       liveStop?: () => Promise<boolean>;
       liveFrame?: (frame: unknown) => void;
+      piStatus?: (host: string) => Promise<{ error?: string; latencyMs?: number; viewers?: number; update?: { state: string; version?: string; message?: string } } | null>;
+      piUpdate?: (host: string) => Promise<{ error?: string; started?: boolean } | null>;
     };
   }
 }

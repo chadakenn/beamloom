@@ -114,6 +114,8 @@ Back on your home Wi-Fi:
 
 The settings page is open to anyone on the same network. They can see the looks, not your photo or video files. Do not put the Pi on the internet. Click **Stop Pi** in Beamloom when you are done.
 
+The Windows app's **Pi online** indicator shows the Pi's response time and the number of live viewers. Open it to change the Pi address or click **Update Pi player**. Updates fetch the latest player code from this repository, keep a copy of the previous files on the Pi, and briefly restart the player. The PC and Pi both need internet access for the update. This updates Beamloom's player software, not Raspberry Pi OS. A Pi flashed before this feature was added needs one new SD card image before it can accept remote updates.
+
 You can open the same PC address in a browser on the PC before the Pi is ready. That checks the live page without the projector.
 
 ## Develop from source

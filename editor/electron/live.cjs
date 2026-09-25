@@ -174,6 +174,9 @@ function startLiveServer({ root, port = 8751 }) {
       resolve({
         port: actual,
         urls: lanUrls(actual),
+        stats() {
+          return { viewers: clients.size };
+        },
         publish(frame) {
           last = JSON.stringify(frame);
           for (const socket of clients) sendText(socket, last);

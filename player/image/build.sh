@@ -18,7 +18,7 @@ git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git "$work"
 
 mkdir -p "$work/stage-beamloom/00-install/files"
 cp -a "$root/player/image/stage-beamloom/." "$work/stage-beamloom/"
-cp "$root/player/beamloom_player.py" "$root/player/wifi.py" "$work/stage-beamloom/00-install/files/"
+cp "$root/player/beamloom_player.py" "$root/player/wifi.py" "$root/player/updater.py" "$work/stage-beamloom/00-install/files/"
 cp "$root/player/systemd/"*.service "$work/stage-beamloom/00-install/files/"
 cp "$root/player/image/config" "$work/config"
 # Current pi-gen forces a 32-bit image after reading config. Pi 4 and Pi 5 use 64-bit.

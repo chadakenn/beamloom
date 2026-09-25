@@ -21,12 +21,32 @@ export function ShowBar() {
   const [presetName, setPresetName] = useState("");
   const [selectedPreset, setSelectedPreset] = useState("");
   const [message, setMessage] = useState("");
+  const [piHost, setPiHost] = useState(() => localStorage.getItem("beamloom-pi-host") || "beamloom.local");
+  const [piStatus, setPiStatus] = useState<Awaited<ReturnType<NonNullable<NonNullable<Window["beamloomDesktop"]>["piStatus"]>>>>(null);
+  const [updatingPi, setUpdatingPi] = useState(false);
   const fade = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
   const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
   const piOn = useSyncExternalStore(subscribeLive, liveRunning, () => false);
   const piUrls = useSyncExternalStore(subscribeLive, liveUrls, () => [] as string[]);
 
   useEffect(() => setSeconds(String(scene.durationSeconds)), [scene.id, scene.durationSeconds]);
+  useEffect(() => {
+    localStorage.setItem("beamloom-pi-host", piHost);
+    if (!window.beamloomDesktop?.piStatus) return;
+    let active = true;
+    const refresh = () => { void window.beamloomDesktop?.piStatus?.(piHost).then((status) => { if (active) setPiStatus(status); }); };
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [piHost]);
+
+  async function updatePi() {
+    if (!window.confirm(`Update the Beamloom player on ${piHost}? Its output may briefly disconnect.`)) return;
+    setUpdatingPi(true);
+    const result = await window.beamloomDesktop?.piUpdate?.(piHost);
+    setUpdatingPi(false);
+    setMessage(result?.error ?? (result?.started ? "Pi update started; watch its status below." : "Pi update is already running."));
+  }
   useEffect(() => {
     if (selectedPreset && !alignments.some((preset) => preset.id === selectedPreset)) {
       setSelectedPreset(alignments[0]?.id ?? "");
@@ -92,6 +112,20 @@ export function ShowBar() {
           On the Pi, open {piUrls[0]}
         </span>
       ) : null}
+      {window.beamloomDesktop?.piStatus && (
+        <details className="relative shrink-0">
+          <summary className="cursor-pointer rounded-md border border-line px-3 py-2" aria-label="Pi link and update controls">
+            {piStatus?.error || !piStatus ? "Pi offline" : `Pi online · ${piStatus.latencyMs} ms · ${piStatus.viewers ? `${piStatus.viewers} live viewer${piStatus.viewers === 1 ? "" : "s"}` : "no live viewer"}`}
+          </summary>
+          <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-md border border-line bg-panel p-3 shadow-xl">
+            <label htmlFor="pi-host" className="block">Pi address</label>
+            <input id="pi-host" value={piHost} onChange={(event) => { setPiHost(event.target.value.trim()); setPiStatus(null); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="beamloom.local" />
+            <p className="mt-2 text-xs text-muted" role="status">{piStatus?.error ?? (piStatus ? `Response time: ${piStatus.latencyMs} ms. ${piStatus.update ? `Player: ${piStatus.update.state}${piStatus.update.message ? ` — ${piStatus.update.message}` : ""}` : "Reflash once with the new Pi image to enable remote updates."}` : "Checking Pi...")}</p>
+            <button type="button" disabled={!!piStatus?.error || !piStatus?.update || updatingPi || piStatus.update?.state === "downloading"} onClick={() => void updatePi()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{updatingPi ? "Starting..." : "Update Pi player"}</button>
+            {message && <p className="mt-2 text-xs" role="status">{message}</p>}
+          </div>
+        </details>
+      )}
       <details className="relative ml-auto shrink-0">
         <summary className="flex h-10 cursor-pointer list-none items-center rounded-md border border-line px-3 text-fg marker:hidden">
           Alignment presets

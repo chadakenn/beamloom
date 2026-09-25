@@ -13,4 +13,6 @@ contextBridge.exposeInMainWorld("beamloomDesktop", {
   liveStart: () => ipcRenderer.invoke("beamloom:live-start"),
   liveStop: () => ipcRenderer.invoke("beamloom:live-stop"),
   liveFrame: (frame) => ipcRenderer.send("beamloom:live-frame", frame),
+  piStatus: (host) => ipcRenderer.invoke("beamloom:pi-status", host),
+  piUpdate: (host) => ipcRenderer.invoke("beamloom:pi-update", host),
 });
