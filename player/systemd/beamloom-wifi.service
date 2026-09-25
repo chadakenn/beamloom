@@ -1,0 +1,14 @@
+[Unit]
+Description=Beamloom setup Wi-Fi
+After=NetworkManager.service
+Wants=NetworkManager.service
+Before=beamloom-player.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=BEAMLOOM_WIFI_APPLY=1
+ExecStart=/usr/bin/python3 /opt/beamloom-player/wifi.py ensure
+
+[Install]
+WantedBy=multi-user.target
