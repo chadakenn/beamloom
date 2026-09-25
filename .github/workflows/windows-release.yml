@@ -37,6 +37,36 @@ jobs:
             echo "Use a tag like 0.1.1, with no v prefix."
             exit 1
           fi
+      - name: Keep published releases immutable
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ steps.version.outputs.value }}"
+          status="$(curl --fail-with-body --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$version")" || result=$?
+          if [ "$status" = 200 ]; then
+            echo "Release $version already exists. Bump editor/package.json for the next release."
+            exit 1
+          fi
+          if [ "$status" != 404 ]; then
+            echo "Could not verify whether release $version exists (HTTP ${status:-unknown}, curl ${result:-0})."
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null; then
+              echo "Tag $version already exists. Run a new version instead."
+              exit 1
+            else
+              result=$?
+              if [ "$result" -ne 2 ]; then
+                echo "Could not verify whether tag $version already exists."
+                exit 1
+              fi
+            fi
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.value }}
