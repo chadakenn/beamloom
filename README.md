@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/beamloom-logo.svg" alt="Beamloom mapped diamond logo" width="420">
+</p>
+
 # Beamloom
 
 Beamloom is a projection mapping studio for Windows. Add a surface to a projector frame, place its four corners over a wall, window, or other feature, and give it a built-in look, photo, or video. The separate projector window follows changes you make in the editor.
