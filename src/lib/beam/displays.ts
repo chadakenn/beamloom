@@ -27,6 +27,9 @@ declare global {
       updateStatus?: () => Promise<{ phase: "available" | "downloading" | "ready" | "failed"; version: string | null } | null>;
       onUpdate?: (callback: (status: { phase: "available" | "downloading" | "ready" | "failed"; version: string | null }) => void) => () => void;
       applyUpdate?: () => Promise<boolean>;
+      liveStart?: () => Promise<{ port: number; urls: string[] } | null>;
+      liveStop?: () => Promise<boolean>;
+      liveFrame?: (frame: unknown) => void;
     };
   }
 }

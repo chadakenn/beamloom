@@ -10,4 +10,7 @@ contextBridge.exposeInMainWorld("beamloomDesktop", {
     return () => ipcRenderer.removeListener("beamloom:update", listener);
   },
   applyUpdate: () => ipcRenderer.invoke("beamloom:update-apply"),
+  liveStart: () => ipcRenderer.invoke("beamloom:live-start"),
+  liveStop: () => ipcRenderer.invoke("beamloom:live-stop"),
+  liveFrame: (frame) => ipcRenderer.send("beamloom:live-frame", frame),
 });

@@ -1,7 +1,7 @@
 const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen } = require("electron");
 const { readFile } = require("node:fs/promises");
 const https = require("node:https");
-const path = require("node:path");
+const { startLiveServer } = require("./live.cjs");
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "beamloom", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
@@ -28,6 +28,7 @@ const MIME = {
 
 let editor;
 let projector;
+let live;
 
 function fileFromRequest(root, requestUrl) {
   let pathname = "";
@@ -172,11 +173,36 @@ app.whenReady().then(() => {
     });
     return true;
   });
+  ipcMain.handle("beamloom:live-start", async (event) => {
+    if (event.sender !== editor?.webContents) return null;
+    if (!live) {
+      try {
+        live = await startLiveServer({ root: path.join(__dirname, "..", "dist") });
+      } catch {
+        return null;
+      }
+    }
+    return { port: live.port, urls: live.urls };
+  });
+  ipcMain.handle("beamloom:live-stop", async (event) => {
+    if (event.sender !== editor?.webContents) return false;
+    if (live) await live.stop();
+    live = undefined;
+    return true;
+  });
+  ipcMain.on("beamloom:live-frame", (event, frame) => {
+    if (event.sender !== editor?.webContents || !live || !frame || typeof frame !== "object") return;
+    live.publish(frame);
+  });
   editor = createWindow();
   startUpdates();
   editor.on("closed", () => {
     editor = undefined;
     if (projector && !projector.isDestroyed()) projector.close();
+    if (live) {
+      void live.stop();
+      live = undefined;
+    }
   });
   app.on("activate", () => {
     if (!editor) editor = createWindow();

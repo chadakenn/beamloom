@@ -11,6 +11,7 @@ import { Inspector } from "@/components/studio/inspector";
 import { Library } from "@/components/studio/library";
 import { Stage } from "@/components/studio/stage";
 import { ShowBar } from "@/components/studio/show-bar";
+import { setLiveBlackout } from "@/lib/beam/live-link";
 
 type Dock = "looks" | "adjust";
 type AppUpdate = { phase: "available" | "downloading" | "ready" | "failed"; version: string | null };
@@ -66,6 +67,10 @@ export function Studio() {
   const [blackout, setBlackout] = useState(false);
   const blackoutRef = useRef(false);
   const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
+
+  useEffect(() => {
+    setLiveBlackout(blackout);
+  }, [blackout]);
 
   useEffect(() => {
     const desktop = window.beamloomDesktop;
