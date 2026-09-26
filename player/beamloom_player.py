@@ -8,12 +8,15 @@ sign in on the Pi. The HDMI output stays on /screen and follows the saved PC add
 from __future__ import annotations
 
 import json
+import http.client
 import os
 import socket
+import subprocess
 import sys
 import threading
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import ip_address
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -26,6 +29,46 @@ CONFIG = Path(os.environ.get("BEAMLOOM_PLAYER_CONFIG", ROOT / "player.json"))
 PORT = int(os.environ.get("BEAMLOOM_PLAYER_PORT", "8080"))
 HOST = os.environ.get("BEAMLOOM_PLAYER_HOST", "0.0.0.0")
 JOIN = {"state": "idle", "message": ""}
+
+
+def display_status() -> dict:
+    try:
+        result = subprocess.run(["systemctl", "show", "beamloom-kiosk.service", "--property=ActiveState,SubState,Result", "--no-pager"],
+                                capture_output=True, text=True, timeout=3, check=False)
+        fields = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+        state = fields.get("ActiveState", "unknown")
+        message = ""
+        if state != "active":
+            recent = subprocess.run(["journalctl", "-u", "beamloom-kiosk.service", "-n", "5", "--no-pager", "-o", "cat"],
+                                    capture_output=True, text=True, timeout=3, check=False)
+            message = recent.stdout[-1200:]
+        return {"state": state, "detail": fields.get("SubState", ""), "result": fields.get("Result", ""), "message": message}
+    except (OSError, subprocess.TimeoutExpired):
+        return {"state": "unknown", "detail": "", "result": "", "message": "Display status is unavailable."}
+
+
+def check_pc(value: str) -> str:
+    url = clean_url(value)
+    parsed = urlparse(url)
+    try:
+        address = ip_address(parsed.hostname or "")
+    except ValueError as error:
+        raise ValueError("Use the PC's local IP address from Beamloom.") from error
+    if not address.is_private or address.is_loopback or address.is_link_local or parsed.scheme != "http" or parsed.port != 8751 or parsed.path not in {"", "/"} or parsed.query != "player=1" or parsed.fragment:
+        raise ValueError("Use the local PC address shown by the Pi button in Beamloom.")
+    connection = http.client.HTTPConnection(parsed.hostname, 8751, timeout=3)
+    try:
+        connection.request("GET", "/?player=1")
+        response = connection.getresponse()
+        if response.status != 200 or "text/html" not in response.getheader("content-type", ""):
+            raise ValueError("The PC did not answer with a Beamloom page.")
+        if b"<title>Beamloom</title>" not in response.read(2048):
+            raise ValueError("That address answered, but it is not the Beamloom live page.")
+    except (OSError, TimeoutError) as error:
+        raise ValueError("The Pi cannot reach the PC. Check that Pi output is running and allow Beamloom through the Windows firewall.") from error
+    finally:
+        connection.close()
+    return url
 
 
 def load_config() -> dict:
@@ -72,6 +115,9 @@ def settings_page(config: dict, error: str = "") -> str:
     current = url or "No show PC selected yet."
     problem = f"<p>{escape(error)}</p>" if error else ""
     network = wifi.status()
+    display = display_status()
+    display_note = "Projector display is running." if display["state"] == "active" else f"Projector display: {escape(display['state'])} {escape(display['detail'])}. {escape(display['result'])}"
+    display_error = f"<pre style='white-space:pre-wrap;overflow-wrap:anywhere'>{escape(display['message'])}</pre>" if display["message"] else ""
     if network["mode"] == "setup":
         wifi_note = f"This Pi is on its setup network. Join Wi-Fi <strong>{escape(network['setupSsid'])}</strong>, password <strong>{escape(network['setupPassword'])}</strong>, then stay on this page."
         if JOIN["state"] == "failed":
@@ -118,10 +164,15 @@ def settings_page(config: dict, error: str = "") -> str:
     <form method="post" action="/settings">
       <label for="pcUrl">PC address</label>
       <input id="pcUrl" name="pcUrl" value="{url}" placeholder="http://192.168.1.20:8751/?player=1" autocomplete="off" />
+      <button type="button" id="test-pc">Test PC connection</button>
       <button type="submit">Save PC address</button>
+      <p id="test-result" role="status"></p>
     </form>
     <p>Showing now: <strong>{current}</strong></p>
     <p>If the projector stays on a text boot screen, restart the Pi once after saving the address.</p>
+    </section>
+    <section class="card"><h2>Projector status</h2><p>{display_note}</p>{display_error}
+    <form method="post" action="/display/restart" onsubmit="return confirm('Restart the projector display? The picture may disappear for a moment.')"><button type="submit">Restart display</button></form>
     </section>
     <details><summary>Change Wi-Fi network</summary>
     <p>Only use this if you want to move the Pi to another network.</p>
@@ -136,6 +187,17 @@ def settings_page(config: dict, error: str = "") -> str:
     </details>
     {problem}
   </main>
+  <script>
+    document.getElementById("test-pc").addEventListener("click", async () => {{
+      const result = document.getElementById("test-result");
+      result.textContent = "Checking from the Pi…";
+      try {{
+        const response = await fetch("/check", {{method: "POST", headers: {{"content-type": "application/x-www-form-urlencoded"}}, body: new URLSearchParams({{pcUrl: document.getElementById("pcUrl").value}})}});
+        const data = await response.json();
+        result.textContent = data.ok ? "Connected. You can save this address." : data.error;
+      }} catch {{ result.textContent = "The Pi could not complete the check."; }}
+    }});
+  </script>
 </body>
 </html>
 """
@@ -225,7 +287,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/health":
-            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN}).encode("utf-8")
+            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN, "display": display_status()}).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(data)))
@@ -243,6 +305,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
+        if path in {"/connect", "/check", "/display/restart"}:
+            origin = self.headers.get("Origin")
+            if origin and urlparse(origin).hostname != self.headers.get("Host", "").split(":", 1)[0]:
+                self.send_error(403, "Open the Pi settings page directly")
+                return
+        if path == "/display/restart":
+            threading.Thread(target=lambda: subprocess.run(["systemctl", "restart", "beamloom-kiosk.service"], timeout=12, check=False), daemon=True).start()
+            self.send_response(303)
+            self.send_header("location", "/")
+            self.end_headers()
+            return
         if path == "/update":
             configured = urlparse(load_config()["pcUrl"]).hostname
             try:
@@ -262,6 +335,24 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(413)
             return
         fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
+        if path in {"/connect", "/check"}:
+            try:
+                url = check_pc((fields.get("pcUrl") or [""])[0])
+                if path == "/connect":
+                    save_config({"pcUrl": url})
+                answer = {"ok": True, "pcUrl": url}
+                status = 200
+            except ValueError as error:
+                answer = {"ok": False, "error": str(error)}
+                status = 400
+            data = json.dumps(answer).encode("utf-8")
+            self.send_response(status)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(data)))
+            self.send_header("cache-control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if path == "/wifi":
             try:
                 ssid, password = wifi.clean_wifi((fields.get("ssid") or [""])[0], (fields.get("password") or [""])[0])

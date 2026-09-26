@@ -107,18 +107,22 @@ This works like Falcon Player. If the Pi is not on Ethernet and does not already
 
 The home password is given to the Pi and is not saved in the Beamloom project. Anyone on the setup network can open the page, so use it only while you are standing there. Do not forward it to the internet.
 
-If no Beamloom network appears, connect the Pi to your router with Ethernet and try `http://beamloom.local/` from your PC. If the Pi stays on a text login screen, use a newly built image from a run that includes the kiosk fix; older images cannot repair their startup service through the player update button.
+If no Beamloom network appears, connect the Pi to your router with Ethernet and try `http://beamloom.local/` from your PC. On older images a text login screen can mean the projector display failed to start; once connected to the Pi settings page, check **Projector status** for the error. A new image is needed if its startup files are outdated; the player update button cannot replace those files.
 
 ### 5. Open the player
 
 Back on your home Wi-Fi:
 
-1. Install Beamloom 0.1.4 or later and click **Pi** in the show bar. Allow it on private networks if Windows asks. If the picture never starts, allow inbound TCP port **8751**.
-2. Open **[http://beamloom.local/](http://beamloom.local/)**. If that name fails, find the Pi in the router's device list and open that address instead.
-3. Paste the address from the **Pi** button, such as `http://192.168.1.20:8751/?player=1`, and press **Save**.
-4. Drag a corner in Beamloom. The Epson should follow. **Master** and **Blackout** follow too.
+1. Open Beamloom on a PC connected to the same home Wi-Fi or Ethernet as the Pi. Allow Beamloom on **private networks** if Windows asks.
+2. Click **Pi**, open **Pi online/offline**, and click **Find my Pi**. Pick the Pi shown. If it is not found, get its IP address from your router and type it in **Pi address**.
+3. Click **Connect this Pi**. Beamloom starts live output, asks the Pi to check the connection, and saves the working PC address on the Pi. Follow the five-step checklist until it shows a live picture.
+4. Drag a corner in Beamloom. The Pi screen should follow. **Master** and **Blackout** follow too.
 
-The settings page is open to anyone on the same network. They can see the looks, not your photo or video files. Do not put the Pi on the internet. Click **Stop Pi** in Beamloom when you are done.
+**If Connect this Pi is not available on an older player:** Open **[http://beamloom.local/](http://beamloom.local/)**, or open the Pi IP from your router. On its settings page, enter the PC address shown by Beamloom, such as `http://192.168.1.20:8751/?player=1`. Click **Test PC connection**, then **Save PC address**. An older Pi page may show only **Save**. If the Pi stays at a text boot screen after saving, restart it once. When Beamloom reports **1 live viewer**, the Pi is showing its output.
+
+If the connection test fails, make sure the PC and Pi are on the same home network, temporarily disconnect a VPN that routes local traffic, and allow inbound TCP port **8751** for Beamloom in Windows Firewall. The Pi settings page shows its Wi-Fi, saved PC address, and display status; use **Restart display** if the display is stuck. Your PC needs to remain on for the picture to play.
+
+The Pi settings page and the PC live page are open to anyone on the same network. While Pi output runs, imported photos and videos used in the show are served from the PC to LAN viewers. Keep this on a trusted home/show network, do not forward either device to the internet, and click **Stop Pi** when finished.
 
 The Windows app's **Pi online** indicator shows the Pi's response time and the number of live viewers. Open it to change the Pi address. **Update Pi player** installs a published GitHub release, and it names that version before it starts. It replaces only the player program, not the Pi startup files and not Raspberry Pi OS. If the new player does not answer, the Pi puts the previous one back. The PC and the Pi both need internet for the update.
 

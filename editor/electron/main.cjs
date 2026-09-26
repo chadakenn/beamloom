@@ -2,6 +2,7 @@ const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen } = require("
 const { readFile } = require("node:fs/promises");
 const https = require("node:https");
 const http = require("node:http");
+const dns = require("node:dns/promises");
 const path = require("node:path");
 const { startLiveServer } = require("./live.cjs");
 
@@ -38,10 +39,10 @@ function piAddress(host) {
   return host;
 }
 
-function piRequest(host, method = "GET") {
+function piRequest(host, method = "GET", timeout = 2500) {
   return new Promise((resolve, reject) => {
     const started = Date.now();
-    const request = http.request({ hostname: piAddress(host), port: 80, path: method === "POST" ? "/update" : "/health", method, timeout: 2500,
+    const request = http.request({ hostname: piAddress(host), port: 80, path: method === "POST" ? "/update" : "/health", method, timeout,
       headers: method === "POST" ? { "X-Beamloom-Update": "1" } : {} }, (response) => {
       let body = "";
       response.on("data", (chunk) => { body += chunk; if (body.length > 10000) request.destroy(new Error("Pi response too large")); });
@@ -54,6 +55,48 @@ function piRequest(host, method = "GET") {
     request.on("error", reject);
     request.end();
   });
+}
+
+function piSetupRequest(host, route, pcUrl) {
+  return new Promise((resolve, reject) => {
+    const body = new URLSearchParams({ pcUrl }).toString();
+    const request = http.request({ hostname: piAddress(host), port: 80, path: route, method: "POST", timeout: 5000,
+      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": Buffer.byteLength(body) } }, (response) => {
+      let data = "";
+      response.on("data", (chunk) => { data += chunk; if (data.length > 4000) request.destroy(new Error("Pi response too large")); });
+      response.on("end", () => {
+        if (response.statusCode === 404) return reject(new Error("This Pi needs a newer player for one-click setup. Open its settings page and save the PC address there."));
+        try {
+          const result = JSON.parse(data);
+          if (!result.ok) return reject(new Error(result.error || "The Pi could not connect to this PC"));
+          resolve(result);
+        } catch (error) { reject(error); }
+      });
+    });
+    request.on("timeout", () => request.destroy(new Error("Pi did not respond")));
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
+async function discoverPi() {
+  const candidate = live?.urls.find((url) => /^http:\/\/(?:192\.168\.|10\.|172\.)/.test(url));
+  if (!candidate) return [];
+  const address = new URL(candidate).hostname;
+  const prefix = address.split(".").slice(0, 3).join(".");
+  const found = [];
+  let next = 1;
+  await Promise.all(Array.from({ length: 24 }, async () => {
+    while (next < 255) {
+      const host = `${prefix}.${next++}`;
+      if (host === address) continue;
+      try {
+        const response = await piRequest(host, "GET", 650);
+        if (typeof response.pcUrl === "string" && response.wifi && response.update) found.push({ host, wifi: response.wifi });
+      } catch { /* Other LAN devices are expected. */ }
+    }
+  }));
+  return found;
 }
 
 function fileFromRequest(root, requestUrl) {
@@ -214,6 +257,26 @@ app.whenReady().then(() => {
     if (event.sender !== editor?.webContents) return null;
     try { return { ...(await piRequest(host)), viewers: live?.stats().viewers ?? 0 }; }
     catch (error) { return { error: error.message, viewers: live?.stats().viewers ?? 0 }; }
+  });
+  ipcMain.handle("beamloom:pi-discover", async (event) => {
+    if (event.sender !== editor?.webContents) return [];
+    return discoverPi();
+  });
+  ipcMain.handle("beamloom:pi-connect", async (event, host) => {
+    if (event.sender !== editor?.webContents || !live) return { error: "Start Pi output first." };
+    try {
+      const piIp = (await dns.lookup(piAddress(host), { family: 4 })).address;
+      const prefix = piIp.split(".").slice(0, 3).join(".");
+      const selected = live.urls.find((url) => url.startsWith(`http://${prefix}.`)) ?? live.urls.find((url) => !url.includes("//127.0.0.1:"));
+      if (!selected) return { error: "Connect this PC to the same home network as the Pi." };
+      await piSetupRequest(host, "/connect", selected);
+      return { ok: true, pcUrl: selected };
+    } catch (error) { return { error: error.message }; }
+  });
+  ipcMain.handle("beamloom:pi-check", async (event, host, pcUrl) => {
+    if (event.sender !== editor?.webContents || !live || !live.urls.includes(pcUrl)) return { error: "Start Pi output and choose a local PC address." };
+    try { return await piSetupRequest(host, "/check", pcUrl); }
+    catch (error) { return { error: error.message }; }
   });
   ipcMain.handle("beamloom:pi-update", async (event, host) => {
     if (event.sender !== editor?.webContents) return null;

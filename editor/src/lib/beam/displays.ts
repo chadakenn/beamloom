@@ -34,7 +34,10 @@ declare global {
       liveVideoBegin?: (id: string, mime: string, size: number) => Promise<"started" | "ready" | false>;
       liveVideoChunk?: (id: string, offset: number, bytes: Uint8Array) => Promise<boolean>;
       liveVideoFinish?: (id: string) => Promise<boolean>;
-      piStatus?: (host: string) => Promise<{ error?: string; latencyMs?: number; viewers?: number; update?: { state: string; version?: string; available?: string | null; message?: string } } | null>;
+      piStatus?: (host: string) => Promise<{ error?: string; latencyMs?: number; viewers?: number; pcUrl?: string; wifi?: { mode: string; ssid: string }; display?: { state: string; detail: string; result: string; message: string }; update?: { state: string; version?: string; available?: string | null; message?: string } } | null>;
+      piDiscover?: () => Promise<{ host: string; wifi: { mode: string; ssid: string } }[]>;
+      piConnect?: (host: string) => Promise<{ ok?: boolean; error?: string; pcUrl?: string }>;
+      piCheck?: (host: string, pcUrl: string) => Promise<{ ok?: boolean; error?: string }>;
       piUpdate?: (host: string) => Promise<{ error?: string; started?: boolean; current?: boolean } | null>;
     };
   }
