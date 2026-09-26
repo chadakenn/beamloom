@@ -1,14 +1,24 @@
 [Unit]
 Description=Beamloom projector output
-After=beamloom-player.service systemd-user-sessions.service
-Wants=beamloom-player.service
+After=beamloom-player.service systemd-user-sessions.service dbus.socket systemd-logind.service getty@tty1.service
+Wants=beamloom-player.service dbus.socket systemd-logind.service
+Conflicts=getty@tty1.service
+ConditionPathExists=/dev/tty0
 
 [Service]
+User=beamloom
+PAMName=beamloom-kiosk
 ExecStart=/usr/bin/cage -s -- /usr/bin/chromium --kiosk --ozone-platform=wayland --autoplay-policy=no-user-gesture-required --noerrdialogs http://127.0.0.1/screen
+ExecStartPost=+/usr/bin/chvt 1
 Restart=on-failure
 RestartSec=3
 TTYPath=/dev/tty1
-StandardInput=tty
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+UtmpIdentifier=tty1
+UtmpMode=user
+StandardInput=tty-fail
 StandardOutput=journal
 StandardError=journal
 

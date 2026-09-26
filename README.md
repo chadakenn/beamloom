@@ -78,6 +78,8 @@ You do not need to enter a username or home Wi-Fi in Imager. The card already co
 
 The image is Raspberry Pi OS Lite, 64-bit, Debian 13 Trixie, with the player already installed. SSH is off. If a keyboard is ever plugged in, the emergency account is `beamloom` and the password is `beamloom-player`. Day to day you only use the browser.
 
+The downloadable image sets the Wi-Fi country to **US**. Outside the US, build an image with your local `WPA_COUNTRY` before using its wireless setup network.
+
 ### 3. Cable the Epson
 
 The Pi's video plug is smaller than the Epson's. You need a **micro-HDMI to HDMI** cable. The small end goes in the Pi. The large end goes in the projector.
@@ -104,6 +106,8 @@ This works like Falcon Player. If the Pi is not on Ethernet and does not already
 4. The setup network turns off. Rejoin your home Wi-Fi.
 
 The home password is given to the Pi and is not saved in the Beamloom project. Anyone on the setup network can open the page, so use it only while you are standing there. Do not forward it to the internet.
+
+If no Beamloom network appears, connect the Pi to your router with Ethernet and try `http://beamloom.local/` from your PC. If the Pi stays on a text login screen, use a newly built image from a run that includes the kiosk fix; older images cannot repair their startup service through the player update button.
 
 ### 5. Open the player
 
