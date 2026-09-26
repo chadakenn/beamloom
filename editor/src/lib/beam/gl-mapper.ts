@@ -156,6 +156,59 @@ void main() {
     float fade = 1.0 - smoothstep(0.15, 0.72, length(p * vec2(1.2, 1.0)));
     col = vec3(0.02, 0.01, 0.05) + hue * arm * fade;
     col += vec3(1.0, 0.95, 0.9) * exp(-length(p) * 8.0) * 0.35;
+  } else if (uKind == 13) {
+    vec2 bone = uv;
+    bone.x += 0.035 * sin(uTime * 1.3 + uv.y * 4.0);
+    vec2 s = bone - vec2(0.5, 0.74);
+    float skull = smoothstep(0.155, 0.13, length(s * vec2(1.2, 1.0)));
+    float eyeL = smoothstep(0.034, 0.02, length(s - vec2(-0.045, 0.02)));
+    float eyeR = smoothstep(0.034, 0.02, length(s - vec2(0.045, 0.02)));
+    float jaw = smoothstep(0.018, 0.0, abs(s.y + 0.09)) * step(abs(s.x), 0.055);
+    float ribs = 0.0;
+    for (int i = 0; i < 5; i++) {
+      float y = 0.46 - float(i) * 0.07;
+      ribs += smoothstep(0.014, 0.0, abs(bone.y - y)) * smoothstep(0.18, 0.04, abs(bone.x - 0.5));
+    }
+    float spine = smoothstep(0.012, 0.0, abs(bone.x - 0.5)) * step(bone.y, 0.52) * step(0.14, bone.y);
+    float lit = clamp(skull - eyeL - eyeR + jaw + ribs + spine, 0.0, 1.0);
+    col = vec3(0.015, 0.01, 0.02) + vec3(0.95, 0.91, 0.8) * lit;
+  } else if (uKind == 14) {
+    col = vec3(0.012, 0.016, 0.03);
+    for (int i = 0; i < 3; i++) {
+      float fi = float(i);
+      float rise = fract(0.15 + fi * 0.28 + uTime * (0.06 + fi * 0.015));
+      vec2 g = uv - vec2(0.22 + fi * 0.28, rise);
+      float body = exp(-dot(g * vec2(2.4, 1.15), g * vec2(2.4, 1.15)) * 16.0);
+      float tail = exp(-pow((uv.x - g.x - uv.x) * 8.0, 2.0));
+      col += vec3(0.78, 0.92, 0.84) * body * (0.55 + 0.45 * sin(uTime * 1.5 + fi));
+      col += vec3(0.55, 0.75, 0.7) * smoothstep(0.35, 0.0, abs(uv.x - (0.22 + fi * 0.28))) * smoothstep(rise, rise - 0.25, uv.y) * 0.25;
+    }
+  } else if (uKind == 15) {
+    col = vec3(0.02, 0.018, 0.015);
+    float web = max(smoothstep(0.012, 0.0, abs(fract(uv.x * 7.0) - 0.5) - 0.47), smoothstep(0.012, 0.0, abs(fract(uv.y * 5.0) - 0.5) - 0.47));
+    col += vec3(0.55, 0.52, 0.45) * web * 0.45;
+    for (int i = 0; i < 4; i++) {
+      float fi = float(i);
+      vec2 c = vec2(0.18 + hash(vec2(fi, 1.3)) * 0.64, fract(hash(vec2(fi, 4.4)) - uTime * (0.07 + fi * 0.02)));
+      vec2 d = uv - c;
+      float body = exp(-dot(d, d) * 900.0);
+      float legs = exp(-abs(abs(d.x) - abs(d.y)) * 40.0) * exp(-dot(d, d) * 80.0);
+      col += vec3(0.92, 0.9, 0.82) * clamp(body + legs * 0.65, 0.0, 1.0);
+    }
+  } else if (uKind == 16) {
+    vec2 q = (uv - vec2(0.5, 0.48)) * vec2(1.15, 1.0);
+    float face = smoothstep(0.42, 0.36, length(q));
+    float eye = smoothstep(0.07, 0.045, length(q - vec2(-0.12, 0.08))) + smoothstep(0.07, 0.045, length(q - vec2(0.12, 0.08)));
+    float mouth = smoothstep(0.05, 0.02, abs(q.y + 0.12)) * step(abs(q.x), 0.16) * step(-0.2, q.y);
+    float flicker = 0.82 + 0.18 * sin(uTime * 6.0 + uv.x * 12.0);
+    col = vec3(0.02, 0.008, 0.0) + vec3(0.98, 0.48, 0.05) * face * (1.0 - clamp(eye + mouth, 0.0, 1.0)) * flicker;
+  } else if (uKind == 17) {
+    float travel = fract(uTime * 0.07);
+    vec2 q = uv - vec2(travel, 0.48);
+    float hat = step(abs(q.x) * 2.6, 0.16 - q.y) * step(0.0, q.y) * step(q.y, 0.16);
+    float head = smoothstep(0.055, 0.04, length(q - vec2(0.0, -0.02)));
+    float robe = smoothstep(0.015, 0.0, abs(q.x) - 0.028) * step(-0.32, q.y) * step(q.y, 0.0);
+    col = vec3(0.015, 0.02, 0.012) + vec3(0.72, 0.95, 0.55) * clamp(hat + head + robe, 0.0, 1.0);
   } else {
     col = uGel;
     float sheen = 0.08 * sin(uv.y * 18.0 + uTime * 0.6);

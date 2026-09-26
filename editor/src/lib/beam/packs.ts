@@ -175,6 +175,55 @@ export const PACKS: Pack[] = [
       }),
     ],
   },
+  {
+    id: "skeleton-test",
+    name: "Skeleton test",
+    blurb: "Bones, ghosts, fire, spiders, and pumpkin faces in the windows",
+    scenes: [
+      scene("Bones", {
+        window: style("skeleton", 1, { mask: "window", speed: 0.8 }),
+        door: style("skeleton", 1, { speed: 0.55, opacity: 0.85 }),
+        garage: style("wash", 4, { brightness: -0.35, opacity: 0.2 }),
+        trim: style("gel", 4, { opacity: 0.12 }),
+        wall: style("wash", 4, { brightness: -0.4, opacity: 0.15 }),
+      }),
+      scene("Ghosts", {
+        window: style("ghost", 1, { mask: "window", speed: 0.7, blend: "screen" }),
+        door: style("ghost", 1, { speed: 0.5, opacity: 0.8, blend: "screen" }),
+        garage: style("aurora", 3, { speed: 0.3, opacity: 0.35 }),
+        trim: style("gel", 1, { opacity: 0.2 }),
+        wall: style("ghost", 1, { speed: 0.4, opacity: 0.45, blend: "screen" }),
+      }),
+      scene("Fire", {
+        window: style("embers", 0, { mask: "window", speed: 1.4 }),
+        door: style("embers", 2, { speed: 1.1 }),
+        garage: style("wash", 0, { brightness: -0.2, opacity: 0.35 }),
+        trim: style("embers", 0, { speed: 0.6, opacity: 0.5 }),
+        wall: style("wash", 2, { brightness: -0.25, opacity: 0.3 }),
+      }),
+      scene("Spiders", {
+        window: style("spider", 1, { mask: "window", speed: 1 }),
+        door: style("spider", 1, { speed: 0.7, opacity: 0.8 }),
+        garage: style("spider", 1, { speed: 0.5, opacity: 0.55 }),
+        trim: style("gel", 1, { opacity: 0.15 }),
+        wall: style("wash", 4, { brightness: -0.35, opacity: 0.2 }),
+      }),
+      scene("Pumpkin faces", {
+        window: style("pumpkin", 0, { mask: "window", speed: 1 }),
+        door: style("pumpkin", 0, { speed: 0.8 }),
+        garage: style("embers", 0, { speed: 0.4, opacity: 0.4 }),
+        trim: style("gel", 0, { opacity: 0.25 }),
+        wall: style("wash", 0, { brightness: -0.3, opacity: 0.2 }),
+      }),
+      scene("Crossing", {
+        window: style("gel", 4, { mask: "window", opacity: 0.15 }),
+        door: style("witch", 3, { speed: 1 }),
+        garage: style("witch", 3, { speed: 0.7, opacity: 0.7 }),
+        trim: style("witch", 3, { speed: 1.1 }),
+        wall: style("witch", 3, { speed: 0.85, opacity: 0.8 }),
+      }),
+    ],
+  },
 ];
 
 export function surfaceRole(name: string): Role {
