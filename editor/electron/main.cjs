@@ -10,7 +10,10 @@ const { startLiveServer } = require("./live.cjs");
 const { squirrelInstall, isSquirrelInstalled } = require("./squirrel.cjs");
 const { newerRelease } = require("./update-version.cjs");
 
-if (squirrelInstall(process.execPath)) app.quit();
+if (squirrelInstall(process.execPath)) {
+  app.quit();
+  return;
+}
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "beamloom", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
