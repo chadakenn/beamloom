@@ -162,6 +162,7 @@ for _ in range(8):
     try:
         urllib.request.urlopen("http://127.0.0.1/health", timeout=2).read(10000)
         ok = True
+        subprocess.run(["systemctl", "restart", "beamloom-kiosk.service"], check=False)
         break
     except Exception:
         pass

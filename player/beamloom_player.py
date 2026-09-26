@@ -75,15 +75,25 @@ def show_staging() -> Path:
     return root.parent / f"{root.name}-next"
 
 
+def restart_kiosk() -> None:
+    try:
+        subprocess.run(["systemctl", "restart", "beamloom-kiosk.service"], timeout=12, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return
+
+
 def show_status() -> dict:
     project_path = show_root() / "project.json"
     if not project_path.is_file():
         return {"saved": False, "name": "", "files": 0, "bytes": 0}
     try:
         project = json.loads(project_path.read_text(encoding="utf-8"))
-        media = json.loads((show_root() / "media.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {"saved": False, "name": "", "files": 0, "bytes": 0}
+    try:
+        media = json.loads((show_root() / "media.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        media = []
     files = media if isinstance(media, list) else []
     return {
         "saved": True,
@@ -677,6 +687,8 @@ class Handler(BaseHTTPRequestHandler):
             if mode not in {"auto", "show", "live"}:
                 mode = "auto"
             save_config({"playMode": mode})
+            if mode == "show" and show_status()["saved"]:
+                threading.Thread(target=restart_kiosk, daemon=True).start()
             if "application/json" in self.headers.get("Accept", ""):
                 self._json({"ok": True, "playMode": mode})
                 return
