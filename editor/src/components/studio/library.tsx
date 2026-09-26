@@ -17,6 +17,7 @@ export function Library() {
   const select = useEditor((s) => s.select);
   const addSurface = useEditor((s) => s.addSurface);
   const applyPack = useEditor((s) => s.applyPack);
+  const openPack = useEditor((s) => s.openPack);
   const addLayerAbove = useEditor((s) => s.addLayerAbove);
   const patchSurface = useEditor((s) => s.patchSurface);
   const reorder = useEditor((s) => s.reorder);
@@ -108,14 +109,16 @@ export function Library() {
         </div>
       ) : null}
       <div className="border-t border-line pt-3">
-        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Show packs</h2>
-        <p className="mt-1 text-xs text-muted">Adds scenes on your current corners. Name a surface window, door, garage, or trim and that part gets its own look. Your mapped scene stays.</p>
+        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Included shows</h2>
+        <p className="mt-1 text-xs text-muted">These shows ship with Beamloom. Open one to project it, then drag the corners onto your house. On my corners keeps the mapping you already made.</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {PACKS.map((pack) => (
-            <button key={pack.id} type="button" onClick={() => applyPack(pack.id)} className="rounded-md border border-line px-2 py-2 text-left">
+            <div key={pack.id} className="rounded-md border border-line p-2">
               <span className="block text-sm font-medium text-fg">{pack.name}</span>
               <span className="mt-0.5 block text-xs text-muted">{pack.blurb}</span>
-            </button>
+              <button type="button" onClick={() => { if (window.confirm(`Open the ${pack.name} show that comes with Beamloom? Save the current project first if you still need it.`)) openPack(pack.id); }} className="mt-2 h-10 w-full rounded-md bg-beam text-sm font-medium text-ink">Open show</button>
+              <button type="button" onClick={() => applyPack(pack.id)} className="mt-1 h-10 w-full rounded-md border border-line text-sm text-fg">On my corners</button>
+            </div>
           ))}
         </div>
       </div>

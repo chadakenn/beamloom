@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { LookId } from "@/lib/beam/looks";
 import { clamp01, translateCorners, type Corners } from "@/lib/beam/math";
-import { applyPack } from "@/lib/beam/packs";
+import { applyPack, includedProject } from "@/lib/beam/packs";
 import {
   activeScene,
   demoProject,
@@ -40,6 +40,7 @@ type EditorState = Project & {
   reorderScene: (sourceId: string, targetId: string, after: boolean) => void;
   addScene: () => void;
   applyPack: (id: string) => void;
+  openPack: (id: string) => void;
   removeScene: (id: string) => void;
   select: (id: string | null) => void;
   addSurface: () => void;
@@ -301,6 +302,11 @@ export const useEditor = create<EditorState>((set, get) => ({
     const next = applyPack(snapshot(get()), id);
     if (next === snapshot(get()) || next.scenes === get().scenes) return;
     set(next);
+  },
+  openPack: (id) => {
+    const project = includedProject(id);
+    if (!project) return;
+    get().replace(project);
   },
   removeScene: (id) => {
     const scenes = get().scenes.filter((scene) => scene.id !== id);

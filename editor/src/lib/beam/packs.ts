@@ -105,6 +105,76 @@ export const PACKS: Pack[] = [
       }),
     ],
   },
+  {
+    id: "new-year",
+    name: "New Year",
+    blurb: "Countdown lights, gold sweep, and midnight",
+    scenes: [
+      scene("Countdown", {
+        window: style("tiles", 0, { speed: 1.4, mask: "window" }),
+        door: style("pinwheel", 0, { speed: 0.8 }),
+        garage: style("confetti", 1, { speed: 1.2 }),
+        trim: style("prism", 0, { speed: 0.7 }),
+        wall: style("confetti", 0, { speed: 1, opacity: 0.85 }),
+      }),
+      scene("Gold sweep", {
+        window: style("scan", 0, { speed: 0.6, mask: "window" }),
+        door: style("gel", 0),
+        garage: style("rings", 0, { speed: 0.5 }),
+        trim: style("wash", 0, { speed: 0.4 }),
+        wall: style("scan", 1, { speed: 0.45 }),
+      }),
+      scene("Midnight", {
+        window: style("confetti", 4, { speed: 0.8, mask: "window" }),
+        door: style("gel", 4, { opacity: 0.8 }),
+        garage: style("aurora", 4, { speed: 0.35, opacity: 0.7 }),
+        trim: style("pinwheel", 0, { speed: 0.3 }),
+        wall: style("aurora", 4, { speed: 0.3, opacity: 0.65 }),
+      }),
+      scene("Last burst", {
+        window: style("embers", 0, { speed: 1.8, mask: "window" }),
+        door: style("rings", 1, { speed: 1 }),
+        garage: style("tiles", 0, { speed: 1.3 }),
+        trim: style("prism", 0, { speed: 1 }),
+        wall: style("pinwheel", 0, { speed: 0.9 }),
+      }),
+    ],
+  },
+  {
+    id: "july",
+    name: "Fourth of July",
+    blurb: "Red, white, and spark bursts",
+    scenes: [
+      scene("Porch colors", {
+        window: style("columns", 2, { speed: 0.6, mask: "window" }),
+        door: style("gel", 1),
+        garage: style("gel", 3, { opacity: 0.85 }),
+        trim: style("scan", 2, { speed: 0.5 }),
+        wall: style("columns", 1, { speed: 0.4 }),
+      }),
+      scene("Spark bursts", {
+        window: style("embers", 1, { speed: 1.6, mask: "window" }),
+        door: style("gel", 2),
+        garage: style("confetti", 3, { speed: 1.1 }),
+        trim: style("pinwheel", 2, { speed: 0.45 }),
+        wall: style("confetti", 1, { speed: 0.9 }),
+      }),
+      scene("Night show", {
+        window: style("tiles", 2, { speed: 0.8, mask: "window" }),
+        door: style("gel", 3),
+        garage: style("rings", 1, { speed: 0.5 }),
+        trim: style("prism", 2, { speed: 0.4 }),
+        wall: style("wash", 3, { brightness: -0.2, speed: 0.3 }),
+      }),
+      scene("Finale", {
+        window: style("confetti", 1, { speed: 1.7, mask: "window" }),
+        door: style("pinwheel", 2, { speed: 0.7 }),
+        garage: style("embers", 0, { speed: 1.5 }),
+        trim: style("scan", 1, { speed: 0.8 }),
+        wall: style("prism", 2, { speed: 0.6 }),
+      }),
+    ],
+  },
 ];
 
 export function surfaceRole(name: string): Role {
@@ -142,6 +212,35 @@ function starterHouse(): Surface[] {
     face("Garage", [{ x: 0.08, y: 0.58 }, { x: 0.36, y: 0.58 }, { x: 0.36, y: 0.88 }, { x: 0.08, y: 0.88 }]),
     face("Eave trim", [{ x: 0.08, y: 0.16 }, { x: 0.92, y: 0.16 }, { x: 0.92, y: 0.24 }, { x: 0.08, y: 0.24 }]),
   ];
+}
+
+export function includedProject(packId: string): Project | null {
+  const pack = PACKS.find((item) => item.id === packId);
+  if (!pack) return null;
+  const bases = starterHouse();
+  let seq = 0;
+  const scenes = pack.scenes.map((recipe) => {
+    seq += 1;
+    const id = `scene-${seq}`;
+    return {
+      id,
+      name: recipe.name,
+      durationSeconds: recipe.durationSeconds,
+      surfaces: bases.map((face) => {
+        seq += 1;
+        return { ...face, id: `surf-${seq}`, ...recipe.roles[surfaceRole(face.name)] };
+      }),
+    };
+  });
+  return {
+    name: pack.name,
+    scenes,
+    activeSceneId: scenes[0].id,
+    selectedId: scenes[0].surfaces[0]?.id ?? null,
+    guides: true,
+    seq,
+    alignments: [],
+  };
 }
 
 export function applyPack(project: Project, packId: string): Project {
