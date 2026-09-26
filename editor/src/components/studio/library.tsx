@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Film, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { importVideoFiles, listClips, mediaFile, removeClip, restoreClips, resumeClips, subscribeClips, type Clip } from "@/lib/beam/clips";
 import { GELS, LOOKS, type LookId } from "@/lib/beam/looks";
+import { PACKS } from "@/lib/beam/packs";
 import { activeScene } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
 import { cn } from "@/lib/cn";
@@ -15,6 +16,7 @@ export function Library() {
   const clearVideo = useEditor((s) => s.clearVideo);
   const select = useEditor((s) => s.select);
   const addSurface = useEditor((s) => s.addSurface);
+  const applyPack = useEditor((s) => s.applyPack);
   const addLayerAbove = useEditor((s) => s.addLayerAbove);
   const patchSurface = useEditor((s) => s.patchSurface);
   const reorder = useEditor((s) => s.reorder);
@@ -105,6 +107,18 @@ export function Library() {
           </div>
         </div>
       ) : null}
+      <div className="border-t border-line pt-3">
+        <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Show packs</h2>
+        <p className="mt-1 text-xs text-muted">Adds scenes on your current corners. Name a surface window, door, garage, or trim and that part gets its own look. Your mapped scene stays.</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {PACKS.map((pack) => (
+            <button key={pack.id} type="button" onClick={() => applyPack(pack.id)} className="rounded-md border border-line px-2 py-2 text-left">
+              <span className="block text-sm font-medium text-fg">{pack.name}</span>
+              <span className="mt-0.5 block text-xs text-muted">{pack.blurb}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="border-t border-line pt-3">
         <h2 className="font-display text-sm font-semibold tracking-wide text-fg">Looks</h2>
         <p className="mt-1 text-xs text-muted">Click to change the selected surface, or choose a look before adding one.</p>
