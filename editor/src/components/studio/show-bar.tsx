@@ -26,10 +26,16 @@ export function ShowBar() {
   const [piHost, setPiHost] = useState(() => localStorage.getItem("beamloom-pi-host") || "beamloom.local");
   const [piStatus, setPiStatus] = useState<Awaited<ReturnType<NonNullable<NonNullable<Window["beamloomDesktop"]>["piStatus"]>>>>(null);
   const [updatingPi, setUpdatingPi] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [foundPis, setFoundPis] = useState<{ host: string; wifi: { mode: string; ssid: string } }[]>([]);
+  const [testResult, setTestResult] = useState<"ok" | "failed" | null>(null);
   const fade = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
   const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
   const piOn = useSyncExternalStore(subscribeLive, liveRunning, () => false);
   const piUrls = useSyncExternalStore(subscribeLive, liveUrls, () => [] as string[]);
+  const piSubnet = piHost.match(/^(\d+\.\d+\.\d+)\./)?.[1];
+  const suggestedPiUrl = piUrls.find((url) => piSubnet && url.startsWith(`http://${piSubnet}.`)) ?? piUrls.find((url) => !url.includes("//127.0.0.1:"));
 
   useEffect(() => setSeconds(String(scene.durationSeconds)), [scene.id, scene.durationSeconds]);
   useEffect(() => {
@@ -51,6 +57,37 @@ export function ShowBar() {
     const result = await window.beamloomDesktop?.piUpdate?.(piHost);
     setUpdatingPi(false);
     setPiMessage(result?.error ?? (result?.started ? `Update to ${available} started.` : result?.current ? "This Pi is already on the published release." : "Pi update is already running."));
+  }
+  async function findPis() {
+    setDiscovering(true);
+    setPiMessage("Searching this PC's local network…");
+    if (!liveRunning()) await startLive();
+    const found = await window.beamloomDesktop?.piDiscover?.() ?? [];
+    setFoundPis(found);
+    setPiMessage(found.length ? `Found ${found.length} Beamloom Pi${found.length === 1 ? "" : "s"}. Select one below.` : "No Pi found. Check Wi-Fi or enter the Pi's address below.");
+    setDiscovering(false);
+  }
+
+  async function connectPi() {
+    setConnecting(true);
+    setPiMessage("Checking whether the Pi can reach this PC…");
+    if (!liveRunning() && !await startLive()) {
+      setPiMessage("Could not start Pi output on this PC.");
+      setConnecting(false);
+      return;
+    }
+    const result = await window.beamloomDesktop?.piConnect?.(piHost);
+    setTestResult(result?.ok ? "ok" : "failed");
+    setPiMessage(result?.ok ? `Connected. The Pi saved ${result.pcUrl}. Its picture should appear now.` : result?.error || "Could not connect the Pi.");
+    if (result?.ok) setPiStatus(await window.beamloomDesktop?.piStatus?.(piHost) ?? null);
+    setConnecting(false);
+  }
+
+  async function testPi() {
+    if (!suggestedPiUrl) return;
+    const result = await window.beamloomDesktop?.piCheck?.(piHost, suggestedPiUrl);
+    setTestResult(result?.ok ? "ok" : "failed");
+    setPiMessage(result?.ok ? "The Pi can reach this PC." : result?.error || "The Pi could not reach this PC.");
   }
   useEffect(() => {
     if (selectedPreset && !alignments.some((preset) => preset.id === selectedPreset)) {
@@ -112,11 +149,12 @@ export function ShowBar() {
       >
         {piOn ? "Stop Pi" : "Pi"}
       </button>
-      {piOn && piUrls[0] ? (
+      {piOn && suggestedPiUrl ? (
         <span className="shrink-0 text-xs text-muted" role="status">
-          On the Pi, open {piUrls[0]}
+          Enter on the Pi settings page: {suggestedPiUrl}
         </span>
       ) : null}
+      {piOn && !suggestedPiUrl && <span className="text-xs text-amber-400" role="status">Connect this PC to the same home Wi-Fi as the Pi to get its address.</span>}
       {piOn && mediaNote ? (
         <span className="text-xs text-amber-400" role="status">{mediaNote}</span>
       ) : null}
@@ -125,12 +163,38 @@ export function ShowBar() {
           <summary className="cursor-pointer rounded-md border border-line px-3 py-2" aria-label="Pi link and update controls">
             {piStatus?.error || !piStatus ? "Pi offline" : `Pi online · ${piStatus.latencyMs} ms · ${piStatus.viewers ? `${piStatus.viewers} live viewer${piStatus.viewers === 1 ? "" : "s"}` : "no live viewer"}`}
           </summary>
-          <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-md border border-line bg-panel p-3 shadow-xl">
+          <div className="absolute left-0 top-full z-30 mt-2 w-[min(90vw,28rem)] rounded-md border border-line bg-panel p-3 shadow-xl">
+            <h3 className="font-semibold">Set up Pi output</h3>
+            <p className="mt-1 text-xs text-muted">Keep this PC and the Pi on the same home network. Find your Pi, then connect it to the picture from this app.</p>
+            <button type="button" disabled={discovering} onClick={() => void findPis()} className="mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">{discovering ? "Searching…" : "Find my Pi"}</button>
+            {foundPis.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{foundPis.map((found) => <button key={found.host} type="button" onClick={() => { setPiHost(found.host); setPiMessage(""); setTestResult(null); }} className="rounded border border-line px-2 py-1 text-xs">{found.host}{found.wifi.ssid ? ` · ${found.wifi.ssid}` : ""}</button>)}</div>}
             <label htmlFor="pi-host" className="block">Pi address</label>
-            <input id="pi-host" value={piHost} onChange={(event) => { setPiHost(event.target.value.trim()); setPiStatus(null); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="beamloom.local" />
+            <input id="pi-host" value={piHost} onChange={(event) => { setPiHost(event.target.value.trim()); setPiStatus(null); setTestResult(null); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="beamloom.local" />
+            <p className="mt-2 text-xs text-muted">Find this address in your router if beamloom.local does not work. The Pi and PC should be on the same home network.</p>
+            {piOn && suggestedPiUrl && <p className="mt-2 break-all text-xs">PC address to enter at <strong>http://{piHost}/</strong>: {suggestedPiUrl}</p>}
+            <button type="button" disabled={connecting} onClick={() => void connectPi()} className="mt-3 rounded bg-amber-400 px-3 py-2 text-black disabled:opacity-40">{connecting ? "Connecting…" : "Connect this Pi"}</button>
+            <button type="button" disabled={!piOn || !suggestedPiUrl || !!piStatus?.error} onClick={() => void testPi()} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Test connection</button>
+            <ol className="mt-4 space-y-1 text-xs" aria-label="Pi setup checklist">
+              <li>{piStatus && !piStatus.error ? "✓" : "○"} Pi found on your network</li>
+              <li>{piOn ? "✓" : "○"} Pi output running on this PC</li>
+              <li>{testResult === "ok" ? "✓" : "○"} Pi can reach this PC</li>
+              <li>{piStatus?.display?.state === "active" ? "✓" : "○"} Pi display running{piStatus?.display && piStatus.display.state !== "active" ? ` (${piStatus.display.state})` : ""}</li>
+              <li>{(piStatus?.viewers ?? 0) > 0 ? "✓" : "○"} Live picture on the Pi</li>
+            </ol>
+            {piStatus?.display?.state !== "active" && piStatus?.display?.message && <p className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap text-xs text-amber-400">{piStatus.display.message}</p>}
             <p className="mt-2 text-xs text-muted" role="status">{piStatus?.error ?? (piStatus ? `Response time: ${piStatus.latencyMs} ms. ${piStatus.update ? (piStatus.update.message ? piStatus.update.message : piStatus.update.available ? `Player ${piStatus.update.version}. Release ${piStatus.update.available} is ready.` : `Player ${piStatus.update.version} matches the published release.`) : "This card has no player updater. Build a new image before flashing."}` : "Checking Pi...")}</p>
             <button type="button" disabled={!!piStatus?.error || !piStatus?.update?.available || updatingPi || piStatus.update?.state === "downloading" || piStatus.update?.state === "restarting"} onClick={() => void updatePi()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{updatingPi ? "Starting..." : piStatus?.update?.available ? `Update Pi player to ${piStatus.update.available}` : "Update Pi player"}</button>
             {piMessage && <p className="mt-2 text-xs" role="status">{piMessage}</p>}
+            <p className="mt-2 text-xs text-muted">Need the full steps? Open the Pi settings page at <strong>http://{piHost}/</strong>.</p>
+            <details className="mt-3 text-xs text-muted">
+              <summary className="cursor-pointer text-fg">First-time setup guide</summary>
+              <ol className="mt-2 list-decimal space-y-1 pl-4">
+                <li>Connect the Pi to a screen and power it on.</li>
+                <li>If it shows a Beamloom setup network, join that Wi-Fi using password <strong>beamloom</strong>, then open <strong>http://192.168.4.1/</strong> and enter your home Wi-Fi.</li>
+                <li>Put this PC back on the same home network, click <strong>Find my Pi</strong>, and select it. If it does not appear, find its IP in your router and enter it above.</li>
+                <li>Click <strong>Connect this Pi</strong>. The checklist shows what still needs attention. Allow Beamloom on private networks if Windows asks.</li>
+              </ol>
+            </details>
           </div>
         </details>
       )}
