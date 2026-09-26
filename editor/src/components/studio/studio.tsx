@@ -14,7 +14,7 @@ import { ShowBar } from "@/components/studio/show-bar";
 import { setLiveBlackout } from "@/lib/beam/live-link";
 
 type Dock = "looks" | "adjust";
-type AppUpdate = { phase: "available" | "downloading" | "ready" | "failed"; version: string | null };
+type AppUpdate = { phase: "available" | "downloading" | "ready" | "failed"; version: string | null; message?: string | null };
 const LINEUP_KEY = "beamloom.lineup.v1";
 const BLACKOUT_KEY = "beamloom.blackout.v1";
 
@@ -67,6 +67,15 @@ export function Studio() {
   const [blackout, setBlackout] = useState(false);
   const blackoutRef = useRef(false);
   const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
+  const [appInfo, setAppInfo] = useState<{ version: string; installed: boolean } | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    void window.beamloomDesktop?.appInfo?.().then((info) => {
+      if (current) setAppInfo(info);
+    });
+    return () => { current = false; };
+  }, []);
 
   useEffect(() => {
     setLiveBlackout(blackout);
@@ -357,6 +366,12 @@ export function Studio() {
 
   return (
     <div id="beamloom-output" className="relative flex h-dvh flex-col bg-bg text-fg">
+      {!output && appInfo && !appInfo.installed ? (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-beam bg-panel px-3 py-2 text-sm text-fg" role="status">
+          <span>Beamloom {appInfo.version} is running outside its Windows installation. Install it once for desktop shortcuts and updates.</span>
+          <button type="button" onClick={() => void window.beamloomDesktop?.openInstallerPage?.()} className="h-10 shrink-0 rounded-md bg-beam px-3 font-medium text-ink">Get Setup.exe</button>
+        </div>
+      ) : null}
       {appUpdate && !output ? (
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-beam bg-panel px-3 py-2 text-sm text-fg" role="status">
           <span>
@@ -365,10 +380,11 @@ export function Studio() {
               : appUpdate.phase === "downloading"
                 ? `Downloading Beamloom ${appUpdate.version ?? ""}.`
                 : appUpdate.phase === "failed"
-                  ? "The update did not download."
+                  ? `Update failed: ${appUpdate.message ?? "Could not download the update."}`
                   : `Beamloom ${appUpdate.version ?? "a new version"} is available.`}
           </span>
           {appUpdate.phase === "downloading" ? null : (
+            <div className="flex shrink-0 gap-2">
             <button
               type="button"
               onClick={() => void window.beamloomDesktop?.applyUpdate?.()}
@@ -376,6 +392,8 @@ export function Studio() {
             >
               {appUpdate.phase === "ready" ? "Restart" : "Update"}
             </button>
+            {appUpdate.phase === "failed" ? <button type="button" onClick={() => void window.beamloomDesktop?.openInstallerPage?.()} className="h-10 rounded-md border border-line px-3">Get Setup.exe</button> : null}
+            </div>
           )}
         </div>
       ) : null}
@@ -384,6 +402,7 @@ export function Studio() {
           <div className="flex items-center gap-2 pr-1">
             <img src="/beamloom-mark.svg" alt="" className="size-8" aria-hidden="true" />
             <span className="font-display text-lg font-semibold leading-none">Beamloom</span>
+            {appInfo ? <span className="text-xs text-muted">v{appInfo.version}</span> : null}
           </div>
           <input
             aria-label="Project name"
