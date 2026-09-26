@@ -39,6 +39,12 @@ declare global {
       piConnect?: (host: string) => Promise<{ ok?: boolean; error?: string; pcUrl?: string }>;
       piCheck?: (host: string, pcUrl: string) => Promise<{ ok?: boolean; error?: string }>;
       piUpdate?: (host: string) => Promise<{ error?: string; started?: boolean; current?: boolean } | null>;
+      piShowStart?: (host: string) => Promise<{ ok?: boolean; error?: string }>;
+      piShowProject?: (host: string, project: unknown) => Promise<{ ok?: boolean; error?: string }>;
+      piShowOpen?: (id: string, name: string, mime: string, size: number) => Promise<{ ok?: boolean; error?: string }>;
+      piShowWrite?: (id: string, bytes: Uint8Array) => Promise<{ ok?: boolean; error?: string }>;
+      piShowFile?: (host: string, id: string) => Promise<{ ok?: boolean; error?: string }>;
+      piShowFinish?: (host: string) => Promise<{ ok?: boolean; error?: string; show?: { saved: boolean; name: string; files: number; bytes: number } }>;
     };
   }
 }

@@ -11,6 +11,8 @@ import json
 import base64
 import http.client
 import os
+import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -56,6 +58,116 @@ def hide_projector_cursor() -> None:
             subprocess.run(["systemctl", "try-restart", "beamloom-kiosk.service"], timeout=20, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return
+
+
+SHOW_MEDIA_LIMIT = 512 * 1024 * 1024
+SHOW_TYPES = {"image/png", "image/jpeg", "video/mp4", "video/webm", "video/quicktime"}
+
+
+def show_root() -> Path:
+    return Path(os.environ.get("BEAMLOOM_SHOW_DIR", "/var/lib/beamloom/show"))
+
+
+def show_staging() -> Path:
+    root = show_root()
+    return root.parent / f"{root.name}-next"
+
+
+def show_status() -> dict:
+    project_path = show_root() / "project.json"
+    if not project_path.is_file():
+        return {"saved": False, "name": "", "files": 0, "bytes": 0}
+    try:
+        project = json.loads(project_path.read_text(encoding="utf-8"))
+        media = json.loads((show_root() / "media.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"saved": False, "name": "", "files": 0, "bytes": 0}
+    files = media if isinstance(media, list) else []
+    return {
+        "saved": True,
+        "name": project.get("name", "") if isinstance(project, dict) else "",
+        "files": len(files),
+        "bytes": sum(int(item.get("bytes", 0)) for item in files if isinstance(item, dict)),
+    }
+
+
+def begin_show() -> None:
+    stage = show_staging()
+    if stage.exists():
+        shutil.rmtree(stage)
+    (stage / "media").mkdir(parents=True)
+    (stage / "media.json").write_text("[]\n", encoding="utf-8")
+
+
+def save_show_project(body: bytes) -> None:
+    stage = show_staging()
+    if not stage.is_dir():
+        raise ValueError("Start the send first.")
+    try:
+        project = json.loads(body)
+    except json.JSONDecodeError as error:
+        raise ValueError("The project file was not valid.") from error
+    if not isinstance(project, dict) or not isinstance(project.get("name"), str) or not isinstance(project.get("scenes"), list):
+        raise ValueError("The project file was not valid.")
+    project["name"] = project["name"][:80]
+    (stage / "project.json").write_text(json.dumps(project), encoding="utf-8")
+
+
+def save_show_media(handler: BaseHTTPRequestHandler, media_id: str) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", media_id):
+        raise ValueError("That media file was rejected.")
+    stage = show_staging()
+    if not (stage / "project.json").is_file():
+        raise ValueError("Send the project before its files.")
+    try:
+        size = int(handler.headers.get("content-length", "0"))
+    except ValueError as error:
+        raise ValueError("That media file was rejected.") from error
+    if size < 1 or size > SHOW_MEDIA_LIMIT:
+        raise ValueError("A show file must be under 512 MB.")
+    mime = handler.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if mime not in SHOW_TYPES:
+        raise ValueError("Only PNG, JPEG, MP4, WebM, and MOV files can be stored.")
+    try:
+        name = base64.b64decode(handler.headers.get("x-beamloom-name", ""), validate=True).decode("utf-8")
+    except (ValueError, UnicodeDecodeError) as error:
+        raise ValueError("That media file was rejected.") from error
+    name = " ".join(name.split())[:80] or "Media"
+    if shutil.disk_usage(stage).free < size + 32 * 1024 * 1024:
+        raise ValueError("The Pi does not have enough free space for this show.")
+    target = stage / "media" / media_id
+    remaining = size
+    try:
+        with target.open("wb") as handle:
+            while remaining:
+                chunk = handler.rfile.read(min(1024 * 1024, remaining))
+                if not chunk:
+                    raise ValueError("The file upload stopped early.")
+                handle.write(chunk)
+                remaining -= len(chunk)
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    items = json.loads((stage / "media.json").read_text(encoding="utf-8"))
+    items = [item for item in items if not isinstance(item, dict) or item.get("id") != media_id]
+    items.append({"id": media_id, "name": name, "mime": mime, "bytes": size})
+    (stage / "media.json").write_text(json.dumps(items), encoding="utf-8")
+
+
+def commit_show() -> dict:
+    stage = show_staging()
+    if not (stage / "project.json").is_file():
+        raise ValueError("There is no project to store.")
+    final = show_root()
+    final.parent.mkdir(parents=True, exist_ok=True)
+    previous = final.parent / f"{final.name}-previous"
+    if previous.exists():
+        shutil.rmtree(previous)
+    if final.exists():
+        final.rename(previous)
+    stage.rename(final)
+    shutil.rmtree(previous, ignore_errors=True)
+    return show_status()
 
 
 def display_status() -> dict:
@@ -155,6 +267,11 @@ def settings_page(config: dict, error: str = "") -> str:
         wifi_note = "This Pi is on Ethernet."
     else:
         wifi_note = f"If the Pi is not on your network yet, join Wi-Fi <strong>{escape(wifi.SETUP_SSID)}</strong>, password <strong>{escape(wifi.SETUP_PASSWORD)}</strong>, and open <strong>http://{escape(wifi.SETUP_ADDRESS)}/</strong>."
+    stored = show_status()
+    stored_note = (
+        f"Stored show: <strong>{escape(str(stored['name']))}</strong>, {stored['files']} file(s). This copy is not playing by itself yet."
+        if stored["saved"] else "No show is stored on this Pi yet."
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -184,6 +301,7 @@ def settings_page(config: dict, error: str = "") -> str:
     <div class="eyebrow">Projector player</div>
     <h1>Beamloom</h1>
     <p>Set up the Pi from your PC. The picture appears on the screen connected to this Pi.</p>
+    <p>{stored_note}</p>
     <div class="status">{wifi_note}</div>
     <section class="card">
     <h2>Connect your show PC</h2>
@@ -314,7 +432,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/health":
-            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN, "display": display_status()}).encode("utf-8")
+            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN, "display": display_status(), "show": show_status()}).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(data)))
@@ -328,10 +446,16 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             self.send_html(settings_page(load_config()))
             return
+        if path == "/show":
+            self._json(show_status())
+            return
         self.send_error(404)
 
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
+        if path == "/show/start" or path == "/show/project" or path == "/show/finish" or path.startswith("/show/media/"):
+            self._receive_show(path)
+            return
         if path in {"/connect", "/check", "/display/restart"}:
             origin = self.headers.get("Origin")
             if origin and urlparse(origin).hostname != self.headers.get("Host", "").split(":", 1)[0]:
@@ -402,6 +526,41 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(303)
         self.send_header("location", "/")
         self.end_headers()
+
+    def _json(self, payload: dict, status: int = 200) -> None:
+        data = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(data)))
+        self.send_header("cache-control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _receive_show(self, path: str) -> None:
+        try:
+            if path == "/show/start":
+                begin_show()
+                self._json({"ok": True})
+                return
+            if path == "/show/project":
+                length = int(self.headers.get("content-length", "0") or "0")
+                if length < 2 or length > 2 * 1024 * 1024:
+                    raise ValueError("The project file was not valid.")
+                body = self.rfile.read(length)
+                if len(body) != length:
+                    raise ValueError("The project file was not valid.")
+                save_show_project(body)
+                self._json({"ok": True})
+                return
+            if path == "/show/finish":
+                self._json({"ok": True, "show": commit_show()})
+                return
+            save_show_media(self, path.removeprefix("/show/media/"))
+            self._json({"ok": True})
+        except ValueError as error:
+            self._json({"ok": False, "error": str(error)}, 400)
+        except OSError:
+            self._json({"ok": False, "error": "The Pi could not store the show."}, 500)
 
     @staticmethod
     def _join_home(ssid: str, password: str) -> None:
