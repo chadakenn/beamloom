@@ -5,6 +5,7 @@ import os
 import tempfile
 import threading
 import unittest
+import zlib
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlencode
@@ -110,6 +111,54 @@ class SetupTest(unittest.TestCase):
                 self.assertEqual(post("/show/project", other, {"Content-Type": "application/json", "Content-Length": str(len(other))})[1]["ok"], True)
                 self.assertEqual(json.loads((Path(directory) / "show" / "project.json").read_text())["name"], "Facade")
             finally:
+                server.shutdown()
+                server.server_close()
+                thread.join()
+
+    def test_stored_show_can_be_played_without_the_pc(self):
+        self.assertEqual(zlib.decompress(base64.b64decode(player.PLAY_PAGE)).decode("utf-8"), Path(__file__).with_name("play.html").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ["BEAMLOOM_SHOW_DIR"] = str(Path(directory) / "show")
+            previous = player.CONFIG
+            player.CONFIG = Path(directory) / "player.json"
+            server = player.ThreadingHTTPServer(("127.0.0.1", 0), player.Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                def post(path, body=b"", headers=None):
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                    connection.request("POST", path, body, headers or {"Content-Length": str(len(body))})
+                    response = connection.getresponse()
+                    raw = response.read()
+                    connection.close()
+                    return response.status, raw
+
+                def get(path, headers=None):
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                    connection.request("GET", path, headers=headers or {})
+                    response = connection.getresponse()
+                    result = response.status, response.read()
+                    connection.close()
+                    return result
+
+                project = json.dumps({"name": "Facade", "scenes": [{"id": "a", "durationSeconds": 8, "surfaces": []}]}).encode()
+                self.assertEqual(post("/show/start")[0], 200)
+                self.assertEqual(post("/show/project", project, {"Content-Type": "application/json", "Content-Length": str(len(project))})[0], 200)
+                media = b"\xff\xd8\xff"
+                self.assertEqual(post("/show/media/clip1", media, {"Content-Type": "image/jpeg", "Content-Length": str(len(media)), "X-Beamloom-Name": base64.b64encode(b"Porch.jpg").decode()})[0], 200)
+                self.assertEqual(post("/show/finish")[0], 200)
+                self.assertIn(b"uKind", get("/play")[1])
+                self.assertEqual(json.loads(get("/show/project")[1])["name"], "Facade")
+                ranged = get("/show/media/clip1", {"Range": "bytes=1-2"})
+                self.assertEqual(ranged[0], 206)
+                self.assertEqual(ranged[1], b"\xd8\xff")
+                health = json.loads(get("/health")[1])
+                self.assertFalse(health["pcUp"])
+                self.assertEqual(health["playMode"], "auto")
+                saved = post("/output", b"playMode=show", {"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json", "Content-Length": "13"})
+                self.assertEqual(json.loads(saved[1])["playMode"], "show")
+            finally:
+                player.CONFIG = previous
                 server.shutdown()
                 server.server_close()
                 thread.join()

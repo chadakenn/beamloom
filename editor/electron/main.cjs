@@ -385,6 +385,13 @@ app.whenReady().then(() => {
     try { return await piPost(host, "/show/finish", { "content-length": 0 }); }
     catch (error) { return showResult(error); }
   });
+  ipcMain.handle("beamloom:pi-play-mode", async (event, host, mode) => {
+    if (event.sender !== editor?.webContents || !["auto", "show", "live"].includes(mode)) return { ok: false, error: "Choose a projector mode." };
+    try {
+      const body = Buffer.from(new URLSearchParams({ playMode: mode }).toString());
+      return await piPost(host, "/output", { "content-type": "application/x-www-form-urlencoded", "content-length": body.length, accept: "application/json" }, body);
+    } catch (error) { return showResult(error); }
+  });
   ipcMain.handle("beamloom:live-stop", async (event) => {
     if (event.sender !== editor?.webContents) return false;
     const stopping = live;

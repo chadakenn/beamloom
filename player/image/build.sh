@@ -25,7 +25,7 @@ git -C "$work" checkout --detach FETCH_HEAD
 
 mkdir -p "$work/stage-beamloom/00-install/files"
 cp -a "$root/player/image/stage-beamloom/." "$work/stage-beamloom/"
-cp "$root/player/beamloom_player.py" "$root/player/wifi.py" "$root/player/updater.py" "$root/player/VERSION" "$work/stage-beamloom/00-install/files/"
+cp "$root/player/beamloom_player.py" "$root/player/wifi.py" "$root/player/updater.py" "$root/player/play.html" "$root/player/VERSION" "$work/stage-beamloom/00-install/files/"
 cp "$root/player/systemd/"*.service "$work/stage-beamloom/00-install/files/"
 cp "$root/player/systemd/beamloom-kiosk.pam" "$work/stage-beamloom/00-install/files/"
 cp "$root/player/cursor/left_ptr" "$work/stage-beamloom/00-install/files/left_ptr"

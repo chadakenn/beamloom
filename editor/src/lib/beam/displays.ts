@@ -47,6 +47,7 @@ declare global {
       piShowWrite?: (id: string, bytes: Uint8Array) => Promise<{ ok?: boolean; error?: string }>;
       piShowFile?: (host: string, id: string) => Promise<{ ok?: boolean; error?: string }>;
       piShowFinish?: (host: string) => Promise<{ ok?: boolean; error?: string; show?: { saved: boolean; name: string; files: number; bytes: number } }>;
+      piPlayMode?: (host: string, mode: "auto" | "show" | "live") => Promise<{ ok?: boolean; error?: string; playMode?: string }>;
     };
   }
 }

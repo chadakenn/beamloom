@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Beamloom show</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; cursor: none; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+<canvas id="out"></canvas>
+<script>
+const KINDS = { wash: 0, scan: 1, lattice: 2, embers: 3, rings: 4, columns: 5, gel: 6, neon: 7, aurora: 8, confetti: 9, prism: 10, tiles: 11, pinwheel: 12 };
+const GELS = [[0.95, 0.62, 0.16], [0.93, 0.9, 0.84], [0.72, 0.08, 0.12], [0.1, 0.62, 0.55], [0.42, 0.22, 0.72]];
+const VERT = `#version 300 es
+layout(location=0) in vec2 aClip;
+void main() { gl_Position = vec4(aClip, 0.0, 1.0); }`;
+const FRAG = `#version 300 es
+precision highp float;
+out vec4 frag;
+uniform mat3 uInv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uOpacity;
+uniform float uFeather;
+uniform int uMask;
+uniform float uBrightness;
+uniform float uMaster;
+uniform float uContrast;
+uniform float uSaturation;
+uniform int uKind;
+uniform vec3 uGel;
+uniform sampler2D uVideo;
+uniform int uHasVideo;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+float noise(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p);
+  float a = hash(i); float b = hash(i + vec2(1.0, 0.0)); float c = hash(i + vec2(0.0, 1.0)); float d = hash(i + vec2(1.0, 1.0));
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+void main() {
+  vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+  vec3 h = uInv * vec3(px, 1.0);
+  vec2 uv = h.xy / h.z;
+  vec3 col = vec3(0.0);
+  if (uHasVideo == 1) {
+    col = texture(uVideo, uv).rgb;
+  } else if (uKind == 0) {
+    float n = noise(uv * 2.4 + vec2(uTime * 0.04, uTime * 0.02));
+    float m = noise(uv * 5.0 - vec2(uTime * 0.05, 0.0));
+    col = mix(vec3(0.18, 0.05, 0.015), vec3(0.98, 0.72, 0.28), smoothstep(0.15, 0.9, n + uv.y * 0.15));
+    col += vec3(1.0, 0.82, 0.45) * pow(m, 5.0) * 0.55;
+    col *= 0.72 + 0.28 * smoothstep(0.9, 0.2, length(uv - vec2(0.5, 0.45)));
+  } else if (uKind == 1) {
+    float thread = smoothstep(0.035, 0.0, abs(fract(uv.y * 22.0) - 0.5) - 0.47);
+    float by = fract(uTime * 0.11);
+    float beam = exp(-pow((uv.y - by) * 14.0, 2.0));
+    float vert = smoothstep(0.02, 0.0, abs(fract(uv.x * 40.0) - 0.5) - 0.48);
+    col = vec3(0.96, 0.78, 0.42) * (thread * 0.28 + vert * 0.12) + vec3(1.0, 0.9, 0.62) * beam;
+    col += vec3(0.12, 0.05, 0.02);
+  } else if (uKind == 2) {
+    float gx = smoothstep(0.025, 0.0, abs(fract(uv.x * 8.0)));
+    float gy = smoothstep(0.03, 0.0, abs(fract(uv.y * 5.0)));
+    float grid = max(gx, gy);
+    float cell = hash(floor(uv * vec2(8.0, 5.0)));
+    float glow = 0.35 + 0.65 * (0.5 + 0.5 * sin(uTime * 1.4 + cell * 6.2));
+    col = vec3(0.93, 0.88, 0.74) * grid * glow + vec3(0.95, 0.55, 0.16) * gx * gy;
+  } else if (uKind == 3) {
+    col = vec3(0.07, 0.025, 0.015);
+    for (int i = 0; i < 10; i++) {
+      float fi = float(i);
+      float sx = hash(vec2(fi, 1.7));
+      float sp = 0.05 + hash(vec2(fi, 9.2)) * 0.14;
+      float sy = fract(hash(vec2(fi, 3.1)) - uTime * sp);
+      float d = length((uv - vec2(sx, sy)) * vec2(1.0, 1.7));
+      col += vec3(1.0, 0.46, 0.12) * exp(-d * 46.0);
+    }
+  } else if (uKind == 4) {
+    float r = length((uv - 0.5) * vec2(1.15, 1.0));
+    float ring = smoothstep(0.018, 0.0, abs(fract(r * 7.0 - uTime * 0.28) - 0.06));
+    float core = exp(-r * 3.2);
+    col = mix(vec3(0.03, 0.05, 0.06), vec3(0.78, 0.9, 0.86), ring) + vec3(0.95, 0.78, 0.4) * core * 0.45;
+  } else if (uKind == 5) {
+    float lanes = 8.0;
+    float lane = floor(uv.x * lanes);
+    float hh = 0.22 + 0.72 * (0.5 + 0.5 * sin(uTime * 1.8 + lane * 1.15));
+    float inside = step(fract(uv.x * lanes), 0.72);
+    float bar = step(1.0 - hh, uv.y) * inside;
+    col = vec3(0.98, 0.58, 0.16) * bar + vec3(0.2, 0.08, 0.03) * inside * (1.0 - bar) * 0.35;
+  } else if (uKind == 7) {
+    float ribbon = sin(uv.x * 12.0 + sin(uv.y * 9.0 + uTime * 0.65) * 2.0 - uTime * 0.9);
+    float ripple = sin(uv.y * 13.0 - uv.x * 7.0 + uTime * 0.7);
+    float glow = pow(0.5 + 0.5 * ribbon, 5.0);
+    col = mix(vec3(0.12, 0.015, 0.24), vec3(0.98, 0.07, 0.52), 0.5 + 0.5 * ripple);
+    col = mix(col, vec3(0.05, 0.94, 0.98), 0.5 + 0.5 * sin(uv.x * 6.0 - uTime * 0.4));
+    col *= 0.22 + 0.9 * glow;
+  } else if (uKind == 8) {
+    float wave = sin(uv.x * 9.0 + uTime * 0.55 + sin(uv.x * 3.0 - uTime * 0.3) * 1.5);
+    float band = exp(-pow((uv.y - 0.5 - wave * 0.22) * 5.0, 2.0));
+    float second = exp(-pow((uv.y - 0.48 + wave * 0.2) * 7.0, 2.0));
+    col = vec3(0.006, 0.04, 0.09);
+    col += vec3(0.02, 0.95, 0.55) * band * (0.5 + 0.5 * sin(uv.x * 6.0 + uTime * 0.4));
+    col += vec3(0.64, 0.12, 0.98) * second * 0.85;
+    col += vec3(0.08, 0.32, 0.9) * (band + second) * 0.25;
+  } else if (uKind == 9) {
+    col = vec3(0.025, 0.012, 0.09);
+    for (int i = 0; i < 25; i++) {
+      float fi = float(i);
+      float x = hash(vec2(fi, 4.1));
+      float y = fract(hash(vec2(fi, 8.3)) + uTime * (0.08 + hash(vec2(fi, 2.1)) * 0.08));
+      vec2 delta = (uv - vec2(x, y)) * vec2(1.0, 1.5);
+      float spark = exp(-dot(delta, delta) * 2200.0);
+      vec3 hue = 0.5 + 0.5 * cos(6.28318 * (hash(vec2(fi, 7.2)) + vec3(0.0, 0.33, 0.67)));
+      col += hue * spark * 1.6;
+    }
+  } else if (uKind == 10) {
+    float band = fract(uv.x * 1.4 + uv.y * 0.45 - uTime * 0.12);
+    vec3 hue = 0.55 + 0.45 * cos(6.28318 * (band + vec3(0.0, 0.33, 0.67)));
+    float sweep = exp(-pow(fract(uv.x + uv.y * 0.25 - uTime * 0.18) - 0.5, 2.0) * 18.0);
+    col = hue * (0.28 + sweep);
+  } else if (uKind == 11) {
+    vec2 cell = floor(uv * vec2(8.0, 5.0));
+    float n = hash(cell);
+    float phase = 0.5 + 0.5 * sin(uTime * 1.7 + n * 6.28318);
+    vec3 hue = 0.55 + 0.45 * cos(6.28318 * (n + vec3(0.0, 0.33, 0.67)));
+    col = hue * (0.12 + 0.95 * phase * phase);
+  } else if (uKind == 12) {
+    vec2 p = uv - 0.5;
+    float ang = atan(p.y, p.x);
+    float arm = pow(0.5 + 0.5 * sin(ang * 3.0 - uTime * 1.3), 10.0);
+    float spin = fract(ang / 6.28318 + uTime * 0.08);
+    vec3 hue = 0.55 + 0.45 * cos(6.28318 * (spin + vec3(0.0, 0.33, 0.67)));
+    float fade = 1.0 - smoothstep(0.15, 0.72, length(p * vec2(1.2, 1.0)));
+    col = vec3(0.02, 0.01, 0.05) + hue * arm * fade + vec3(1.0, 0.95, 0.9) * exp(-length(p) * 8.0) * 0.35;
+  } else {
+    col = uGel + 0.08 * sin(uv.y * 18.0 + uTime * 0.6);
+  }
+  if (uHasVideo == 0) col += (hash(gl_FragCoord.xy + fract(uTime) * 80.0) - 0.5) * 0.035;
+  col += uBrightness;
+  col = (col - 0.5) * uContrast + 0.5;
+  float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  col = clamp(mix(vec3(luma), col, uSaturation), 0.0, 1.0);
+  float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+  if (uMask == 1) {
+    float inset = 0.08; float bar = 0.035;
+    float frame = min(min(uv.x - inset, 1.0 - inset - uv.x), min(uv.y - inset, 1.0 - inset - uv.y));
+    float mullion = min(abs(uv.x - 0.5), abs(uv.y - 0.5)) - bar;
+    edge = min(frame, mullion);
+  } else if (uMask == 2) {
+    float side = min(uv.x, 1.0 - uv.x);
+    float bottom = 1.0 - uv.y;
+    edge = uv.y >= 0.5 ? min(side, bottom) : 0.5 - length(uv - vec2(0.5, 0.5));
+  }
+  float soft = uFeather > 0.001 ? smoothstep(0.0, uFeather, edge) : step(0.0, edge);
+  float a = clamp(uOpacity, 0.0, 1.0) * soft * clamp(uMaster, 0.0, 1.0);
+  frag = vec4(col * a, a);
+}`;
+
+function squareToQuad(tl, tr, br, bl) {
+  const dx1 = tr.x - br.x, dy1 = tr.y - br.y, dx2 = bl.x - br.x, dy2 = bl.y - br.y;
+  const sx = tl.x - tr.x + br.x - bl.x, sy = tl.y - tr.y + br.y - bl.y;
+  const det = dx1 * dy2 - dx2 * dy1;
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-8) return null;
+  const g = (sx * dy2 - dx2 * sy) / det, h = (dx1 * sy - sx * dy1) / det;
+  return new Float32Array([tr.x - tl.x + g * tr.x, tr.y - tl.y + g * tr.y, g, bl.x - tl.x + h * bl.x, bl.y - tl.y + h * bl.y, h, tl.x, tl.y, 1]);
+}
+function invertHomography(m) {
+  const a00 = m[0], a01 = m[3], a02 = m[6], a10 = m[1], a11 = m[4], a12 = m[7], a20 = m[2], a21 = m[5], a22 = m[8];
+  const c00 = a11 * a22 - a12 * a21, c01 = a12 * a20 - a10 * a22, c02 = a10 * a21 - a11 * a20;
+  const c10 = a02 * a21 - a01 * a22, c11 = a00 * a22 - a02 * a20, c12 = a01 * a20 - a00 * a21;
+  const c20 = a01 * a12 - a02 * a11, c21 = a02 * a10 - a00 * a12, c22 = a00 * a11 - a01 * a10;
+  const det = a00 * c00 + a01 * c01 + a02 * c02;
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-10) return null;
+  const inv = 1 / det;
+  return new Float32Array([c00 * inv, c01 * inv, c02 * inv, c10 * inv, c11 * inv, c12 * inv, c20 * inv, c21 * inv, c22 * inv]);
+}
+
+const canvas = document.getElementById("out");
+const gl = canvas.getContext("webgl2", { alpha: false, antialias: true, premultipliedAlpha: true });
+const program = gl.createProgram();
+function compile(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader) || "shader");
+  return shader;
+}
+gl.attachShader(program, compile(gl.VERTEX_SHADER, VERT));
+gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FRAG));
+gl.bindAttribLocation(program, 0, "aClip");
+gl.linkProgram(program);
+gl.useProgram(program);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, 48, gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+const texture = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, texture);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+const loc = {};
+for (const name of ["uInv", "uRes", "uTime", "uOpacity", "uFeather", "uMask", "uBrightness", "uMaster", "uContrast", "uSaturation", "uKind", "uGel", "uVideo", "uHasVideo"]) loc[name] = gl.getUniformLocation(program, name);
+gl.uniform1i(loc.uVideo, 0);
+const images = new Map();
+const videos = new Map();
+let project = null;
+let media = [];
+let sceneIndex = 0;
+let sceneStarted = performance.now();
+let activeScene = "";
+
+function fit() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(2, Math.round(canvas.clientWidth * dpr));
+  const h = Math.max(2, Math.round(canvas.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+function sourceFor(id) {
+  const item = media.find((entry) => entry.id === id);
+  if (!item) return null;
+  if (String(item.mime).startsWith("image/")) return images.get(id) || null;
+  const video = videos.get(id);
+  return video && video.readyState >= 2 ? video : null;
+}
+function useMedia(scene) {
+  const ids = new Set(scene.surfaces.map((face) => face.videoId).filter(Boolean));
+  for (const [id, video] of videos) if (!ids.has(id)) video.pause();
+  for (const id of ids) {
+    const item = media.find((entry) => entry.id === id);
+    if (!item) continue;
+    if (String(item.mime).startsWith("image/")) {
+      if (!images.has(id)) {
+        const image = new Image();
+        image.onload = () => images.set(id, image);
+        image.src = "/show/media/" + id;
+      }
+    } else if (!videos.has(id)) {
+      const video = document.createElement("video");
+      video.muted = true; video.loop = true; video.playsInline = true; video.autoplay = true;
+      video.src = "/show/media/" + id;
+      video.play().catch(() => {});
+      videos.set(id, video);
+    } else if (videos.get(id).paused) videos.get(id).play().catch(() => {});
+  }
+  if (scene.id !== activeScene) {
+    activeScene = scene.id;
+    for (const video of videos.values()) { try { video.currentTime = 0; } catch (error) {} video.play().catch(() => {}); }
+  }
+}
+function sceneNow(now) {
+  const scenes = project && Array.isArray(project.scenes) ? project.scenes : [];
+  if (!scenes.length) return null;
+  const duration = Math.max(1, Number(scenes[sceneIndex].durationSeconds) || 10) * 1000;
+  if (now - sceneStarted >= duration) {
+    sceneIndex = (sceneIndex + 1) % scenes.length;
+    sceneStarted = now;
+  }
+  return scenes[sceneIndex];
+}
+function draw(now) {
+  fit();
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  const scene = sceneNow(now);
+  if (!scene) { requestAnimationFrame(draw); return; }
+  useMedia(scene);
+  gl.useProgram(program);
+  gl.uniform2f(loc.uRes, canvas.width, canvas.height);
+  gl.uniform1f(loc.uMaster, 1);
+  const clip = new Float32Array(12);
+  const order = [0, 1, 2, 0, 2, 3];
+  for (const face of scene.surfaces || []) {
+    if (face.visible === false || !(face.opacity > 0.001) || !Array.isArray(face.corners) || face.corners.length < 4) continue;
+    const pace = face.videoId ? 1 : Math.max(0, Math.min(4, Number(face.speed) || 1));
+    gl.uniform1f(loc.uTime, (now / 1000) * pace);
+    const px = face.corners.map((corner) => ({ x: corner.x * canvas.width, y: corner.y * canvas.height }));
+    const forward = squareToQuad(px[0], px[1], px[2], px[3]);
+    const inv = forward && invertHomography(forward);
+    if (!inv) continue;
+    for (let i = 0; i < 6; i++) {
+      const corner = face.corners[order[i]];
+      clip[i * 2] = corner.x * 2 - 1;
+      clip[i * 2 + 1] = 1 - corner.y * 2;
+    }
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, clip);
+    gl.uniformMatrix3fv(loc.uInv, false, inv);
+    gl.uniform1f(loc.uOpacity, Number(face.opacity) || 0);
+    gl.uniform1f(loc.uFeather, Number(face.feather) || 0);
+    gl.uniform1i(loc.uMask, face.mask === "window" ? 1 : face.mask === "arch" ? 2 : 0);
+    gl.uniform1f(loc.uBrightness, Number(face.brightness) || 0);
+    gl.uniform1f(loc.uContrast, Number.isFinite(Number(face.contrast)) ? Number(face.contrast) : 1);
+    gl.uniform1f(loc.uSaturation, Number.isFinite(Number(face.saturation)) ? Number(face.saturation) : 1);
+    gl.uniform1i(loc.uKind, KINDS[face.look] ?? 0);
+    const gel = GELS[Number(face.gel)] || GELS[0];
+    gl.uniform3f(loc.uGel, gel[0], gel[1], gel[2]);
+    const source = face.videoId ? sourceFor(face.videoId) : null;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    if (source) {
+      try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); gl.uniform1i(loc.uHasVideo, 1); }
+      catch (error) { gl.uniform1i(loc.uHasVideo, 0); }
+    } else gl.uniform1i(loc.uHasVideo, 0);
+    gl.enable(gl.BLEND);
+    if (face.blend === "add") gl.blendFunc(gl.ONE, gl.ONE);
+    else if (face.blend === "screen") gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+  requestAnimationFrame(draw);
+}
+async function start() {
+  const response = await fetch("/show/project");
+  if (!response.ok) return;
+  project = await response.json();
+  const listed = await fetch("/show/files");
+  media = listed.ok ? await listed.json() : [];
+  const scenes = Array.isArray(project.scenes) ? project.scenes : [];
+  const active = scenes.findIndex((scene) => scene.id === project.activeSceneId);
+  sceneIndex = active >= 0 ? active : 0;
+  requestAnimationFrame(draw);
+}
+window.addEventListener("resize", fit);
+start();
+</script>
+</body>
+</html>
