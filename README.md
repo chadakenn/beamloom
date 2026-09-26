@@ -6,6 +6,8 @@
 
 Beamloom is a projection mapping studio for Windows. Add a surface to a projector frame, place its four corners over a wall, window, or other feature, and give it a built-in look, photo, or video. The separate projector window follows changes you make in the editor.
 
+For live setup, select a surface and click **Align surface**. The projector or Pi shows a bright yellow shape with a white outline and corner marks. Drag corners in the editor while watching the light move on the house. **Stop Align** brings back the show; **Blackout** still turns the light off. Master brightness controls the test pattern. This mode is temporary and is not saved in the project.
+
 ## Get started on Windows
 
 **Desktop installer:** Download `Beamloom Setup.exe` from the latest [GitHub release](https://github.com/chadakenn/beamloom/releases/latest) and run it once. Open **Beamloom** from the Windows Start menu; pin that installed app to the taskbar or desktop if you want a shortcut. This version does not require Node.js. The installer is unsigned, so Windows may display a publisher warning. Connect your projector and set Windows to **Extend these displays**, then use **Output** in Beamloom to choose the display.

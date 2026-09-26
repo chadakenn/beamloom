@@ -1,6 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { gelRgb } from "@/lib/beam/looks";
 import { getClipSource } from "@/lib/beam/clips";
+import { drawAlignment, getAlign, subscribeAlign } from "@/lib/beam/align";
 import { getFadeSeconds, subscribeFade } from "@/lib/beam/fade";
 import { getMaster, subscribeMaster } from "@/lib/beam/master";
 import { getSolo, subscribeSolo, toggleSolo } from "@/lib/beam/solo";
@@ -14,6 +15,7 @@ const VIEW_H = 900;
 
 export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boolean; blackout: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const alignCanvasRef = useRef<HTMLCanvasElement>(null);
   const mapperRef = useRef<Mapper | null>(null);
   const blackoutRef = useRef(blackout);
   blackoutRef.current = blackout;
@@ -39,6 +41,9 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
   const masterRef = useRef(master);
   masterRef.current = master;
+  const align = useSyncExternalStore(subscribeAlign, getAlign, () => false);
+  const alignRef = useRef(align);
+  alignRef.current = align;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -50,6 +55,11 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
     const fit = () => {
       const rect = bay.getBoundingClientRect();
       mapper?.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, 2));
+      const overlay = alignCanvasRef.current;
+      if (overlay) {
+        overlay.width = Math.round(rect.width * Math.min(window.devicePixelRatio || 1, 2));
+        overlay.height = Math.round(rect.height * Math.min(window.devicePixelRatio || 1, 2));
+      }
     };
     fit();
     const observer = new ResizeObserver(fit);
@@ -75,7 +85,10 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
           faces = [...scaledFaces(sceneFaces(previous, soloId), 1 - amount), ...scaledFaces(faces, amount)];
         } else fading = null;
       }
-      mapper?.draw(blackoutRef.current ? [] : faces, reduced ? 0 : now / 1000, masterRef.current);
+      const aligning = alignRef.current && !blackoutRef.current;
+      mapper?.draw(blackoutRef.current || aligning ? [] : faces, reduced ? 0 : now / 1000, masterRef.current);
+      const chosen = current.surfaces.find((face) => face.id === state.selectedId);
+      if (alignCanvasRef.current) drawAlignment(alignCanvasRef.current, aligning ? chosen?.corners ?? null : null, masterRef.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -162,6 +175,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
     <div className="projector-bay absolute inset-0 grid place-items-center">
       <div className="projector-fit overflow-hidden rounded-md border border-line bg-bg">
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label="Projector frame" />
+        <canvas ref={alignCanvasRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
         {edit ? (
           <div className="absolute inset-0 touch-none">
             <svg
@@ -234,7 +248,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
               : null}
           </div>
         ) : null}
-        {lineup && !blackout ? <LineupOverlay /> : null}
+        {lineup && !blackout && !align ? <LineupOverlay /> : null}
         {edit && scene.surfaces.length === 0 ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted">
             Add a surface, then drag its corners until the light sits on the real object.
