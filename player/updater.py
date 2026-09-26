@@ -191,19 +191,19 @@ else:
 
 def _update():
     changed = []
+    current = current_version()
     try:
-        current = current_version()
         tag = release_tag(api("/releases/latest"), current)
         if tag is None:
             write("current", version=current or "not set", message="This Pi is already on the published release.")
             return
+        write("downloading", version=current or "not set", message=f"Downloading release {tag}.")
         if STAGED.exists():
             shutil.rmtree(STAGED)
         STAGED.mkdir(parents=True)
         staged_files = []
         for source in FILES:
             staged_files.append(file_bytes(api("/contents/" + source + "?ref=" + tag), source))
-            write("downloading", version=current or "not set", message=f"Downloading release {tag}.")
         BACKUP.mkdir(parents=True, exist_ok=True)
         for index, target in enumerate(FILES.values()):
             (STAGED / str(index)).write_bytes(staged_files[index])
@@ -235,17 +235,6 @@ def start():
         return "busy"
     if not _update_lock.acquire(blocking=False):
         return "busy"
-    current = current_version()
-    try:
-        tag = release_tag(api("/releases/latest"), current)
-        if tag is None:
-            write("current", version=current or "not set", message="This Pi is already on the published release.")
-            _update_lock.release()
-            return "current"
-        write("downloading", version=current or "not set", message=f"Downloading release {tag}.")
-    except Exception as error:
-        _update_lock.release()
-        write("error", version=current or "not set", message=str(error)[:240])
-        return "error"
+    write("checking", version=current_version() or "not set", message="Checking for a new release.")
     threading.Thread(target=_update, daemon=True).start()
     return "started"

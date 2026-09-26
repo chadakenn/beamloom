@@ -58,7 +58,7 @@ export function ShowBar() {
     setUpdatingPi(true);
     const result = await window.beamloomDesktop?.piUpdate?.(piHost);
     setUpdatingPi(false);
-    setPiMessage(result?.error ?? (result?.started ? `Update to ${available} started.` : result?.current ? "This Pi is already on the published release." : "Pi update is already running."));
+    setPiMessage(result?.error ?? (result?.started ? `Update to ${available} started.` : "Pi update is already running."));
   }
   async function findPis() {
     setDiscovering(true);
@@ -230,7 +230,7 @@ export function ShowBar() {
             </ol>
             {piStatus?.display?.state !== "active" && piStatus?.display?.message && <p className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap text-xs text-amber-400">{piStatus.display.message}</p>}
             <p className="mt-2 text-xs text-muted" role="status">{piStatus?.error ?? (piStatus ? `Response time: ${piStatus.latencyMs} ms. ${piStatus.update ? (piStatus.update.message ? piStatus.update.message : piStatus.update.available ? `Player ${piStatus.update.version}. Release ${piStatus.update.available} is ready.` : `Player ${piStatus.update.version} matches the published release.`) : "This card has no player updater. Build a new image before flashing."}` : "Checking Pi...")}</p>
-            <button type="button" disabled={!!piStatus?.error || !piStatus?.update?.available || updatingPi || piStatus.update?.state === "downloading" || piStatus.update?.state === "restarting"} onClick={() => void updatePi()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{updatingPi ? "Starting..." : piStatus?.update?.available ? `Update Pi player to ${piStatus.update.available}` : "Update Pi player"}</button>
+            <button type="button" disabled={!!piStatus?.error || !piStatus?.update?.available || updatingPi || piStatus.update?.state === "checking" || piStatus.update?.state === "downloading" || piStatus.update?.state === "restarting"} onClick={() => void updatePi()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{updatingPi ? "Starting..." : piStatus?.update?.available ? `Update Pi player to ${piStatus.update.available}` : "Update Pi player"}</button>
             {piMessage && <p className="mt-2 text-xs" role="status">{piMessage}</p>}
             <p className="mt-2 text-xs text-muted">Need the full steps? Open the Pi settings page at <strong>http://{piHost}/</strong>.</p>
             <details className="mt-3 text-xs text-muted">
