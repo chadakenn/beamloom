@@ -44,6 +44,10 @@ install -m 0644 "$(dirname "$0")/systemd/beamloom-wifi.service" /etc/systemd/sys
 install -m 0644 "$(dirname "$0")/systemd/beamloom-player.service" /etc/systemd/system/beamloom-player.service
 install -m 0644 "$(dirname "$0")/systemd/beamloom-kiosk.service" /etc/systemd/system/beamloom-kiosk.service
 install -m 0644 "$(dirname "$0")/systemd/beamloom-kiosk.pam" /etc/pam.d/beamloom-kiosk
+install -d /usr/share/icons/beamloom-blank/cursors
+for name in left_ptr default pointer arrow top_left_arrow; do
+  install -m 0644 "$(dirname "$0")/cursor/left_ptr" "/usr/share/icons/beamloom-blank/cursors/${name}"
+done
 systemctl daemon-reload
 systemctl enable --now avahi-daemon beamloom-wifi.service beamloom-player.service beamloom-kiosk.service
 echo "If the Pi is not on Ethernet, join Wi-Fi Beamloom, password beamloom, then open http://192.168.4.1/"

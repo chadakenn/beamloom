@@ -28,6 +28,7 @@ cp -a "$root/player/image/stage-beamloom/." "$work/stage-beamloom/"
 cp "$root/player/beamloom_player.py" "$root/player/wifi.py" "$root/player/updater.py" "$root/player/VERSION" "$work/stage-beamloom/00-install/files/"
 cp "$root/player/systemd/"*.service "$work/stage-beamloom/00-install/files/"
 cp "$root/player/systemd/beamloom-kiosk.pam" "$work/stage-beamloom/00-install/files/"
+cp "$root/player/cursor/left_ptr" "$work/stage-beamloom/00-install/files/left_ptr"
 cp "$root/player/image/config" "$work/config"
 # Current pi-gen forces a 32-bit image after reading config. Pi 4 and Pi 5 use 64-bit.
 grep -qx 'export ARCH=armhf' "$work/build.sh" || { echo "pi-gen architecture setting changed; review build.sh" >&2; exit 1; }
