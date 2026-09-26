@@ -25,6 +25,7 @@ import updater
 CONFIG = Path(os.environ.get("BEAMLOOM_PLAYER_CONFIG", ROOT / "player.json"))
 PORT = int(os.environ.get("BEAMLOOM_PLAYER_PORT", "8080"))
 HOST = os.environ.get("BEAMLOOM_PLAYER_HOST", "0.0.0.0")
+JOIN = {"state": "idle", "message": ""}
 
 
 def load_config() -> dict:
@@ -73,6 +74,8 @@ def settings_page(config: dict, error: str = "") -> str:
     network = wifi.status()
     if network["mode"] == "setup":
         wifi_note = f"This Pi is on its setup network. Join Wi-Fi <strong>{escape(network['setupSsid'])}</strong>, password <strong>{escape(network['setupPassword'])}</strong>, then stay on this page."
+        if JOIN["state"] == "failed":
+            wifi_note += f" <strong>Connection failed: {escape(JOIN['message'])}</strong> Check the Wi-Fi name and password and try again."
     elif network["mode"] == "home":
         wifi_note = f"Joined {escape(network['ssid'] or 'the home network')}."
     elif network["mode"] == "ethernet":
@@ -132,13 +135,20 @@ def screen_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Beamloom</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #000; color: #d8d4cc; font: 20px/1.4 "Segoe UI", sans-serif; }
+    html, body { margin: 0; height: 100%; background: #080b12; color: #f5f3ed; font: 20px/1.5 "Segoe UI", sans-serif; }
     iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
-    p { position: fixed; left: 1.5rem; bottom: 1.5rem; max-width: 36rem; margin: 0; }
+    .ambient { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 42%, #243750 0, #101929 35%, #080b12 72%); }
+    .card { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); box-sizing: border-box; width: min(90vw, 780px); padding: clamp(2rem, 5vw, 4rem); border: 1px solid #40536a; border-radius: 24px; background: #111b2bd9; box-shadow: 0 24px 90px #0008; text-align: center; }
+    .mark { margin: 0 auto 1.4rem; width: 74px; height: 74px; border-radius: 24px; display: grid; place-items: center; background: linear-gradient(140deg, #00bca8, #7454e6, #e94593); font-size: 2.8rem; font-weight: bold; }
+    .eyebrow { color: #80e2d0; letter-spacing: .2em; font-size: .7rem; font-weight: bold; text-transform: uppercase; }
+    h1 { margin: .5rem 0; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.1; }
+    p { margin: 1rem 0 0; color: #c6d3e2; }
+    .step { margin: 1.4rem auto 0; padding: 1.1rem; border-radius: 12px; background: #26354a; overflow-wrap: anywhere; }
+    .hint { font-size: .8rem; color: #9eb0c4; }
   </style>
 </head>
 <body>
-  <p id="wait">Waiting for the show PC. Open http://beamloom.local on that computer.</p>
+  <div id="waiting" class="ambient"><div class="card"><div class="mark">B</div><div class="eyebrow">Beamloom player</div><h1 id="title">Ready for your show</h1><p id="message">Connect this Pi to your show PC to begin.</p><div class="step" id="step">On your PC, open http://beamloom.local</div><p class="hint" id="hint">This screen updates automatically. No keyboard or reboot needed.</p></div></div>
   <iframe id="out" hidden title="Beamloom output"></iframe>
   <script>
     let current = "";
@@ -147,22 +157,33 @@ def screen_page() -> str:
         const data = await (await fetch("/health")).json();
         const url = typeof data.pcUrl === "string" ? data.pcUrl : "";
         const frame = document.getElementById("out");
-        const wait = document.getElementById("wait");
+        const waiting = document.getElementById("waiting");
+        const title = document.getElementById("title");
+        const message = document.getElementById("message");
+        const step = document.getElementById("step");
         if (data.wifi && data.wifi.mode === "setup") {
-          wait.textContent = "Join Wi-Fi " + data.wifi.setupSsid + ", password " + data.wifi.setupPassword + ", then open http://" + data.wifi.setupAddress;
+          title.textContent = data.join && data.join.state === "failed" ? "Wi-Fi didn't connect" : "Connect to Wi-Fi";
+          message.textContent = data.join && data.join.state === "failed" ? data.join.message : "On your phone or PC, join the Beamloom Wi-Fi network.";
+          step.textContent = "Network: " + data.wifi.setupSsid + "  ·  Password: " + data.wifi.setupPassword + "  ·  Open http://" + data.wifi.setupAddress;
         } else if (data.wifi && data.wifi.mode === "down") {
-          wait.textContent = "No network yet. Connect an Ethernet cable to the router, then open http://beamloom.local on the show PC.";
+          title.textContent = "Waiting for a network";
+          message.textContent = "Connect an Ethernet cable to your router to set up this Pi.";
+          step.textContent = "Then open http://beamloom.local on your PC";
+        } else {
+          title.textContent = "Ready for your show";
+          message.textContent = "The Pi is connected. Open Beamloom on your show PC.";
+          step.textContent = "Open http://beamloom.local to check settings";
         }
         if (url && url !== current) {
           current = url;
           frame.hidden = false;
           frame.src = url;
-          wait.hidden = true;
+          waiting.hidden = true;
         } else if (!url && current) {
           current = "";
           frame.hidden = true;
           frame.removeAttribute("src");
-          wait.hidden = false;
+          waiting.hidden = false;
         }
       } catch (error) {}
     }
@@ -190,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/health":
-            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status()}).encode("utf-8")
+            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN}).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(data)))
@@ -233,10 +254,8 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as error:
                 self.send_html(settings_page(load_config(), str(error)), 400)
                 return
-            self.send_html(
-                "<!doctype html><html lang=en><body style=\"background:#0e0f12;color:#f4f1ea;font:18px sans-serif;padding:2rem\">"
-                "<p>Saved. Rejoin your home Wi-Fi, then open http://beamloom.local/</p></body></html>"
-            )
+            JOIN.update(state="connecting", message="Trying to join your Wi-Fi.")
+            self.send_html("""<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="8;url=http://beamloom.local/"><body style="background:#101929;color:#f5f3ed;font:20px/1.5 Segoe UI,sans-serif;max-width:32rem;margin:15vh auto;padding:2rem"><h1>Connecting to your Wi-Fi…</h1><p>The Beamloom setup network will disappear if the connection succeeds. Connect your phone or PC to your home Wi-Fi, then open <a style="color:#80e2d0" href="http://beamloom.local/">beamloom.local</a>.</p><p>No reboot is needed. If Beamloom Wi-Fi comes back, reconnect to it and check the error on the setup page.</p></body></html>""")
             threading.Timer(1.5, lambda: self._join_home(ssid, password)).start()
             return
         if path != "/settings":
@@ -256,8 +275,10 @@ class Handler(BaseHTTPRequestHandler):
     def _join_home(ssid: str, password: str) -> None:
         try:
             wifi.join(ssid, password)
-        except RuntimeError:
-            return
+        except RuntimeError as error:
+            JOIN.update(state="failed", message=str(error))
+        else:
+            JOIN.update(state="connected", message="Connected to your home Wi-Fi.")
 
 
 def main() -> None:
