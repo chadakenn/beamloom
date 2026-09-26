@@ -84,6 +84,10 @@ def status():
         saved = {"state": "idle"}
     if not isinstance(saved, dict):
         saved = {"state": "idle"}
+    if update_is_stuck(saved, time.time()):
+        message = "The last update did not finish. You can try again."
+        write("idle", message=message)
+        saved = {"state": "idle", "message": message}
     saved["version"] = current_version() or "not set"
     _schedule_check()
     available = _offer["tag"]
@@ -94,8 +98,15 @@ def status():
 def write(state, **kwargs):
     STATE.parent.mkdir(parents=True, exist_ok=True)
     temporary = STATE.with_suffix(".tmp")
-    temporary.write_text(json.dumps({"state": state, **kwargs}), encoding="utf-8")
+    temporary.write_text(json.dumps({"state": state, "at": time.time(), **kwargs}), encoding="utf-8")
     temporary.replace(STATE)
+
+
+def update_is_stuck(saved, now):
+    if not isinstance(saved, dict) or saved.get("state") not in {"restarting", "downloading"}:
+        return False
+    started = saved.get("at")
+    return not isinstance(started, (int, float)) or now - started > 90
 
 
 def api(path):
@@ -206,12 +217,10 @@ def _update():
         (ROOT / "version").write_text(tag + "\n", encoding="utf-8")
         FINISH.write_text(_finish_script(), encoding="utf-8")
         FINISH.chmod(0o700)
-        subprocess.Popen(
-            ["/usr/bin/python3", str(FINISH)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        launch = ["/usr/bin/python3", str(FINISH)]
+        if os.path.exists("/usr/bin/systemd-run"):
+            launch = ["/usr/bin/systemd-run", "--unit", f"beamloom-player-finish-{int(time.time())}", "--collect", *launch]
+        subprocess.Popen(launch, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         write("restarting", version=tag, message=f"Restarting into release {tag}.")
     except Exception as error:
         _restore(changed)
