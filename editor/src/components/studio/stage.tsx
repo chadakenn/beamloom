@@ -7,6 +7,7 @@ import { getMaster, subscribeMaster } from "@/lib/beam/master";
 import { getSolo, subscribeSolo, toggleSolo } from "@/lib/beam/solo";
 import { createMapper, type DrawFace, type Mapper } from "@/lib/beam/gl-mapper";
 import type { Corners } from "@/lib/beam/math";
+import { MAX_OUTLINE_POINTS, outlineToScreen, screenToOutline } from "@/lib/beam/outline";
 import { activeScene, type Surface } from "@/lib/beam/project";
 import { useEditor } from "@/lib/beam/store";
 
@@ -21,6 +22,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   blackoutRef.current = blackout;
   const dragRef = useRef<
     | { type: "corner"; id: string; index: number }
+    | { type: "outline"; id: string; index: number }
     | { type: "move"; id: string; startX: number; startY: number; corners: Corners }
     | null
   >(null);
@@ -29,6 +31,8 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
   const scene = useEditor((s) => activeScene(s));
   const select = useEditor((s) => s.select);
   const setCorner = useEditor((s) => s.setCorner);
+  const setOutlinePoint = useEditor((s) => s.setOutlinePoint);
+  const addOutlinePoint = useEditor((s) => s.addOutlinePoint);
   const moveSurface = useEditor((s) => s.moveSurface);
   const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
   const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
@@ -88,7 +92,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
       const aligning = alignRef.current && !blackoutRef.current;
       mapper?.draw(blackoutRef.current || aligning ? [] : faces, reduced ? 0 : now / 1000, masterRef.current);
       const chosen = current.surfaces.find((face) => face.id === state.selectedId);
-      if (alignCanvasRef.current) drawAlignment(alignCanvasRef.current, aligning ? chosen?.corners ?? null : null, masterRef.current);
+      if (alignCanvasRef.current) drawAlignment(alignCanvasRef.current, aligning ? chosen?.corners ?? null : null, masterRef.current, chosen?.outline);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -135,7 +139,11 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
             }
           : point;
       if (drag.type === "corner") setCorner(drag.id, drag.index, snapped.x, snapped.y);
-      else moveSurface(drag.id, drag.corners, point.x - drag.startX, point.y - drag.startY);
+      else if (drag.type === "outline") {
+        const face = activeScene(useEditor.getState()).surfaces.find((item) => item.id === drag.id);
+        const uv = face && screenToOutline(face.corners, snapped);
+        if (uv) setOutlinePoint(drag.id, drag.index, uv.x, uv.y);
+      } else moveSurface(drag.id, drag.corners, point.x - drag.startX, point.y - drag.startY);
     };
     const up = () => {
       if (dragRef.current) endHistoryGroup();
@@ -149,7 +157,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
     };
-  }, [endHistoryGroup, lineup, moveSurface, setCorner]);
+  }, [endHistoryGroup, lineup, moveSurface, setCorner, setOutlinePoint]);
 
   function beginMove(event: React.PointerEvent, face: Surface) {
     if (!edit || face.locked) {
@@ -207,7 +215,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
               ) : null}
               {scene.surfaces.map((face) => {
                 const active = face.id === selectedId;
-                const points = face.corners
+                const points = outlineToScreen(face.corners, face.outline)
                   .map((c) => `${c.x * VIEW_W},${c.y * VIEW_H}`)
                   .join(" ");
                 return (
@@ -246,6 +254,36 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
                   </button>
                 ))
               : null}
+            {selected && !selected.locked && selected.outline ? outlineToScreen(selected.corners, selected.outline).map((point, index) => (
+              <button
+                key={`${selected.id}-outline-${index}`}
+                type="button"
+                aria-label={`Outline point ${index + 1} of ${selected.name}`}
+                title={`Drag outline point ${index + 1}; remove it in the inspector`}
+                className="absolute z-20 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
+                style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  beginHistoryGroup();
+                  dragRef.current = { type: "outline", id: selected.id, index };
+                }}
+              ><span className="size-3 rounded-full border-2 border-black bg-yellow-300" /></button>
+            )) : null}
+            {selected && !selected.locked && (selected.outline?.length ?? 4) < MAX_OUTLINE_POINTS ? outlineToScreen(selected.corners, selected.outline).map((point, index, all) => {
+              const next = all[(index + 1) % all.length];
+              return (
+                <button
+                  key={`${selected.id}-add-${index}`}
+                  type="button"
+                  aria-label={`Add outline point between ${index + 1} and ${(index + 1) % all.length + 1}`}
+                  title="Add a point on this edge"
+                  className="absolute z-20 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-yellow-300 bg-bg/80 text-yellow-300"
+                  style={{ left: `${(point.x + next.x) * 50}%`, top: `${(point.y + next.y) * 50}%` }}
+                  onClick={() => addOutlinePoint(selected.id, index)}
+                >+</button>
+              );
+            }) : null}
           </div>
         ) : null}
         {lineup && !blackout && !align ? <LineupOverlay /> : null}
@@ -263,6 +301,7 @@ function sceneFaces(scene: { surfaces: Surface[] }, soloId: string | null): Draw
   const surfaces = soloId ? scene.surfaces.filter((face) => face.id === soloId) : scene.surfaces;
   return surfaces.map((face) => ({
     corners: face.corners,
+    outline: face.outline,
     look: face.look,
     gel: gelRgb(face.gel),
     opacity: face.opacity,
