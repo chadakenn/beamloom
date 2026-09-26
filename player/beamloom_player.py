@@ -479,7 +479,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(403, "Only the configured show PC can update this Pi")
                 return
             result = updater.start()
-            self.send_html(json.dumps({"started": result == "started", "current": result == "current"}))
+            self.send_html(json.dumps({"started": result == "started", "busy": result == "busy"}))
             return
         length = int(self.headers.get("content-length", "0") or "0")
         if length > 4000:

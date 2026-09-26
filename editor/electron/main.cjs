@@ -332,7 +332,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle("beamloom:pi-update", async (event, host) => {
     if (event.sender !== editor?.webContents) return null;
-    try { return await piRequest(host, "POST"); }
+    try { return await piRequest(host, "POST", 8000); }
     catch (error) { return { error: error.message }; }
   });
   ipcMain.handle("beamloom:pi-show-start", async (event, host) => {
