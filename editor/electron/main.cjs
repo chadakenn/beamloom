@@ -1,4 +1,4 @@
-const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen } = require("electron");
+const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen, shell } = require("electron");
 const { readFile } = require("node:fs/promises");
 const fs = require("node:fs");
 const https = require("node:https");
@@ -7,6 +7,13 @@ const dns = require("node:dns/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { startLiveServer } = require("./live.cjs");
+const { squirrelInstall, isSquirrelInstalled } = require("./squirrel.cjs");
+const { newerRelease } = require("./update-version.cjs");
+
+if (squirrelInstall(process.execPath)) {
+  app.quit();
+  return;
+}
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "beamloom", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
@@ -170,7 +177,7 @@ function createWindow({ output = false, display } = {}) {
 }
 
 function startUpdates() {
-  if (!app.isPackaged || process.platform !== "win32") return;
+  if (!app.isPackaged || !isSquirrelInstalled()) return;
   const feed = `https://update.electronjs.org/chadakenn/beamloom/win32-x64/${app.getVersion()}`;
   try {
     autoUpdater.setFeedURL({ url: feed });
@@ -179,13 +186,15 @@ function startUpdates() {
   }
   let phase = "idle";
   let version = null;
+  let errorMessage = null;
   const send = (next) => {
     phase = next.phase;
     version = next.version ?? version;
-    if (editor && !editor.isDestroyed()) editor.webContents.send("beamloom:update", { phase, version });
+    errorMessage = next.message ?? null;
+    if (editor && !editor.isDestroyed()) editor.webContents.send("beamloom:update", { phase, version, message: errorMessage });
   };
-  autoUpdater.on("error", () => {
-    if (phase === "downloading") send({ phase: "failed", version });
+  autoUpdater.on("error", (error) => {
+    if (phase === "downloading") send({ phase: "failed", version, message: error.message });
   });
   autoUpdater.on("update-downloaded", () => {
     send({ phase: "ready", version });
@@ -202,7 +211,7 @@ function startUpdates() {
       response.on("end", () => {
         const body = Buffer.concat(chunks).toString("utf8");
         const found = body.match(/releases\/download\/([^/\s]+)\//)?.[1] ?? null;
-        if (!found || found === app.getVersion()) return;
+        if (!newerRelease(found, app.getVersion())) return;
         send({ phase: "available", version: found });
       });
     });
@@ -211,7 +220,7 @@ function startUpdates() {
   };
   ipcMain.handle("beamloom:update-current", (event) => {
     if (event.sender !== editor?.webContents || phase === "idle") return null;
-    return { phase, version };
+    return { phase, version, message: errorMessage };
   });
   ipcMain.handle("beamloom:update-apply", (event) => {
     if (event.sender !== editor?.webContents) return false;
@@ -229,9 +238,22 @@ function startUpdates() {
       return false;
     }
   });
-  setTimeout(probe, 4000);
+  autoUpdater.on("update-not-available", () => {
+    if (phase === "downloading") send({ phase: "failed", version, message: "The update service did not offer a downloadable installer. Use the latest Setup.exe to reinstall." });
+  });
+  setTimeout(probe, process.argv.includes("--squirrel-firstrun") ? 15000 : 4000);
   setInterval(probe, 30 * 60 * 1000);
 }
+
+ipcMain.handle("beamloom:app-info", (event) => {
+  if (event.sender !== editor?.webContents) return null;
+  return { version: app.getVersion(), installed: isSquirrelInstalled() };
+});
+ipcMain.handle("beamloom:installer-page", async (event) => {
+  if (event.sender !== editor?.webContents) return false;
+  await shell.openExternal("https://github.com/chadakenn/beamloom/releases/latest");
+  return true;
+});
 
 app.whenReady().then(() => {
   const root = path.join(__dirname, "..", "dist");

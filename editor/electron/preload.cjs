@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld("beamloomDesktop", {
   displays: () => ipcRenderer.invoke("beamloom:displays"),
   openProjector: (displayId) => ipcRenderer.invoke("beamloom:open-projector", displayId ?? null),
   updateStatus: () => ipcRenderer.invoke("beamloom:update-current"),
+  appInfo: () => ipcRenderer.invoke("beamloom:app-info"),
+  openInstallerPage: () => ipcRenderer.invoke("beamloom:installer-page"),
   onUpdate: (callback) => {
     const listener = (_event, status) => callback(status);
     ipcRenderer.on("beamloom:update", listener);
