@@ -3,7 +3,23 @@ const assert = require("node:assert/strict");
 const net = require("node:net");
 const http = require("node:http");
 const os = require("node:os");
-const { startLiveServer } = require("./live.cjs");
+const { startLiveServer, lanUrls } = require("./live.cjs");
+
+test("Pi address choices exclude VPN and link-local adapters and prefer the home LAN", () => {
+  const original = os.networkInterfaces;
+  const address = (ip) => ({ family: "IPv4", internal: false, address: ip });
+  os.networkInterfaces = () => ({
+    Tailscale: [address("100.125.52.72")],
+    virtual: [address("169.254.83.107")],
+    WiFi: [address("192.168.1.64")],
+    Ethernet: [address("10.10.1.2")],
+  });
+  try {
+    assert.deepEqual(lanUrls(8751), ["http://192.168.1.64:8751/?player=1", "http://10.10.1.2:8751/?player=1"]);
+  } finally {
+    os.networkInterfaces = original;
+  }
+});
 
 function get(port, path) {
   return new Promise((resolve, reject) => {

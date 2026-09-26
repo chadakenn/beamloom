@@ -55,13 +55,20 @@ function validVideo(mime, file) {
 
 function lanUrls(port) {
   const urls = [];
-  for (const list of Object.values(os.networkInterfaces())) {
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
+    if (/tailscale|zerotier|wireguard|\bwg\d*\b|\btun\d*\b/i.test(name)) continue;
     for (const net of list ?? []) {
       const v4 = net.family === "IPv4" || net.family === 4;
       if (!v4 || net.internal) continue;
+      // Link-local and VPN addresses cannot normally be reached by a Pi on the home LAN.
+      if (!/^(?:192\.168\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(net.address)) continue;
       urls.push(`http://${net.address}:${port}/?player=1`);
     }
   }
+  urls.sort((a, b) => {
+    const rank = (url) => url.includes("//192.168.") ? 0 : url.includes("//10.") ? 1 : 2;
+    return rank(a) - rank(b);
+  });
   if (urls.length === 0) urls.push(`http://127.0.0.1:${port}/?player=1`);
   return urls;
 }
@@ -335,4 +342,4 @@ function startLiveServer({ root, port = 8751 }) {
   });
 }
 
-module.exports = { startLiveServer };
+module.exports = { startLiveServer, lanUrls };

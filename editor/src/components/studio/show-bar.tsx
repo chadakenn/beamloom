@@ -30,6 +30,8 @@ export function ShowBar() {
   const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
   const piOn = useSyncExternalStore(subscribeLive, liveRunning, () => false);
   const piUrls = useSyncExternalStore(subscribeLive, liveUrls, () => [] as string[]);
+  const piSubnet = piHost.match(/^(\d+\.\d+\.\d+)\./)?.[1];
+  const suggestedPiUrl = piUrls.find((url) => piSubnet && url.startsWith(`http://${piSubnet}.`)) ?? piUrls.find((url) => !url.includes("//127.0.0.1:"));
 
   useEffect(() => setSeconds(String(scene.durationSeconds)), [scene.id, scene.durationSeconds]);
   useEffect(() => {
@@ -112,11 +114,12 @@ export function ShowBar() {
       >
         {piOn ? "Stop Pi" : "Pi"}
       </button>
-      {piOn && piUrls[0] ? (
+      {piOn && suggestedPiUrl ? (
         <span className="shrink-0 text-xs text-muted" role="status">
-          On the Pi, open {piUrls[0]}
+          Enter on the Pi settings page: {suggestedPiUrl}
         </span>
       ) : null}
+      {piOn && !suggestedPiUrl && <span className="text-xs text-amber-400" role="status">Connect this PC to the same home Wi-Fi as the Pi to get its address.</span>}
       {piOn && mediaNote ? (
         <span className="text-xs text-amber-400" role="status">{mediaNote}</span>
       ) : null}
@@ -128,6 +131,8 @@ export function ShowBar() {
           <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-md border border-line bg-panel p-3 shadow-xl">
             <label htmlFor="pi-host" className="block">Pi address</label>
             <input id="pi-host" value={piHost} onChange={(event) => { setPiHost(event.target.value.trim()); setPiStatus(null); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="beamloom.local" />
+            <p className="mt-2 text-xs text-muted">Find this address in your router if beamloom.local does not work. The Pi and PC should be on the same home network.</p>
+            {piOn && suggestedPiUrl && <p className="mt-2 break-all text-xs">PC address to enter at <strong>http://{piHost}/</strong>: {suggestedPiUrl}</p>}
             <p className="mt-2 text-xs text-muted" role="status">{piStatus?.error ?? (piStatus ? `Response time: ${piStatus.latencyMs} ms. ${piStatus.update ? (piStatus.update.message ? piStatus.update.message : piStatus.update.available ? `Player ${piStatus.update.version}. Release ${piStatus.update.available} is ready.` : `Player ${piStatus.update.version} matches the published release.`) : "This card has no player updater. Build a new image before flashing."}` : "Checking Pi...")}</p>
             <button type="button" disabled={!!piStatus?.error || !piStatus?.update?.available || updatingPi || piStatus.update?.state === "downloading" || piStatus.update?.state === "restarting"} onClick={() => void updatePi()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{updatingPi ? "Starting..." : piStatus?.update?.available ? `Update Pi player to ${piStatus.update.available}` : "Update Pi player"}</button>
             {piMessage && <p className="mt-2 text-xs" role="status">{piMessage}</p>}
