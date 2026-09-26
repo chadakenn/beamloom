@@ -121,7 +121,7 @@ export function ShowBar() {
       const finished = await desktop.piShowFinish(piHost);
       if (!finished?.ok) throw new Error(finished?.error || "The Pi could not store the show.");
       const count = finished.show?.files ?? media.length;
-      setPiMessage(`Saved ${finished.show?.name || project.name} on the Pi, with ${count} file${count === 1 ? "" : "s"}. The Pi cannot play this copy by itself yet.`);
+      setPiMessage(`Saved ${finished.show?.name || project.name} on the Pi${count ? `, with ${count} file${count === 1 ? "" : "s"}` : ""}. Press Play stored show, then this PC can close and the projector keeps going.`);
     } catch (error) {
       setPiMessage(error instanceof Error ? error.message : "The Pi could not store the show.");
     } finally {
@@ -220,7 +220,7 @@ export function ShowBar() {
             {piOn && suggestedPiUrl && <p className="mt-2 break-all text-xs">PC address to enter at <strong>http://{piHost}/</strong>: {suggestedPiUrl}</p>}
             <button type="button" disabled={connecting} onClick={() => void connectPi()} className="mt-3 rounded bg-amber-400 px-3 py-2 text-black disabled:opacity-40">{connecting ? "Connecting…" : "Connect this Pi"}</button>
             <button type="button" disabled={sendingShow || !!piStatus?.error} onClick={() => void sendShow()} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">{sendingShow ? "Sending show…" : "Send show"}</button>
-            <button type="button" disabled={!!piStatus?.error} onClick={() => void window.beamloomDesktop?.piPlayMode?.(piHost, "show").then((result) => setPiMessage(result?.ok ? "The Pi will keep looping the stored show, even while this PC is on." : result?.error || "The Pi could not switch to the stored show."))} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Play stored show</button>
+            <button type="button" disabled={!!piStatus?.error} onClick={() => void window.beamloomDesktop?.piPlayMode?.(piHost, "show").then((result) => setPiMessage(result?.ok ? "The Pi is switching to the stored show. The picture may blink, then it keeps playing after this PC closes." : result?.error || "The Pi could not switch to the stored show."))} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Play stored show</button>
             <button type="button" disabled={!!piStatus?.error} onClick={() => void window.beamloomDesktop?.piPlayMode?.(piHost, "auto").then((result) => setPiMessage(result?.ok ? "The Pi will follow this PC, and play the stored show when the PC is off." : result?.error || "The Pi could not follow this PC."))} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Follow this PC</button>
             <button type="button" disabled={!piOn || !suggestedPiUrl || !!piStatus?.error} onClick={() => void testPi()} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Test connection</button>
             <ol className="mt-4 space-y-1 text-xs" aria-label="Pi setup checklist">
