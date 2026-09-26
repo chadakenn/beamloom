@@ -1,6 +1,7 @@
 import { getMaster, subscribeMaster } from "@/lib/beam/master";
 import { clipTransport, listClips, subscribeClips } from "@/lib/beam/clips";
 import { activeScene } from "@/lib/beam/project";
+import { getAlign, subscribeAlign } from "@/lib/beam/align";
 import { useEditor } from "@/lib/beam/store";
 
 const listeners = new Set<() => void>();
@@ -115,6 +116,7 @@ function currentFrame() {
   const scene = activeScene(useEditor.getState());
   return {
     blackout,
+    alignId: getAlign() ? scene.surfaces.find((face) => face.id === useEditor.getState().selectedId)?.id ?? "" : undefined,
     master: getMaster(),
     surfaces: scene.surfaces.map((face) => ({
       id: face.id,
@@ -161,6 +163,7 @@ function schedule() {
 }
 
 useEditor.subscribe(() => schedule());
+subscribeAlign(schedule);
 subscribeClips(() => { if (running) registerMedia(); });
 
 export function liveMediaNote() {

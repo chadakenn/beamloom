@@ -24,6 +24,7 @@ export type LiveSurface = {
 
 export type LiveFrame = {
   blackout: boolean;
+  alignId?: string;
   master: number;
   surfaces: LiveSurface[];
 };
@@ -104,6 +105,7 @@ export function parseLiveFrame(raw: unknown): LiveFrame | null {
   const surfaces = frame.surfaces.slice(0, 64).map(parseSurface).filter((face): face is LiveSurface => face !== null);
   return {
     blackout: frame.blackout === true,
+    alignId: frame.alignId === "" || typeof frame.alignId === "string" && surfaces.some((face) => face.id === frame.alignId) ? frame.alignId : undefined,
     master: numberBetween(frame.master, 1, 0, 1),
     surfaces,
   };
