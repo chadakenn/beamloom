@@ -8,6 +8,8 @@ ConditionPathExists=/dev/tty0
 [Service]
 User=beamloom
 PAMName=beamloom-kiosk
+Environment=XCURSOR_THEME=beamloom-blank
+Environment=XCURSOR_SIZE=1
 ExecStart=/usr/bin/cage -s -- /usr/bin/chromium --kiosk --ozone-platform=wayland --autoplay-policy=no-user-gesture-required --noerrdialogs http://127.0.0.1/screen
 ExecStartPost=+/usr/bin/chvt 1
 Restart=on-failure

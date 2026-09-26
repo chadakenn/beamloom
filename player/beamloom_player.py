@@ -8,6 +8,7 @@ sign in on the Pi. The HDMI output stays on /screen and follows the saved PC add
 from __future__ import annotations
 
 import json
+import base64
 import http.client
 import os
 import socket
@@ -29,6 +30,32 @@ CONFIG = Path(os.environ.get("BEAMLOOM_PLAYER_CONFIG", ROOT / "player.json"))
 PORT = int(os.environ.get("BEAMLOOM_PLAYER_PORT", "8080"))
 HOST = os.environ.get("BEAMLOOM_PLAYER_HOST", "0.0.0.0")
 JOIN = {"state": "idle", "message": ""}
+BLANK_CURSOR = base64.b64decode("WGN1chAAAAAAAAEAAQAAAAIA/f8BAAAAHAAAACQAAAACAP3/AQAAAAEAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAA=")
+CURSOR_NAMES = ("left_ptr", "default", "pointer", "arrow", "top_left_arrow")
+
+
+def hide_projector_cursor() -> None:
+    """Replace Cage's centered arrow. A player update can do this without a new SD card."""
+    try:
+        folder = Path("/usr/share/icons/beamloom-blank/cursors")
+        folder.mkdir(parents=True, exist_ok=True)
+        changed = False
+        for name in CURSOR_NAMES:
+            path = folder / name
+            if not path.is_file() or path.read_bytes() != BLANK_CURSOR:
+                path.write_bytes(BLANK_CURSOR)
+                changed = True
+        dropin = Path("/etc/systemd/system/beamloom-kiosk.service.d/hide-cursor.conf")
+        text = "[Service]\nEnvironment=XCURSOR_THEME=beamloom-blank\nEnvironment=XCURSOR_SIZE=1\n"
+        dropin.parent.mkdir(parents=True, exist_ok=True)
+        if not dropin.is_file() or dropin.read_text(encoding="utf-8") != text:
+            dropin.write_text(text, encoding="utf-8")
+            changed = True
+        if changed:
+            subprocess.run(["systemctl", "daemon-reload"], timeout=15, check=False)
+            subprocess.run(["systemctl", "try-restart", "beamloom-kiosk.service"], timeout=20, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return
 
 
 def display_status() -> dict:
@@ -211,8 +238,8 @@ def screen_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Beamloom</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #080b12; color: #f5f3ed; font: 20px/1.5 "Segoe UI", sans-serif; }
-    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
+    html, body { margin: 0; height: 100%; background: #080b12; color: #f5f3ed; font: 20px/1.5 "Segoe UI", sans-serif; cursor: none; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #000; cursor: none; }
     .ambient { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 42%, #243750 0, #101929 35%, #080b12 72%); }
     .card { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); box-sizing: border-box; width: min(90vw, 780px); padding: clamp(2rem, 5vw, 4rem); border: 1px solid #40536a; border-radius: 24px; background: #111b2bd9; box-shadow: 0 24px 90px #0008; text-align: center; }
     .mark { margin: 0 auto 1.4rem; width: 74px; height: 74px; border-radius: 24px; display: grid; place-items: center; background: linear-gradient(140deg, #00bca8, #7454e6, #e94593); font-size: 2.8rem; font-weight: bold; }
@@ -387,6 +414,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    hide_projector_cursor()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"Beamloom player settings on http://{HOST}:{PORT}/")
     server.serve_forever()

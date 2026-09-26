@@ -39,6 +39,10 @@ export function Player() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const root = document.documentElement;
+    const previousCursor = root.style.cursor;
+    root.style.cursor = "none";
+    document.body.style.cursor = "none";
     const mapper = createMapper(canvas);
     let frame: LiveFrame | null = null;
     let socket: WebSocket | null = null;
@@ -144,6 +148,8 @@ export function Player() {
     };
     connect();
     return () => {
+      root.style.cursor = previousCursor;
+      document.body.style.cursor = "";
       stopped = true;
       mediaEpoch += 1;
       images.clear();
@@ -159,7 +165,7 @@ export function Player() {
   }, []);
 
   return (
-    <div className="relative h-dvh w-screen overflow-hidden bg-black">
+    <div className="relative h-dvh w-screen cursor-none overflow-hidden bg-black">
       <canvas ref={canvasRef} className="block h-full w-full" />
       {waiting ? <p className="absolute bottom-4 left-4 text-sm text-white/70">Waiting for the PC</p> : null}
     </div>
