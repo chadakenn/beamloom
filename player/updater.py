@@ -25,6 +25,7 @@ FILES = {
     "player/beamloom_player.py": ROOT / "beamloom_player.py",
     "player/wifi.py": ROOT / "wifi.py",
     "player/updater.py": ROOT / "updater.py",
+    "player/play.html": ROOT / "play.html",
 }
 _update_lock = threading.Lock()
 _cache_lock = threading.Lock()
