@@ -8,6 +8,8 @@ Beamloom is a projection mapping studio for Windows. Add a surface to a projecto
 
 For live setup, select a surface and click **Align surface**. The projector or Pi shows a bright yellow shape with a white outline and corner marks. Drag corners in the editor while watching the light move on the house. **Stop Align** brings back the show; **Blackout** still turns the light off. Master brightness controls the test pattern. This mode is temporary and is not saved in the project.
 
+**Trace a roofline or irregular object:** Select a surface, click a **+** at the middle of an edge to add an outline point, then drag its yellow dot. Use the white handles for the four placement corners; they still control the media's perspective. Add up to 16 outline points, remove individual points in the Shape section, or choose **Reset shape** to return to a rectangle. The outline is saved with the show and follows the surface into other scenes. For a show stored on the Pi, update its player before expecting the new outline to appear while the PC is off.
+
 ## Get started on Windows
 
 **Desktop installer:** Download `Beamloom Setup.exe` from the latest [GitHub release](https://github.com/chadakenn/beamloom/releases/latest) and run it once. Open **Beamloom** from the Windows Start menu; pin that installed app to the taskbar or desktop if you want a shortcut. This version does not require Node.js. The installer is unsigned, so Windows may display a publisher warning. Connect your projector and set Windows to **Extend these displays**, then use **Output** in Beamloom to choose the display.

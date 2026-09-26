@@ -1,6 +1,8 @@
 import { lookKind, type LookId } from "@/lib/beam/looks";
 import { invertHomography, squareToQuad, type Corners } from "@/lib/beam/math";
 import type { Blend, Mask } from "@/lib/beam/project";
+import { MAX_OUTLINE_POINTS } from "@/lib/beam/outline";
+import type { Pt } from "@/lib/beam/math";
 
 export type DrawFace = {
   corners: Corners;
@@ -9,6 +11,7 @@ export type DrawFace = {
   opacity: number;
   feather: number;
   mask: Mask;
+  outline?: Pt[];
   brightness: number;
   contrast: number;
   saturation: number;
@@ -33,6 +36,8 @@ uniform float uTime;
 uniform float uOpacity;
 uniform float uFeather;
 uniform int uMask;
+uniform int uOutlineCount;
+uniform vec2 uOutline[16];
 uniform float uBrightness;
 uniform float uMaster;
 uniform float uContrast;
@@ -184,6 +189,21 @@ void main() {
     if (uv.y >= 0.5) edge = min(side, bottom);
     else edge = 0.5 - length(uv - vec2(0.5, 0.5));
   }
+  if (uOutlineCount >= 3) {
+    bool inside = false;
+    float distanceToEdge = 2.0;
+    for (int i = 0; i < 16; i++) {
+      if (i >= uOutlineCount) break;
+      int j = i + 1 == uOutlineCount ? 0 : i + 1;
+      vec2 a = uOutline[i];
+      vec2 b = uOutline[j];
+      vec2 line = b - a;
+      vec2 closest = uv - a - line * clamp(dot(uv - a, line) / max(dot(line, line), 0.000001), 0.0, 1.0);
+      distanceToEdge = min(distanceToEdge, length(closest));
+      if ((a.y > uv.y) != (b.y > uv.y) && uv.x < (b.x - a.x) * (uv.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    edge = min(edge, inside ? distanceToEdge : -distanceToEdge);
+  }
   float soft = uFeather > 0.001 ? smoothstep(0.0, uFeather, edge) : step(0.0, edge);
   float a = clamp(uOpacity, 0.0, 1.0) * soft * clamp(uMaster, 0.0, 1.0);
   frag = vec4(col * a, a);
@@ -231,6 +251,8 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     opacity: gl.getUniformLocation(program, "uOpacity"),
     feather: gl.getUniformLocation(program, "uFeather"),
     mask: gl.getUniformLocation(program, "uMask"),
+    outlineCount: gl.getUniformLocation(program, "uOutlineCount"),
+    outline: gl.getUniformLocation(program, "uOutline[0]"),
     brightness: gl.getUniformLocation(program, "uBrightness"),
     master: gl.getUniformLocation(program, "uMaster"),
     contrast: gl.getUniformLocation(program, "uContrast"),
@@ -297,6 +319,9 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         gl.uniform1f(loc.opacity, face.opacity);
         gl.uniform1f(loc.feather, face.feather);
         gl.uniform1i(loc.mask, face.mask === "window" ? 1 : face.mask === "arch" ? 2 : 0);
+        const outline = face.outline?.length && face.outline.length >= 3 && face.outline.length <= MAX_OUTLINE_POINTS ? face.outline : [];
+        gl.uniform1i(loc.outlineCount, outline.length);
+        if (outline.length) gl.uniform2fv(loc.outline, new Float32Array(outline.flatMap(({ x, y }) => [x, y])));
         gl.uniform1f(loc.brightness, face.brightness);
         gl.uniform1f(loc.contrast, face.contrast);
         gl.uniform1f(loc.saturation, face.saturation);

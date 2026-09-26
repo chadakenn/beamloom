@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { LookId } from "@/lib/beam/looks";
 import { clamp01, translateCorners, type Corners } from "@/lib/beam/math";
+import { MAX_OUTLINE_POINTS, RECT_OUTLINE } from "@/lib/beam/outline";
 import { applyPack, includedProject } from "@/lib/beam/packs";
 import {
   activeScene,
@@ -50,6 +51,9 @@ type EditorState = Project & {
   copySurfaceToScene: (id: string, sceneId: string) => void;
   patchSurface: (id: string, patch: Partial<Surface>) => void;
   setCorner: (id: string, index: number, x: number, y: number) => void;
+  addOutlinePoint: (id: string, after: number) => void;
+  setOutlinePoint: (id: string, index: number, x: number, y: number) => void;
+  removeOutlinePoint: (id: string, index: number) => void;
   moveSurface: (id: string, origin: Corners, dx: number, dy: number) => void;
   nudge: (dx: number, dy: number) => void;
   reorder: (id: string, dir: -1 | 1) => void;
@@ -442,6 +446,33 @@ export const useEditor = create<EditorState>((set, get) => ({
         }),
       ),
     );
+  },
+  addOutlinePoint: (id, after) => {
+    const scene = activeScene(get());
+    set(mapSceneSurfaces(get(), scene.id, (surfaces) => surfaces.map((face) => {
+      if (face.id !== id || face.locked) return face;
+      const outline = face.outline ?? RECT_OUTLINE;
+      if (outline.length >= MAX_OUTLINE_POINTS || after < 0 || after >= outline.length) return face;
+      const a = outline[after];
+      const b = outline[(after + 1) % outline.length];
+      const points = outline.map((point) => ({ ...point }));
+      points.splice(after + 1, 0, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      return { ...face, outline: points };
+    })));
+  },
+  setOutlinePoint: (id, index, x, y) => {
+    const scene = activeScene(get());
+    set(mapSceneSurfaces(get(), scene.id, (surfaces) => surfaces.map((face) => {
+      if (face.id !== id || face.locked || !face.outline?.[index]) return face;
+      return { ...face, outline: face.outline.map((point, i) => i === index ? { x: clamp01(x), y: clamp01(y) } : point) };
+    })));
+  },
+  removeOutlinePoint: (id, index) => {
+    const scene = activeScene(get());
+    set(mapSceneSurfaces(get(), scene.id, (surfaces) => surfaces.map((face) => {
+      if (face.id !== id || face.locked || !face.outline || face.outline.length <= 3 || index < 0 || index >= face.outline.length) return face;
+      return { ...face, outline: face.outline.filter((_, i) => i !== index) };
+    })));
   },
   moveSurface: (id, origin, dx, dy) => {
     const scene = activeScene(get());

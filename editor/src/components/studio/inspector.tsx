@@ -32,6 +32,7 @@ export function Inspector() {
   const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
   const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
   const setCorner = useEditor((s) => s.setCorner);
+  const removeOutlinePoint = useEditor((s) => s.removeOutlinePoint);
   const [clipInfo, setClipInfo] = useState<{ name: string; kind: ClipKind } | null>(null);
 
   useEffect(() => {
@@ -232,6 +233,20 @@ export function Inspector() {
           </div>
         </div>
       ) : null}
+      <div className="rounded-md border border-line p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-fg">Shape · {face.outline?.length ?? 4} points</span>
+          {face.outline ? <button type="button" disabled={face.locked} onClick={() => patchSurface(face.id, { outline: undefined })} className="text-xs text-beam disabled:opacity-40">Reset shape</button> : null}
+        </div>
+        <p className="mt-1 text-xs text-muted">Click a + on an edge in the frame, then drag its yellow point to trace a roofline or object. The four white corner handles still position the surface.</p>
+        {face.outline && face.outline.length > 3 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {face.outline.map((_, index) => (
+              <button key={index} type="button" disabled={face.locked} onClick={() => removeOutlinePoint(face.id, index)} className="rounded border border-line px-2 py-1 text-xs text-muted disabled:opacity-40" aria-label={`Remove outline point ${index + 1}`}>Remove {index + 1}</button>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <div>
         <p className="mb-2 text-xs font-medium text-muted">Corners</p>
         <p className="mb-2 text-xs text-muted">
