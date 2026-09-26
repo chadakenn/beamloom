@@ -15,6 +15,7 @@ function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, vide
     brightness: face.brightness,
     contrast: face.contrast,
     saturation: face.saturation,
+    speed: face.speed ?? 1,
     blend: face.blend,
     visible: face.visible,
     source: sourceFor(face, images, videos),

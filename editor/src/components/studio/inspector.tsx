@@ -164,6 +164,16 @@ export function Inspector() {
         text={`${Math.round(face.saturation * 100)}%`}
         onChange={(value) => patchSurface(face.id, { saturation: value })}
       />
+      {!face.videoId ? (
+        <ColorSlider
+          label="Effect speed"
+          value={face.speed}
+          min={0}
+          max={4}
+          text={face.speed === 0 ? "Still" : `${Number(face.speed.toFixed(2))}×`}
+          onChange={(value) => patchSurface(face.id, { speed: value })}
+        />
+      ) : null}
       <div>
         <p className="mb-2 text-xs font-medium text-muted">Blend</p>
         <div className="grid grid-cols-3 gap-1">

@@ -126,6 +126,7 @@ function currentFrame() {
       brightness: face.brightness,
       contrast: face.contrast,
       saturation: face.saturation,
+      speed: face.speed,
       blend: face.blend,
       visible: face.visible,
       ...mediaFields(face.videoId),

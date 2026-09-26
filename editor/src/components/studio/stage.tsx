@@ -257,6 +257,7 @@ function sceneFaces(scene: { surfaces: Surface[] }, soloId: string | null): Draw
     brightness: face.brightness,
     contrast: face.contrast,
     saturation: face.saturation,
+    speed: face.speed,
     blend: face.blend,
     visible: face.visible,
     source: getClipSource(face.videoId),
