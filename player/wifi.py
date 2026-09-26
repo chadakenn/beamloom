@@ -100,20 +100,26 @@ def start_setup(run=None) -> dict:
     devices = run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"])
     device = wifi_device(getattr(devices, "stdout", ""))
     run(["nmcli", "connection", "delete", SETUP_CONNECTION])
-    run([
+    hotspot = run([
         "nmcli", "device", "wifi", "hotspot",
         "ifname", device,
         "con-name", SETUP_CONNECTION,
         "ssid", SETUP_SSID,
         "password", SETUP_PASSWORD,
     ])
-    run([
+    if getattr(hotspot, "returncode", 0) != 0:
+        raise RuntimeError(f"Could not start Beamloom Wi-Fi: {getattr(hotspot, 'stderr', '').strip()}")
+    configured = run([
         "nmcli", "connection", "modify", SETUP_CONNECTION,
         "ipv4.addresses", f"{SETUP_ADDRESS}/24",
         "ipv4.method", "shared",
         "connection.autoconnect", "no",
     ])
-    run(["nmcli", "connection", "up", SETUP_CONNECTION])
+    if getattr(configured, "returncode", 0) != 0:
+        raise RuntimeError(f"Could not configure Beamloom Wi-Fi: {getattr(configured, 'stderr', '').strip()}")
+    started = run(["nmcli", "connection", "up", SETUP_CONNECTION])
+    if getattr(started, "returncode", 0) != 0:
+        raise RuntimeError(f"Could not activate Beamloom Wi-Fi: {getattr(started, 'stderr', '').strip()}")
     return describe("", f"{SETUP_CONNECTION}:802-11-wireless") | {"mode": "setup", "ssid": SETUP_SSID}
 
 

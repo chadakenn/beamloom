@@ -150,6 +150,8 @@ def screen_page() -> str:
         const wait = document.getElementById("wait");
         if (data.wifi && data.wifi.mode === "setup") {
           wait.textContent = "Join Wi-Fi " + data.wifi.setupSsid + ", password " + data.wifi.setupPassword + ", then open http://" + data.wifi.setupAddress;
+        } else if (data.wifi && data.wifi.mode === "down") {
+          wait.textContent = "No network yet. Connect an Ethernet cable to the router, then open http://beamloom.local on the show PC.";
         }
         if (url && url !== current) {
           current = url;
