@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createMapper, type DrawFace } from "@/lib/beam/gl-mapper";
 import { parseLiveFrame, type LiveFrame, type LiveSurface } from "@/lib/beam/live";
 import { gelRgb } from "@/lib/beam/looks";
+import { drawAlignment } from "@/lib/beam/align";
 
 function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, videos: Map<string, HTMLVideoElement>): DrawFace[] {
   if (frame.blackout) return [];
@@ -34,6 +35,7 @@ function sourceFor(face: LiveSurface, images: Map<string, HTMLImageElement>, vid
 
 export function Player() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const alignCanvasRef = useRef<HTMLCanvasElement>(null);
   const [waiting, setWaiting] = useState(true);
 
   useEffect(() => {
@@ -112,13 +114,22 @@ export function Player() {
         else if (!face.mediaPlaying && !video.paused) video.pause();
       }
     };
-    const fit = () => mapper?.resize(window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, 2));
+    const fit = () => {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      mapper?.resize(window.innerWidth, window.innerHeight, ratio);
+      if (alignCanvasRef.current) {
+        alignCanvasRef.current.width = Math.round(window.innerWidth * ratio);
+        alignCanvasRef.current.height = Math.round(window.innerHeight * ratio);
+      }
+    };
     fit();
     window.addEventListener("resize", fit);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0;
     const loop = (now: number) => {
-      mapper?.draw(frame ? drawFaces(frame, images, videos) : [], reduced ? 0 : now / 1000, frame?.master ?? 1);
+      const selected = !frame?.blackout && frame?.alignId ? frame.surfaces.find((face) => face.id === frame?.alignId) : null;
+      mapper?.draw(frame?.alignId !== undefined ? [] : frame ? drawFaces(frame, images, videos) : [], reduced ? 0 : now / 1000, frame?.master ?? 1);
+      if (alignCanvasRef.current) drawAlignment(alignCanvasRef.current, selected?.corners ?? null, frame?.master ?? 1);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -167,6 +178,7 @@ export function Player() {
   return (
     <div className="relative h-dvh w-screen cursor-none overflow-hidden bg-black">
       <canvas ref={canvasRef} className="block h-full w-full" />
+      <canvas ref={alignCanvasRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
       {waiting ? <p className="absolute bottom-4 left-4 text-sm text-white/70">Waiting for the PC</p> : null}
     </div>
   );

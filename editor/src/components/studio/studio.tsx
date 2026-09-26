@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { getAlign, setAlign, subscribeAlign } from "@/lib/beam/align";
 import { Copy, Crosshair, Download, FolderOpen, Grid2x2, Monitor, Pencil, Plus, Power, Redo2, RotateCcw, Undo2, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
 import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
@@ -58,6 +59,7 @@ export function Studio() {
   const [fileBusy, setFileBusy] = useState(false);
   const [fileMessage, setFileMessage] = useState("");
   const [lineup, setLineup] = useState(false);
+  const align = useSyncExternalStore(subscribeAlign, getAlign, () => false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
   const [sceneNameDraft, setSceneNameDraft] = useState("");
@@ -68,6 +70,8 @@ export function Studio() {
   const blackoutRef = useRef(false);
   const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
   const [appInfo, setAppInfo] = useState<{ version: string; installed: boolean } | null>(null);
+
+  useEffect(() => { if (!output) setAlign(false); }, []);
 
   useEffect(() => {
     let current = true;
@@ -512,6 +516,15 @@ export function Studio() {
           >
             <Grid2x2 className="size-4" aria-hidden="true" />
             <span className="hidden xl:inline">Lineup</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={align}
+            onClick={() => setAlign(!align)}
+            className={cn("inline-flex h-11 items-center gap-2 rounded-md border px-3 text-sm", align ? "border-yellow-300 bg-yellow-300 text-black" : "border-line text-fg")}
+            title="Project a bright shape for the selected surface while adjusting its corners"
+          >
+            {align ? "Stop Align" : "Align surface"}
           </button>
           <button
             type="button"
