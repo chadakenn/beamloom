@@ -15,6 +15,7 @@ export type Surface = {
   brightness: number;
   contrast: number;
   saturation: number;
+  speed: number;
   blend: Blend;
   visible: boolean;
   locked: boolean;
@@ -65,6 +66,7 @@ function surface(
     brightness: 0,
     contrast: 1,
     saturation: 1,
+    speed: 1,
     blend: "normal",
     visible: true,
     locked: false,
@@ -213,6 +215,7 @@ export function sanitizeProject(value: unknown): Project | null {
         brightness: clampNum(face.brightness, 0, -1, 1),
         contrast: clampNum(face.contrast, 1, 0, 2),
         saturation: clampNum(face.saturation, 1, 0, 2),
+        speed: clampNum(face.speed, 1, 0, 4),
         blend,
         visible: face.visible !== false,
         locked: face.locked === true,

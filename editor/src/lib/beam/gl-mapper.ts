@@ -12,6 +12,7 @@ export type DrawFace = {
   brightness: number;
   contrast: number;
   saturation: number;
+  speed: number;
   blend: Blend;
   visible: boolean;
   source: TexImageSource | null;
@@ -279,10 +280,11 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
       gl.uniform2f(loc.res, width, height);
-      gl.uniform1f(loc.time, time);
       gl.uniform1f(loc.master, Math.max(0, Math.min(1, master)));
       for (const face of faces) {
         if (!face.visible || face.opacity <= 0.001) continue;
+        const pace = face.source ? 1 : Math.max(0, Math.min(4, face.speed));
+        gl.uniform1f(loc.time, time * pace);
         const px = face.corners.map((c) => ({ x: c.x * width, y: c.y * height }));
         const forward = squareToQuad(px[0], px[1], px[2], px[3]);
         if (!forward) continue;

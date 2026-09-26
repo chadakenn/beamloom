@@ -12,6 +12,7 @@ export type LiveSurface = {
   brightness: number;
   contrast: number;
   saturation: number;
+  speed: number;
   blend: Blend;
   visible: boolean;
   mediaId?: string;
@@ -73,6 +74,7 @@ function parseSurface(value: unknown): LiveSurface | null {
     brightness: numberBetween(face.brightness, 0, -1, 1),
     contrast: numberBetween(face.contrast, 1, 0, 2),
     saturation: numberBetween(face.saturation, 1, 0, 2),
+    speed: numberBetween(face.speed, 1, 0, 4),
     blend,
     visible: face.visible !== false,
     mediaId: typeof face.mediaId === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(face.mediaId) ? face.mediaId : undefined,
