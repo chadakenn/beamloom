@@ -12,6 +12,11 @@ export const LOOKS = [
   { id: "prism", name: "Prism sweep", kind: 10, blurb: "A rainbow band crossing the quad" },
   { id: "tiles", name: "Hue tiles", kind: 11, blurb: "A grid of flashing colors" },
   { id: "pinwheel", name: "Pinwheel", kind: 12, blurb: "Colored arms turning from the center" },
+  { id: "skeleton", name: "Bones", kind: 13, blurb: "A swaying skeleton of light" },
+  { id: "ghost", name: "Ghosts", kind: 14, blurb: "Pale shapes drifting upward" },
+  { id: "spider", name: "Spiders", kind: 15, blurb: "Bright spiders on a web" },
+  { id: "pumpkin", name: "Pumpkin face", kind: 16, blurb: "An orange face with cutout eyes" },
+  { id: "witch", name: "Crossing figure", kind: 17, blurb: "A small figure moving across" },
 ] as const;
 
 export type LookId = (typeof LOOKS)[number]["id"];
