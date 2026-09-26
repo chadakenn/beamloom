@@ -22,4 +22,10 @@ contextBridge.exposeInMainWorld("beamloomDesktop", {
   piConnect: (host) => ipcRenderer.invoke("beamloom:pi-connect", host),
   piCheck: (host, pcUrl) => ipcRenderer.invoke("beamloom:pi-check", host, pcUrl),
   piUpdate: (host) => ipcRenderer.invoke("beamloom:pi-update", host),
+  piShowStart: (host) => ipcRenderer.invoke("beamloom:pi-show-start", host),
+  piShowProject: (host, project) => ipcRenderer.invoke("beamloom:pi-show-project", host, project),
+  piShowOpen: (id, name, mime, size) => ipcRenderer.invoke("beamloom:pi-show-open", id, name, mime, size),
+  piShowWrite: (id, bytes) => ipcRenderer.invoke("beamloom:pi-show-write", id, bytes),
+  piShowFile: (host, id) => ipcRenderer.invoke("beamloom:pi-show-file", host, id),
+  piShowFinish: (host) => ipcRenderer.invoke("beamloom:pi-show-finish", host),
 });

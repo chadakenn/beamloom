@@ -1,8 +1,10 @@
 const { app, BrowserWindow, autoUpdater, ipcMain, protocol, screen } = require("electron");
 const { readFile } = require("node:fs/promises");
+const fs = require("node:fs");
 const https = require("node:https");
 const http = require("node:http");
 const dns = require("node:dns/promises");
+const os = require("node:os");
 const path = require("node:path");
 const { startLiveServer } = require("./live.cjs");
 
@@ -77,6 +79,34 @@ function piSetupRequest(host, route, pcUrl) {
     request.on("error", reject);
     request.end(body);
   });
+}
+
+const showFiles = new Map();
+const SHOW_ID = /^[a-zA-Z0-9_-]{1,64}$/;
+
+function piPost(host, route, headers, body) {
+  return new Promise((resolve, reject) => {
+    const request = http.request({ hostname: piAddress(host), port: 80, path: route, method: "POST", headers }, (response) => {
+      let data = "";
+      response.on("data", (chunk) => { data += chunk; if (data.length > 8000) request.destroy(new Error("Pi response too large")); });
+      response.on("end", () => {
+        if (response.statusCode === 404) return reject(new Error("This Pi needs Update Pi player before it can store a show."));
+        try {
+          const result = JSON.parse(data);
+          if (!result.ok) return reject(new Error(result.error || "The Pi could not store the show."));
+          resolve(result);
+        } catch (error) { reject(error); }
+      });
+    });
+    request.setTimeout(180000, () => request.destroy(new Error("The Pi stopped receiving the show.")));
+    request.on("error", reject);
+    if (body && typeof body.pipe === "function") body.pipe(request);
+    else request.end(body ?? Buffer.alloc(0));
+  });
+}
+
+function showResult(error) {
+  return { ok: false, error: error instanceof Error ? error.message : "The Pi could not store the show." };
 }
 
 async function discoverPi() {
@@ -282,6 +312,56 @@ app.whenReady().then(() => {
     if (event.sender !== editor?.webContents) return null;
     try { return await piRequest(host, "POST"); }
     catch (error) { return { error: error.message }; }
+  });
+  ipcMain.handle("beamloom:pi-show-start", async (event, host) => {
+    if (event.sender !== editor?.webContents) return { ok: false, error: "Open this from the Beamloom window." };
+    try { return await piPost(host, "/show/start", { "content-length": 0 }); }
+    catch (error) { return showResult(error); }
+  });
+  ipcMain.handle("beamloom:pi-show-project", async (event, host, project) => {
+    if (event.sender !== editor?.webContents) return { ok: false, error: "Open this from the Beamloom window." };
+    try {
+      const body = Buffer.from(JSON.stringify(project));
+      if (body.length > 2 * 1024 * 1024) return { ok: false, error: "This project is too large to store." };
+      return await piPost(host, "/show/project", { "content-type": "application/json", "content-length": body.length }, body);
+    } catch (error) { return showResult(error); }
+  });
+  ipcMain.handle("beamloom:pi-show-open", (event, id, name, mime, size) => {
+    if (event.sender !== editor?.webContents || !SHOW_ID.test(id) || !Number.isInteger(size) || size < 1 || size > 512 * 1024 * 1024) return { ok: false };
+    const file = path.join(os.tmpdir(), `beamloom-show-${id}`);
+    fs.writeFileSync(file, Buffer.alloc(0));
+    showFiles.set(id, { file, name: String(name).slice(0, 80), mime: String(mime), size, written: 0 });
+    return { ok: true };
+  });
+  ipcMain.handle("beamloom:pi-show-write", (event, id, bytes) => {
+    const item = event.sender === editor?.webContents ? showFiles.get(id) : null;
+    const chunk = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes ?? []);
+    if (!item || !chunk.length || item.written + chunk.length > item.size) return { ok: false };
+    fs.appendFileSync(item.file, chunk);
+    item.written += chunk.length;
+    return { ok: true };
+  });
+  ipcMain.handle("beamloom:pi-show-file", async (event, host, id) => {
+    const item = event.sender === editor?.webContents ? showFiles.get(id) : null;
+    if (!item || item.written !== item.size) return { ok: false, error: "The file upload stopped early." };
+    try {
+      const result = await piPost(host, `/show/media/${id}`, {
+        "content-type": item.mime,
+        "content-length": item.size,
+        "x-beamloom-name": Buffer.from(item.name, "utf8").toString("base64"),
+      }, fs.createReadStream(item.file));
+      return result;
+    } catch (error) {
+      return showResult(error);
+    } finally {
+      fs.rmSync(item.file, { force: true });
+      showFiles.delete(id);
+    }
+  });
+  ipcMain.handle("beamloom:pi-show-finish", async (event, host) => {
+    if (event.sender !== editor?.webContents) return { ok: false, error: "Open this from the Beamloom window." };
+    try { return await piPost(host, "/show/finish", { "content-length": 0 }); }
+    catch (error) { return showResult(error); }
   });
   ipcMain.handle("beamloom:live-stop", async (event) => {
     if (event.sender !== editor?.webContents) return false;
