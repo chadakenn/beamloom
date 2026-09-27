@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pause, Play } from "lucide-react";
 import { getFadeSeconds, setFadeSeconds, subscribeFade } from "@/lib/beam/fade";
 import { getMaster, setMaster, subscribeMaster } from "@/lib/beam/master";
@@ -32,6 +32,8 @@ export function ShowBar() {
   const [sendingShow, setSendingShow] = useState(false);
   const [foundPis, setFoundPis] = useState<{ host: string; wifi: { mode: string; ssid: string } }[]>([]);
   const [testResult, setTestResult] = useState<"ok" | "failed" | null>(null);
+  const piStatusRef = useRef(piStatus);
+  piStatusRef.current = piStatus;
   const fade = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
   const master = useSyncExternalStore(subscribeMaster, getMaster, () => 1);
   const piOn = useSyncExternalStore(subscribeLive, liveRunning, () => false);
@@ -50,6 +52,31 @@ export function ShowBar() {
     return () => { active = false; window.clearInterval(timer); };
   }, [piHost]);
 
+  useEffect(() => {
+    if (!window.beamloomDesktop?.piDiscover) return;
+    let active = true;
+    let running = false;
+    const scan = async () => {
+      if (running) return;
+      running = true;
+      try {
+        const found = await window.beamloomDesktop?.piDiscover?.() ?? [];
+        if (!active) return;
+        setFoundPis(found);
+        setPiHost((current) => {
+          if (found.some((item) => item.host === current)) return current;
+          const offline = !piStatusRef.current || Boolean(piStatusRef.current.error);
+          return found.length === 1 && (current === "beamloom.local" || offline) ? found[0].host : current;
+        });
+      } finally {
+        running = false;
+      }
+    };
+    void scan();
+    const timer = window.setInterval(() => void scan(), 20000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
   async function updatePi() {
     const available = piStatus?.update?.available;
     const version = piStatus?.update?.version ?? "the current player";
@@ -63,10 +90,10 @@ export function ShowBar() {
   async function findPis() {
     setDiscovering(true);
     setPiMessage("Searching this PC's local network…");
-    if (!liveRunning()) await startLive();
     const found = await window.beamloomDesktop?.piDiscover?.() ?? [];
     setFoundPis(found);
-    setPiMessage(found.length ? `Found ${found.length} Beamloom Pi${found.length === 1 ? "" : "s"}. Select one below.` : "No Pi found. Check Wi-Fi or enter the Pi's address below.");
+    setPiHost((current) => found.some((item) => item.host === current) ? current : found.length === 1 ? found[0].host : current);
+    setPiMessage(found.length ? `Found ${found.length} Beamloom Pi${found.length === 1 ? "" : "s"}.` : "No Pi found. Check Wi-Fi or enter the Pi's address below.");
     setDiscovering(false);
   }
 
@@ -211,8 +238,8 @@ export function ShowBar() {
           </summary>
           <div className="absolute left-0 top-full z-30 mt-2 w-[min(90vw,28rem)] rounded-md border border-line bg-panel p-3 shadow-xl">
             <h3 className="font-semibold">Set up Pi output</h3>
-            <p className="mt-1 text-xs text-muted">Keep this PC and the Pi on the same home network. Find your Pi, then connect it to the picture from this app.</p>
-            <button type="button" disabled={discovering} onClick={() => void findPis()} className="mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">{discovering ? "Searching…" : "Find my Pi"}</button>
+            <p className="mt-1 text-xs text-muted">Beamloom looks for a Pi on this network by itself. If more than one is on, pick the one you want.</p>
+            <button type="button" disabled={discovering} onClick={() => void findPis()} className="mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">{discovering ? "Searching…" : "Search again"}</button>
             {foundPis.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{foundPis.map((found) => <button key={found.host} type="button" onClick={() => { setPiHost(found.host); setPiMessage(""); setTestResult(null); }} className="rounded border border-line px-2 py-1 text-xs">{found.host}{found.wifi.ssid ? ` · ${found.wifi.ssid}` : ""}</button>)}</div>}
             <label htmlFor="pi-host" className="block">Pi address</label>
             <input id="pi-host" value={piHost} onChange={(event) => { setPiHost(event.target.value.trim()); setPiStatus(null); setTestResult(null); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="beamloom.local" />
@@ -240,7 +267,7 @@ export function ShowBar() {
               <ol className="mt-2 list-decimal space-y-1 pl-4">
                 <li>Connect the Pi to a screen and power it on.</li>
                 <li>If it shows a Beamloom setup network, join that Wi-Fi using password <strong>beamloom</strong>, then open <strong>http://192.168.4.1/</strong> and enter your home Wi-Fi.</li>
-                <li>Put this PC back on the same home network, click <strong>Find my Pi</strong>, and select it. If it does not appear, find its IP in your router and enter it above.</li>
+                <li>Put this PC back on the same home network. Beamloom fills in the Pi it finds. If more than one appears, select it. If none appear, find its IP in your router and enter it above.</li>
                 <li>Click <strong>Connect this Pi</strong>. The checklist shows what still needs attention. Allow Beamloom on private networks if Windows asks.</li>
               </ol>
             </details>

@@ -134,7 +134,7 @@ If no Beamloom network appears, connect the Pi to your router with Ethernet and 
 Back on your home Wi-Fi:
 
 1. Open Beamloom on a PC connected to the same home Wi-Fi or Ethernet as the Pi. Allow Beamloom on **private networks** if Windows asks.
-2. Click **Pi**, open **Pi online/offline**, and click **Find my Pi**. Pick the Pi shown. If it is not found, get its IP address from your router and type it in **Pi address**.
+2. Click **Pi**, then open **Pi online/offline**. Beamloom looks on this network for a Raspberry Pi running the player and fills in its address. If more than one Pi is on, pick the one you want. Click **Search again** if it does not appear. If it is still missing, get its IP address from your router and type it in **Pi address**.
 3. Click **Connect this Pi**. Beamloom starts live output, asks the Pi to check the connection, and saves the working PC address on the Pi. Follow the five-step checklist until it shows a live picture.
 4. Drag a corner in Beamloom. The Pi screen should follow. **Master** and **Blackout** follow too.
 
