@@ -293,7 +293,7 @@ let syncSocket;
 function connectSync() {
   syncSocket = new WebSocket("ws://" + location.host + "/sync/live");
   syncSocket.onmessage = (event) => {
-    if (typeof event.data !== "string" || event.data.length > 100000) return;
+    if (typeof event.data !== "string" || event.data.length > 200000) return;
     try {
       const frame = JSON.parse(event.data);
       if (!frame.universes || typeof frame.universes !== "object" || Array.isArray(frame.universes)) return;
@@ -305,11 +305,17 @@ function connectSync() {
         if (bytes.length === 512) syncChannels.set(universe, bytes);
       }
       syncSeen = Date.now();
-      if (typeof frame.matrix === "string" && frame.matrix.length <= 40000 && matrixContext) {
+      if (typeof frame.matrix === "string" && frame.matrix.length <= 150000 && matrixContext &&
+          ((frame.matrixWidth === 128 && frame.matrixHeight === 72) ||
+           (frame.matrixWidth === 256 && frame.matrixHeight === 144))) {
         const pixels = Uint8Array.from(atob(frame.matrix), (char) => char.charCodeAt(0));
-        if (pixels.length === 128 * 72 * 3) {
-          const image = matrixContext.createImageData(128, 72);
-          for (let i = 0; i < 128 * 72; i++) {
+        const width = frame.matrixWidth;
+        const height = frame.matrixHeight;
+        if (pixels.length === width * height * 3) {
+          if (matrixCanvas.width !== width) matrixCanvas.width = width;
+          if (matrixCanvas.height !== height) matrixCanvas.height = height;
+          const image = matrixContext.createImageData(width, height);
+          for (let i = 0; i < width * height; i++) {
             image.data.set(pixels.subarray(i * 3, i * 3 + 3), i * 4);
             image.data[i * 4 + 3] = 255;
           }
