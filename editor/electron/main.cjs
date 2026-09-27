@@ -116,24 +116,51 @@ function showResult(error) {
   return { ok: false, error: error instanceof Error ? error.message : "The Pi could not store the show." };
 }
 
-async function discoverPi() {
-  const candidate = live?.urls.find((url) => /^http:\/\/(?:192\.168\.|10\.|172\.)/.test(url));
-  if (!candidate) return [];
-  const address = new URL(candidate).hostname;
-  const prefix = address.split(".").slice(0, 3).join(".");
-  const found = [];
-  let next = 1;
-  await Promise.all(Array.from({ length: 24 }, async () => {
-    while (next < 255) {
-      const host = `${prefix}.${next++}`;
-      if (host === address) continue;
-      try {
-        const response = await piRequest(host, "GET", 650);
-        if (typeof response.pcUrl === "string" && response.wifi && response.update) found.push({ host, wifi: response.wifi });
-      } catch { /* Other LAN devices are expected. */ }
+function localSubnets() {
+  const own = new Set();
+  const prefixes = [];
+  for (const entries of Object.values(os.networkInterfaces())) {
+    for (const entry of entries || []) {
+      if (entry.internal || entry.family !== "IPv4") continue;
+      own.add(entry.address);
+      if (!/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(entry.address)) continue;
+      const prefix = entry.address.split(".").slice(0, 3).join(".");
+      if (!prefixes.includes(prefix)) prefixes.push(prefix);
     }
+  }
+  return { own, prefixes: prefixes.slice(0, 4) };
+}
+
+async function discoverPi() {
+  const { own, prefixes } = localSubnets();
+  const hosts = [];
+  try {
+    const resolved = await Promise.race([
+      dns.lookup("beamloom.local", { family: 4 }),
+      new Promise((resolve) => setTimeout(() => resolve(null), 1200)),
+    ]);
+    if (resolved?.address && !own.has(resolved.address)) hosts.push(resolved.address);
+  } catch { /* beamloom.local is absent when no Pi is advertising. */ }
+  for (const prefix of prefixes) {
+    for (let number = 1; number < 255; number += 1) {
+      const host = `${prefix}.${number}`;
+      if (!own.has(host)) hosts.push(host);
+    }
+  }
+  const unique = [...new Set(hosts)];
+  const found = new Map();
+  let cursor = 0;
+  const probe = async (host) => {
+    try {
+      const response = await piRequest(host, "GET", 600);
+      if (typeof response.pcUrl === "string" && response.wifi && response.update) found.set(host, { host, wifi: response.wifi });
+    } catch { /* Other LAN devices are expected. */ }
+  };
+  await Promise.all(Array.from({ length: 40 }, async () => {
+    while (cursor < unique.length) await probe(unique[cursor++]);
   }));
-  return found;
+  if (!found.size) await probe("beamloom.local");
+  return [...found.values()];
 }
 
 function fileFromRequest(root, requestUrl) {
