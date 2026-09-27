@@ -23,6 +23,8 @@ class ReceiverTest(unittest.TestCase):
             sync._UNIVERSE_SEEN.clear()
             sync._MATRIX[:] = bytes(sync.MATRIX_BYTES)
             sync._MATRIX_RECEIVED[:] = bytes(sync.MATRIX_BYTES)
+            sync._MATRIX_RECEIVED_COUNT = 0
+            sync._MATRIX_EXPECTED_BYTES = 0
             sync._MATRIX_FRAME = None
             sync._MATRIX_SEEN = 0.0
             sync._MATRIX_DESTINATION = None
@@ -98,30 +100,48 @@ class ReceiverTest(unittest.TestCase):
             return b"\x40\x00\x00\x02" + struct.pack(">IH", offset, len(data)) + data
         sync._parse_ddp(packet(0, first))
         self.assertNotIn("matrix", sync.frame())
-        for offset in range(1440, sync.MATRIX_BYTES - len(last), 1440):
+        for offset in range(1440, sync.SMALL_MATRIX_BYTES - len(last), 1440):
             sync._parse_ddp(packet(offset, middle))
         self.assertNotIn("matrix", sync.frame())
-        sync._parse_ddp(packet(sync.MATRIX_BYTES - len(last), last))
+        sync._parse_ddp(packet(sync.SMALL_MATRIX_BYTES - len(last), last))
         self.assertEqual(sync.channels(1)[:4], bytes([11, 22, 33, 44]))
         pixels = base64.b64decode(sync.frame()["matrix"])
         self.assertEqual(pixels, first + middle * 18 + last)
+        self.assertEqual((sync.frame()["matrixWidth"], sync.frame()["matrixHeight"]), (128, 72))
         sync._parse_ddp(packet(0, bytes(1440)))
         self.assertEqual(base64.b64decode(sync.frame()["matrix"]), pixels)
-        for offset in range(1440, sync.MATRIX_BYTES - len(last), 1440):
+        for offset in range(1440, sync.SMALL_MATRIX_BYTES - len(last), 1440):
             sync._parse_ddp(packet(offset, middle))
         self.assertEqual(base64.b64decode(sync.frame()["matrix"]), pixels)
-        sync._parse_ddp(packet(sync.MATRIX_BYTES - len(last), last))
+        sync._parse_ddp(packet(sync.SMALL_MATRIX_BYTES - len(last), last))
         self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + middle * 18 + last)
         sync._parse_ddp(packet(sync.MATRIX_BYTES, b"\xff"))
         self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + middle * 18 + last)
         sync._parse_ddp(b"\x40\x00\x00\x01" + struct.pack(">IH", 0, len(first)) + first)
-        for offset in range(1440, sync.MATRIX_BYTES - len(last), 1440):
+        for offset in range(1440, sync.SMALL_MATRIX_BYTES - len(last), 1440):
             sync._parse_ddp(packet(offset, middle))
-        sync._parse_ddp(packet(sync.MATRIX_BYTES - len(last), last))
+        sync._parse_ddp(packet(sync.SMALL_MATRIX_BYTES - len(last), last))
         self.assertEqual(sync.channels(1)[:4], bytes([11, 22, 33, 44]))
         self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + middle * 18 + last)
         with patch.object(sync.time, "time", return_value=sync._MATRIX_SEEN + 6):
             self.assertNotIn("matrix", sync.frame())
+
+    def test_larger_matrix_waits_for_all_packets_and_reports_dimensions(self):
+        def packet(offset, data):
+            return b"\x40\x00\x00\x02" + struct.pack(">IH", offset, len(data)) + data
+        full = bytes((index % 251 for index in range(sync.MATRIX_BYTES)))
+        chunks = [(offset, full[offset:offset + 1440]) for offset in range(0, len(full), 1440)]
+        self.assertEqual(len(chunks), 77)
+        sync._parse_ddp(packet(*chunks[0]))
+        sync._parse_ddp(packet(*chunks[-1]))  # last can arrive before a middle packet
+        for offset, data in chunks[1:-2]:
+            sync._parse_ddp(packet(offset, data))
+        self.assertNotIn("matrix", sync.frame())
+        sync._parse_ddp(packet(*chunks[-2]))
+        result = sync.frame()
+        self.assertEqual((result["matrixWidth"], result["matrixHeight"]), (256, 144))
+        self.assertEqual(base64.b64decode(result["matrix"]), full)
+        self.assertGreater(len(json.dumps(result)), 65535)  # WebSocket needs its 64-bit length header
 
     def test_kiosk_websocket_streams_channel_frame(self):
         sync._set_universe(12, bytes([7, 8, 9, 10]).ljust(512, b"\x00"))
@@ -146,6 +166,35 @@ class ReceiverTest(unittest.TestCase):
                     payload += client.recv(30000)
                 frame = json.loads(payload[4:4 + length])
                 self.assertEqual(base64.b64decode(frame["universes"]["12"])[:4], bytes([7, 8, 9, 10]))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_kiosk_websocket_streams_large_matrix_frame(self):
+        with sync._LOCK:
+            sync._MATRIX_FRAME = bytes([12, 34, 56]) * (256 * 144)
+            sync._MATRIX_SEEN = sync.time.time()
+        server = beamloom_player.ThreadingHTTPServer(("127.0.0.1", 0), beamloom_player.Handler)
+        server.daemon_threads = True
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with socket.create_connection(server.server_address, timeout=2) as client:
+                client.settimeout(2)
+                client.sendall(b"GET /sync/live HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n")
+                response = client.recv(30000)
+                while b"\r\n\r\n" not in response:
+                    response += client.recv(30000)
+                _, payload = response.split(b"\r\n\r\n", 1)
+                while len(payload) < 10:
+                    payload += client.recv(30000)
+                self.assertEqual(payload[:2], b"\x81\x7f")
+                length = struct.unpack(">Q", payload[2:10])[0]
+                while len(payload) < 10 + length:
+                    payload += client.recv(30000)
+                frame = json.loads(payload[10:10 + length])
+                self.assertEqual((frame["matrixWidth"], frame["matrixHeight"]), (256, 144))
+                self.assertEqual(len(base64.b64decode(frame["matrix"])), sync.MATRIX_BYTES)
         finally:
             server.shutdown()
             server.server_close()

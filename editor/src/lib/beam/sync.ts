@@ -11,16 +11,15 @@ export function validSync(value: unknown): SyncAssignment | undefined {
 
 const values = new Map<number, Uint8Array>();
 let lastFrameAt = 0;
-const MATRIX_WIDTH = 128;
-const MATRIX_HEIGHT = 72;
-const MATRIX_BYTES = MATRIX_WIDTH * MATRIX_HEIGHT * 3;
+const MATRIX_WIDTH = 256;
+const MATRIX_HEIGHT = 144;
 let matrixCanvas: HTMLCanvasElement | undefined;
 let matrixAt = 0;
 
 export function receiveSync(raw: unknown) {
-  if (typeof raw !== "string" || raw.length > 100000) return;
+  if (typeof raw !== "string" || raw.length > 200000) return;
   try {
-    const frame = JSON.parse(raw) as { universes?: Record<string, string>; matrix?: string };
+    const frame = JSON.parse(raw) as { universes?: Record<string, string>; matrix?: string; matrixWidth?: number; matrixHeight?: number };
     if (!frame.universes || typeof frame.universes !== "object" || Array.isArray(frame.universes)) return;
     const next = new Map<number, Uint8Array>();
     for (const [id, encoded] of Object.entries(frame.universes).slice(0, 32)) {
@@ -32,16 +31,20 @@ export function receiveSync(raw: unknown) {
     values.clear();
     next.forEach((data, universe) => values.set(universe, data));
     lastFrameAt = Date.now();
-    if (typeof frame.matrix === "string" && frame.matrix.length <= 40000) {
+    const width = frame.matrixWidth ?? 128;
+    const height = frame.matrixHeight ?? 72;
+    if (typeof frame.matrix === "string" && frame.matrix.length <= 150000 &&
+      ((width === 128 && height === 72) ||
+       (width === MATRIX_WIDTH && height === MATRIX_HEIGHT))) {
       const pixels = Uint8Array.from(atob(frame.matrix), (char) => char.charCodeAt(0));
-      if (pixels.length === MATRIX_BYTES) {
+      if (pixels.length === width * height * 3) {
         matrixCanvas ??= document.createElement("canvas");
-        matrixCanvas.width = MATRIX_WIDTH;
-        matrixCanvas.height = MATRIX_HEIGHT;
+        if (matrixCanvas.width !== width) matrixCanvas.width = width;
+        if (matrixCanvas.height !== height) matrixCanvas.height = height;
         const context = matrixCanvas.getContext("2d");
         if (context) {
-          const image = context.createImageData(MATRIX_WIDTH, MATRIX_HEIGHT);
-          for (let i = 0; i < MATRIX_WIDTH * MATRIX_HEIGHT; i++) {
+          const image = context.createImageData(width, height);
+          for (let i = 0; i < width * height; i++) {
             image.data.set(pixels.subarray(i * 3, i * 3 + 3), i * 4);
             image.data[i * 4 + 3] = 255;
           }

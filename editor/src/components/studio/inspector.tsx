@@ -240,7 +240,7 @@ export function Inspector() {
             {face.matrix ? "Turn off" : "Use DDP matrix"}
           </button>
         </div>
-        <p className="mt-2 text-xs text-muted">Show a 128 × 72 xLights matrix in this surface. Send DDP to the Pi; turn off Keep Channels Per Packet so its first channel is 1. Surfaces with matrix enabled show the same picture.</p>
+        <p className="mt-2 text-xs text-muted">Show a 128 × 72 or 256 × 144 xLights matrix in this surface. Send DDP to the Pi; turn off Keep Channel Numbers so its first channel is 1. Surfaces with matrix enabled show the same picture.</p>
       </div>
       <div className="rounded-md border border-line p-3">
         <div className="flex items-center justify-between gap-2">

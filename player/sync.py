@@ -38,11 +38,14 @@ E131_PORT = 5568
 DDP_PORT = 4048
 STALE_AFTER = 5.0  # seconds of silence before a universe/sync is treated as gone
 MAX_UNIVERSES = 256
-MATRIX_WIDTH = 128
-MATRIX_HEIGHT = 72
+MATRIX_WIDTH = 256
+MATRIX_HEIGHT = 144
 MATRIX_BYTES = MATRIX_WIDTH * MATRIX_HEIGHT * 3
+SMALL_MATRIX_BYTES = 128 * 72 * 3
 _MATRIX = bytearray(MATRIX_BYTES)
 _MATRIX_RECEIVED = bytearray(MATRIX_BYTES)
+_MATRIX_RECEIVED_COUNT = 0
+_MATRIX_EXPECTED_BYTES = 0
 _MATRIX_FRAME: bytes | None = None
 _MATRIX_SEEN = 0.0
 _MATRIX_DESTINATION: int | None = None
@@ -136,6 +139,8 @@ def frame() -> dict:
     result = {"universes": {str(universe): base64.b64encode(data).decode("ascii") for universe, data in live}}
     if matrix is not None:
         result["matrix"] = base64.b64encode(matrix).decode("ascii")
+        result["matrixWidth"] = 128 if len(matrix) == SMALL_MATRIX_BYTES else MATRIX_WIDTH
+        result["matrixHeight"] = 72 if len(matrix) == SMALL_MATRIX_BYTES else MATRIX_HEIGHT
     return result
 
 
@@ -254,7 +259,7 @@ def _e131_loop() -> None:
 
 
 def _parse_ddp(payload: bytes) -> None:
-    global _MATRIX_FRAME, _MATRIX_SEEN, _MATRIX_DESTINATION
+    global _MATRIX_FRAME, _MATRIX_SEEN, _MATRIX_DESTINATION, _MATRIX_RECEIVED_COUNT, _MATRIX_EXPECTED_BYTES
     if len(payload) < 10:
         return
     flags = payload[0]
@@ -273,11 +278,19 @@ def _parse_ddp(payload: bytes) -> None:
             if offset == 0 and length > 512:
                 _MATRIX_DESTINATION = destination
                 _MATRIX_RECEIVED[:] = bytes(MATRIX_BYTES)
+                _MATRIX_RECEIVED_COUNT = 0
+                _MATRIX_EXPECTED_BYTES = 0
             end = min(offset + length, MATRIX_BYTES)
             _MATRIX[offset:end] = data[:end - offset]
+            _MATRIX_RECEIVED_COUNT += _MATRIX_RECEIVED[offset:end].count(0)
             _MATRIX_RECEIVED[offset:end] = b"\x01" * (end - offset)
-            if all(_MATRIX_RECEIVED):
-                _MATRIX_FRAME = bytes(_MATRIX)
+            # Both supported sizes end with a 288-byte DDP packet. Its offset
+            # tells us which complete frame to publish without guessing from
+            # a partial first packet of a larger frame.
+            if offset + length in (SMALL_MATRIX_BYTES, MATRIX_BYTES) and length < 1440:
+                _MATRIX_EXPECTED_BYTES = offset + length
+            if _MATRIX_EXPECTED_BYTES and _MATRIX_RECEIVED_COUNT >= _MATRIX_EXPECTED_BYTES:
+                _MATRIX_FRAME = bytes(_MATRIX[:_MATRIX_EXPECTED_BYTES])
                 _MATRIX_SEEN = time.time()
     # Matrix packets must not overwrite the matching E1.31 universe's colors.
     if offset >= 512 or length > 512:
