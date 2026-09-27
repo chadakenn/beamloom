@@ -133,6 +133,7 @@ function currentFrame() {
       visible: face.visible,
       ...mediaFields(face.videoId),
       corners: face.corners,
+      outline: face.outline,
     })),
   };
 }

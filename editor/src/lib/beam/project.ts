@@ -1,5 +1,6 @@
 import { gelRgb, type LookId } from "@/lib/beam/looks";
 import { translateCorners, type Corners, type Pt } from "@/lib/beam/math";
+import { validOutline } from "@/lib/beam/outline";
 
 export type Blend = "normal" | "add" | "screen";
 export type Mask = "full" | "window" | "arch";
@@ -21,6 +22,7 @@ export type Surface = {
   locked: boolean;
   videoId: string | null;
   corners: Corners;
+  outline?: Pt[];
 };
 
 export type Scene = {
@@ -227,6 +229,7 @@ export function sanitizeProject(value: unknown): Project | null {
           x: Math.max(0, Math.min(1, c.x)),
           y: Math.max(0, Math.min(1, c.y)),
         })) as Corners,
+        outline: validOutline(face.outline),
       });
     }
     scenes.push({ id: s.id, name: s.name.slice(0, 32), durationSeconds: clampNum(s.durationSeconds, 10, 1, 3600), surfaces });

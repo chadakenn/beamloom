@@ -8,6 +8,7 @@ function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, vide
   if (frame.blackout) return [];
   return frame.surfaces.map((face: LiveSurface) => ({
     corners: face.corners,
+    outline: face.outline,
     look: face.look,
     gel: gelRgb(face.gel),
     opacity: face.opacity,
@@ -129,7 +130,7 @@ export function Player() {
     const loop = (now: number) => {
       const selected = !frame?.blackout && frame?.alignId ? frame.surfaces.find((face) => face.id === frame?.alignId) : null;
       mapper?.draw(frame?.alignId !== undefined ? [] : frame ? drawFaces(frame, images, videos) : [], reduced ? 0 : now / 1000, frame?.master ?? 1);
-      if (alignCanvasRef.current) drawAlignment(alignCanvasRef.current, selected?.corners ?? null, frame?.master ?? 1);
+      if (alignCanvasRef.current) drawAlignment(alignCanvasRef.current, selected?.corners ?? null, frame?.master ?? 1, selected?.outline);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
