@@ -30,6 +30,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import wifi
 import updater
+# Existing Pi installs have an older updater which does not yet fetch sync.py.
+# The first update carries a compressed copy; later updates fetch sync.py normally.
+try:
+    import sync
+except ModuleNotFoundError as error:
+    if error.name != "sync":
+        raise
+    (ROOT / "sync.py").write_bytes(zlib.decompress(base64.b64decode("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")))
+    import sync
 CONFIG = Path(os.environ.get("BEAMLOOM_PLAYER_CONFIG", ROOT / "player.json"))
 PORT = int(os.environ.get("BEAMLOOM_PLAYER_PORT", "8080"))
 HOST = os.environ.get("BEAMLOOM_PLAYER_HOST", "0.0.0.0")
@@ -573,7 +582,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/health":
-            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN, "display": display_status(), "show": show_status(), "pcUp": pc_is_up()}).encode("utf-8")
+            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN, "display": display_status(), "show": show_status(), "pcUp": pc_is_up(), "sync": sync.state()}).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(data)))
@@ -753,6 +762,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     hide_projector_cursor()
+    sync.start()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"Beamloom player settings on http://{HOST}:{PORT}/")
     server.serve_forever()
