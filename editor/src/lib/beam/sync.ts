@@ -11,11 +11,16 @@ export function validSync(value: unknown): SyncAssignment | undefined {
 
 const values = new Map<number, Uint8Array>();
 let lastFrameAt = 0;
+const MATRIX_WIDTH = 32;
+const MATRIX_HEIGHT = 18;
+const MATRIX_BYTES = MATRIX_WIDTH * MATRIX_HEIGHT * 3;
+let matrixCanvas: HTMLCanvasElement | undefined;
+let matrixAt = 0;
 
 export function receiveSync(raw: unknown) {
   if (typeof raw !== "string" || raw.length > 60000) return;
   try {
-    const frame = JSON.parse(raw) as { universes?: Record<string, string> };
+    const frame = JSON.parse(raw) as { universes?: Record<string, string>; matrix?: string };
     if (!frame.universes || typeof frame.universes !== "object" || Array.isArray(frame.universes)) return;
     const next = new Map<number, Uint8Array>();
     for (const [id, encoded] of Object.entries(frame.universes).slice(0, 32)) {
@@ -27,6 +32,24 @@ export function receiveSync(raw: unknown) {
     values.clear();
     next.forEach((data, universe) => values.set(universe, data));
     lastFrameAt = Date.now();
+    if (typeof frame.matrix === "string" && frame.matrix.length <= 2400) {
+      const pixels = Uint8Array.from(atob(frame.matrix), (char) => char.charCodeAt(0));
+      if (pixels.length === MATRIX_BYTES) {
+        matrixCanvas ??= document.createElement("canvas");
+        matrixCanvas.width = MATRIX_WIDTH;
+        matrixCanvas.height = MATRIX_HEIGHT;
+        const context = matrixCanvas.getContext("2d");
+        if (context) {
+          const image = context.createImageData(MATRIX_WIDTH, MATRIX_HEIGHT);
+          for (let i = 0; i < MATRIX_WIDTH * MATRIX_HEIGHT; i++) {
+            image.data.set(pixels.subarray(i * 3, i * 3 + 3), i * 4);
+            image.data[i * 4 + 3] = 255;
+          }
+          context.putImageData(image, 0, 0);
+          matrixAt = Date.now();
+        }
+      }
+    } else matrixAt = 0;
   } catch { /* Ignore invalid channel frames. */ }
 }
 
@@ -41,4 +64,8 @@ export function syncColor(assignment: SyncAssignment | undefined): SyncColor | u
   };
 }
 
-export function clearSync() { values.clear(); lastFrameAt = 0; }
+export function syncMatrix(): HTMLCanvasElement | undefined {
+  return Date.now() - matrixAt < 5000 ? matrixCanvas : undefined;
+}
+
+export function clearSync() { values.clear(); lastFrameAt = 0; matrixAt = 0; matrixCanvas = undefined; }

@@ -38,6 +38,13 @@ E131_PORT = 5568
 DDP_PORT = 4048
 STALE_AFTER = 5.0  # seconds of silence before a universe/sync is treated as gone
 MAX_UNIVERSES = 256
+MATRIX_WIDTH = 32
+MATRIX_HEIGHT = 18
+MATRIX_BYTES = MATRIX_WIDTH * MATRIX_HEIGHT * 3
+_MATRIX = bytearray(MATRIX_BYTES)
+_MATRIX_RECEIVED = bytearray(MATRIX_BYTES)
+_MATRIX_FRAME: bytes | None = None
+_MATRIX_SEEN = 0.0
 
 
 def scene_at(durations, elapsed: float) -> tuple[int, float]:
@@ -123,7 +130,11 @@ def frame() -> dict:
     with _LOCK:
         live = sorted((universe, data) for universe, data in _UNIVERSES.items()
                       if now - _UNIVERSE_SEEN.get(universe, 0) < STALE_AFTER)[:32]
-    return {"universes": {str(universe): base64.b64encode(data).decode("ascii") for universe, data in live}}
+        matrix = _MATRIX_FRAME if now - _MATRIX_SEEN < STALE_AFTER else None
+    result = {"universes": {str(universe): base64.b64encode(data).decode("ascii") for universe, data in live}}
+    if matrix is not None:
+        result["matrix"] = base64.b64encode(matrix).decode("ascii")
+    return result
 
 
 def _set_multisync(action: str, kind: str, name: str, frame: int, elapsed: float) -> None:
@@ -252,7 +263,21 @@ def _parse_ddp(payload: bytes) -> None:
     (offset,) = struct.unpack(">I", payload[4:8])
     (length,) = struct.unpack(">H", payload[8:10])
     data = payload[10:10 + length]
-    if not data or len(payload) - 10 < length or offset >= 512:
+    if not data or len(payload) - 10 < length or length > 1440 or offset >= MATRIX_BYTES:
+        return
+    if destination == 1:
+        global _MATRIX_FRAME, _MATRIX_SEEN
+        with _LOCK:
+            if offset == 0:
+                _MATRIX_RECEIVED[:] = bytes(MATRIX_BYTES)
+            end = min(offset + length, MATRIX_BYTES)
+            _MATRIX[offset:end] = data[:end - offset]
+            _MATRIX_RECEIVED[offset:end] = b"\x01" * (end - offset)
+            if all(_MATRIX_RECEIVED):
+                _MATRIX_FRAME = bytes(_MATRIX)
+                _MATRIX_SEEN = time.time()
+    # Matrix packets must not overwrite E1.31 universe 1's four-channel colors.
+    if offset >= 512 or (destination == 1 and length > 512):
         return
     with _LOCK:
         buffer = bytearray(_UNIVERSES.get(destination, bytes(512)))
