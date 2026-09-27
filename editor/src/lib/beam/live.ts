@@ -4,6 +4,7 @@ import { type LookId } from "@/lib/beam/looks";
 import { validOutline } from "@/lib/beam/outline";
 import { validSync, type SyncAssignment } from "@/lib/beam/sync";
 import type { Pt } from "@/lib/beam/math";
+import { validMatrixCrop, type MatrixCrop } from "@/lib/beam/matrix-crop";
 
 export type LiveSurface = {
   id: string;
@@ -26,6 +27,7 @@ export type LiveSurface = {
   outline?: Pt[];
   sync?: SyncAssignment;
   matrix?: boolean;
+  matrixCrop?: MatrixCrop;
 };
 
 export type LiveFrame = {
@@ -96,6 +98,7 @@ function parseSurface(value: unknown): LiveSurface | null {
     outline: validOutline(face.outline),
     sync: validSync(face.sync),
     matrix: face.matrix === true,
+    matrixCrop: validMatrixCrop(face.matrixCrop),
   };
 }
 

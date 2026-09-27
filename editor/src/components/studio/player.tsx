@@ -22,6 +22,7 @@ function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, vide
     blend: face.blend,
     visible: face.visible,
     source: (face.matrix && syncMatrix()) || sourceFor(face, images, videos),
+    matrixCrop: face.matrix && syncMatrix() ? face.matrixCrop : undefined,
     syncColor: face.matrix && syncMatrix() ? undefined : syncColor(face.sync),
   }));
 }
