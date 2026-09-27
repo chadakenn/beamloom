@@ -25,6 +25,7 @@ class ReceiverTest(unittest.TestCase):
             sync._MATRIX_RECEIVED[:] = bytes(sync.MATRIX_BYTES)
             sync._MATRIX_FRAME = None
             sync._MATRIX_SEEN = 0.0
+            sync._MATRIX_DESTINATION = None
 
     def test_multisync_start_and_short_packet(self):
         name = b"House Show.fseq\x00"
@@ -85,7 +86,7 @@ class ReceiverTest(unittest.TestCase):
         first = bytes([255, 0, 0]) * 480
         second = bytes([0, 0, 255]) * 96
         def packet(offset, data):
-            return b"\x40\x00\x00\x01" + struct.pack(">IH", offset, len(data)) + data
+            return b"\x40\x00\x00\x02" + struct.pack(">IH", offset, len(data)) + data
         sync._parse_ddp(packet(0, first))
         self.assertNotIn("matrix", sync.frame())
         sync._parse_ddp(packet(1440, second))
@@ -98,6 +99,10 @@ class ReceiverTest(unittest.TestCase):
         self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + second)
         sync._parse_ddp(packet(1728, b"\xff"))
         self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + second)
+        sync._parse_ddp(b"\x40\x00\x00\x01" + struct.pack(">IH", 0, len(first)) + first)
+        sync._parse_ddp(b"\x40\x00\x00\x01" + struct.pack(">IH", 1440, len(second)) + second)
+        self.assertEqual(sync.channels(1)[:4], bytes([11, 22, 33, 44]))
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), first + second)
         with patch.object(sync.time, "time", return_value=sync._MATRIX_SEEN + 6):
             self.assertNotIn("matrix", sync.frame())
 
