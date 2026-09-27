@@ -25,6 +25,7 @@ export type Surface = {
   corners: Corners;
   outline?: Pt[];
   sync?: SyncAssignment;
+  matrix?: boolean;
 };
 
 export type Scene = {
@@ -232,7 +233,8 @@ export function sanitizeProject(value: unknown): Project | null {
           y: Math.max(0, Math.min(1, c.y)),
         })) as Corners,
         outline: validOutline(face.outline),
-        sync: validSync(face.sync),
+    sync: validSync(face.sync),
+    matrix: face.matrix === true,
       });
     }
     scenes.push({ id: s.id, name: s.name.slice(0, 32), durationSeconds: clampNum(s.durationSeconds, 10, 1, 3600), surfaces });

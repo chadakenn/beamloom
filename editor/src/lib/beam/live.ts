@@ -25,6 +25,7 @@ export type LiveSurface = {
   corners: Corners;
   outline?: Pt[];
   sync?: SyncAssignment;
+  matrix?: boolean;
 };
 
 export type LiveFrame = {
@@ -94,6 +95,7 @@ function parseSurface(value: unknown): LiveSurface | null {
     corners: corners as Corners,
     outline: validOutline(face.outline),
     sync: validSync(face.sync),
+    matrix: face.matrix === true,
   };
 }
 

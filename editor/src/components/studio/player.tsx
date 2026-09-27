@@ -3,7 +3,7 @@ import { createMapper, type DrawFace } from "@/lib/beam/gl-mapper";
 import { parseLiveFrame, type LiveFrame, type LiveSurface } from "@/lib/beam/live";
 import { gelRgb } from "@/lib/beam/looks";
 import { drawAlignment } from "@/lib/beam/align";
-import { clearSync, receiveSync, syncColor } from "@/lib/beam/sync";
+import { clearSync, receiveSync, syncColor, syncMatrix } from "@/lib/beam/sync";
 
 function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, videos: Map<string, HTMLVideoElement>): DrawFace[] {
   if (frame.blackout) return [];
@@ -21,8 +21,8 @@ function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, vide
     speed: face.speed ?? 1,
     blend: face.blend,
     visible: face.visible,
-    source: sourceFor(face, images, videos),
-    syncColor: syncColor(face.sync),
+    source: (face.matrix && syncMatrix()) || sourceFor(face, images, videos),
+    syncColor: face.matrix && syncMatrix() ? undefined : syncColor(face.sync),
   }));
 }
 

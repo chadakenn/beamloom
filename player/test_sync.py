@@ -21,6 +21,10 @@ class ReceiverTest(unittest.TestCase):
             sync._MULTISYNC.update(action=None, type=None, name="", frame=0, elapsed=0.0, at=0.0)
             sync._UNIVERSES.clear()
             sync._UNIVERSE_SEEN.clear()
+            sync._MATRIX[:] = bytes(sync.MATRIX_BYTES)
+            sync._MATRIX_RECEIVED[:] = bytes(sync.MATRIX_BYTES)
+            sync._MATRIX_FRAME = None
+            sync._MATRIX_SEEN = 0.0
 
     def test_multisync_start_and_short_packet(self):
         name = b"House Show.fseq\x00"
@@ -75,6 +79,27 @@ class ReceiverTest(unittest.TestCase):
         self.assertEqual(base64.b64decode(frame["universes"]["12"])[:4], bytes([0, 255, 64, 128]))
         with patch.object(sync.time, "time", return_value=sync._UNIVERSE_SEEN[12] + 6):
             self.assertEqual(sync.frame()["universes"], {})
+
+    def test_ddp_matrix_assembles_two_packets_and_expires(self):
+        sync._set_universe(1, bytes([11, 22, 33, 44]).ljust(512, b"\x00"))
+        first = bytes([255, 0, 0]) * 480
+        second = bytes([0, 0, 255]) * 96
+        def packet(offset, data):
+            return b"\x40\x00\x00\x01" + struct.pack(">IH", offset, len(data)) + data
+        sync._parse_ddp(packet(0, first))
+        self.assertNotIn("matrix", sync.frame())
+        sync._parse_ddp(packet(1440, second))
+        self.assertEqual(sync.channels(1)[:4], bytes([11, 22, 33, 44]))
+        pixels = base64.b64decode(sync.frame()["matrix"])
+        self.assertEqual(pixels, first + second)
+        sync._parse_ddp(packet(0, bytes(1440)))
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), first + second)
+        sync._parse_ddp(packet(1440, second))
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + second)
+        sync._parse_ddp(packet(1728, b"\xff"))
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + second)
+        with patch.object(sync.time, "time", return_value=sync._MATRIX_SEEN + 6):
+            self.assertNotIn("matrix", sync.frame())
 
     def test_kiosk_websocket_streams_channel_frame(self):
         sync._set_universe(12, bytes([7, 8, 9, 10]).ljust(512, b"\x00"))

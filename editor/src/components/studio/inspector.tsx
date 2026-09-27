@@ -235,6 +235,15 @@ export function Inspector() {
       ) : null}
       <div className="rounded-md border border-line p-3">
         <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-fg">xLights matrix</span>
+          <button type="button" aria-pressed={face.matrix === true} onClick={() => patchSurface(face.id, { matrix: !face.matrix })} className="rounded border border-line px-3 py-2 text-xs text-fg">
+            {face.matrix ? "Turn off" : "Use DDP matrix"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted">Show a 32 × 18 xLights matrix in this surface. Send DDP to the Pi as device ID 1; turn off Keep Channels Per Packet so its first channel is 1. Surfaces with matrix enabled show the same picture.</p>
+      </div>
+      <div className="rounded-md border border-line p-3">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-fg">FPP / xLights color</span>
           <button type="button" onClick={() => patchSurface(face.id, { sync: face.sync ? undefined : { universe: 1, channel: 1 } })} className="rounded border border-line px-3 py-2 text-xs text-fg">
             {face.sync ? "Turn off" : "Assign channels"}

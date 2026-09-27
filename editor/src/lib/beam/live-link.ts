@@ -135,6 +135,7 @@ function currentFrame() {
       corners: face.corners,
       outline: face.outline,
       sync: face.sync,
+      matrix: face.matrix,
     })),
   };
 }
