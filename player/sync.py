@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import socket
 import math
+import base64
 import struct
 import threading
 import time
@@ -114,6 +115,15 @@ def channels(universe: int) -> bytes | None:
     if data is None or time.time() - seen > STALE_AFTER:
         return None
     return data
+
+
+def frame() -> dict:
+    """Small JSON frame for the local kiosk WebSocket, max 32 live universes."""
+    now = time.time()
+    with _LOCK:
+        live = sorted((universe, data) for universe, data in _UNIVERSES.items()
+                      if now - _UNIVERSE_SEEN.get(universe, 0) < STALE_AFTER)[:32]
+    return {"universes": {str(universe): base64.b64encode(data).decode("ascii") for universe, data in live}}
 
 
 def _set_multisync(action: str, kind: str, name: str, frame: int, elapsed: float) -> None:

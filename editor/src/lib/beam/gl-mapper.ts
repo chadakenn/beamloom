@@ -3,6 +3,7 @@ import { invertHomography, squareToQuad, type Corners } from "@/lib/beam/math";
 import type { Blend, Mask } from "@/lib/beam/project";
 import { MAX_OUTLINE_POINTS } from "@/lib/beam/outline";
 import type { Pt } from "@/lib/beam/math";
+import type { SyncColor } from "@/lib/beam/sync";
 
 export type DrawFace = {
   corners: Corners;
@@ -12,6 +13,7 @@ export type DrawFace = {
   feather: number;
   mask: Mask;
   outline?: Pt[];
+  syncColor?: SyncColor;
   brightness: number;
   contrast: number;
   saturation: number;
@@ -46,6 +48,9 @@ uniform int uKind;
 uniform vec3 uGel;
 uniform sampler2D uVideo;
 uniform int uHasVideo;
+uniform int uSyncEnabled;
+uniform vec3 uSyncColor;
+uniform float uSyncDimmer;
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -220,7 +225,8 @@ void main() {
     col += sheen;
   }
 
-  if (uHasVideo == 0) {
+  if (uSyncEnabled == 1) col = uSyncColor;
+  if (uHasVideo == 0 && uSyncEnabled == 0) {
     float grain = (hash(gl_FragCoord.xy + fract(uTime) * 80.0) - 0.5) * 0.035;
     col += grain;
   }
@@ -258,7 +264,7 @@ void main() {
     edge = min(edge, inside ? distanceToEdge : -distanceToEdge);
   }
   float soft = uFeather > 0.001 ? smoothstep(0.0, uFeather, edge) : step(0.0, edge);
-  float a = clamp(uOpacity, 0.0, 1.0) * soft * clamp(uMaster, 0.0, 1.0);
+  float a = clamp(uOpacity, 0.0, 1.0) * soft * clamp(uMaster, 0.0, 1.0) * (uSyncEnabled == 1 ? uSyncDimmer : 1.0);
   frag = vec4(col * a, a);
 }`;
 
@@ -314,6 +320,9 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     gel: gl.getUniformLocation(program, "uGel"),
     video: gl.getUniformLocation(program, "uVideo"),
     hasVideo: gl.getUniformLocation(program, "uHasVideo"),
+    syncEnabled: gl.getUniformLocation(program, "uSyncEnabled"),
+    syncColor: gl.getUniformLocation(program, "uSyncColor"),
+    syncDimmer: gl.getUniformLocation(program, "uSyncDimmer"),
   };
   const clip = new Float32Array(12);
   const texture = gl.createTexture();
@@ -379,6 +388,11 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         gl.uniform1f(loc.contrast, face.contrast);
         gl.uniform1f(loc.saturation, face.saturation);
         gl.uniform1i(loc.kind, lookKind(face.look));
+        gl.uniform1i(loc.syncEnabled, face.syncColor ? 1 : 0);
+        if (face.syncColor) {
+          gl.uniform3fv(loc.syncColor, face.syncColor.rgb);
+          gl.uniform1f(loc.syncDimmer, face.syncColor.brightness);
+        }
         gl.uniform3f(loc.gel, face.gel[0], face.gel[1], face.gel[2]);
         const source = face.source;
         gl.activeTexture(gl.TEXTURE0);

@@ -134,6 +134,7 @@ function currentFrame() {
       ...mediaFields(face.videoId),
       corners: face.corners,
       outline: face.outline,
+      sync: face.sync,
     })),
   };
 }

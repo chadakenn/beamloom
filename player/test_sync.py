@@ -1,7 +1,10 @@
 """Receiver packet checks and the first-update bootstrap contract."""
 import base64
+import json
 import re
+import socket
 import struct
+import threading
 import unittest
 import zlib
 from pathlib import Path
@@ -65,6 +68,40 @@ class ReceiverTest(unittest.TestCase):
         self.assertIsNotNone(payload)
         self.assertEqual(zlib.decompress(base64.b64decode(payload.group(1))), Path(sync.__file__).read_bytes())
         self.assertIn("player/sync.py", updater.FILES)
+
+    def test_renderer_frame_carries_rgb_and_dimmer(self):
+        sync._set_universe(12, bytes([0, 255, 64, 128]).ljust(512, b"\x00"))
+        frame = sync.frame()
+        self.assertEqual(base64.b64decode(frame["universes"]["12"])[:4], bytes([0, 255, 64, 128]))
+        with patch.object(sync.time, "time", return_value=sync._UNIVERSE_SEEN[12] + 6):
+            self.assertEqual(sync.frame()["universes"], {})
+
+    def test_kiosk_websocket_streams_channel_frame(self):
+        sync._set_universe(12, bytes([7, 8, 9, 10]).ljust(512, b"\x00"))
+        server = beamloom_player.ThreadingHTTPServer(("127.0.0.1", 0), beamloom_player.Handler)
+        server.daemon_threads = True
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with socket.create_connection(server.server_address, timeout=2) as client:
+                client.settimeout(2)
+                client.sendall(b"GET /sync/live HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n")
+                response = client.recv(30000)
+                while b"\r\n\r\n" not in response:
+                    response += client.recv(30000)
+                head, payload = response.split(b"\r\n\r\n", 1)
+                self.assertIn(b"101 Switching Protocols", head)
+                while len(payload) < 4:
+                    payload += client.recv(30000)
+                self.assertEqual(payload[:2], b"\x81\x7e")
+                length = struct.unpack(">H", payload[2:4])[0]
+                while len(payload) < 4 + length:
+                    payload += client.recv(30000)
+                frame = json.loads(payload[4:4 + length])
+                self.assertEqual(base64.b64decode(frame["universes"]["12"])[:4], bytes([7, 8, 9, 10]))
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":

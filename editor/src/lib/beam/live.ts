@@ -2,6 +2,7 @@ import type { Corners } from "@/lib/beam/math";
 import type { Blend, Mask } from "@/lib/beam/project";
 import { type LookId } from "@/lib/beam/looks";
 import { validOutline } from "@/lib/beam/outline";
+import { validSync, type SyncAssignment } from "@/lib/beam/sync";
 import type { Pt } from "@/lib/beam/math";
 
 export type LiveSurface = {
@@ -23,6 +24,7 @@ export type LiveSurface = {
   mediaLoop?: boolean;
   corners: Corners;
   outline?: Pt[];
+  sync?: SyncAssignment;
 };
 
 export type LiveFrame = {
@@ -91,6 +93,7 @@ function parseSurface(value: unknown): LiveSurface | null {
       : {}),
     corners: corners as Corners,
     outline: validOutline(face.outline),
+    sync: validSync(face.sync),
   };
 }
 
