@@ -39,6 +39,59 @@ STALE_AFTER = 5.0  # seconds of silence before a universe/sync is treated as gon
 MAX_UNIVERSES = 256
 
 
+def scene_at(durations, elapsed: float) -> tuple[int, float]:
+    """Map a show clock, in seconds, onto a scene index and the offset inside it.
+
+    Scene lengths shorter than one second are treated as one second. The clock
+    wraps, so a longer FPP sequence keeps stepping through the stored scenes.
+    """
+    spans: list[float] = []
+    for item in durations:
+        try:
+            span = float(item)
+        except (TypeError, ValueError):
+            span = 10.0
+        spans.append(span if math.isfinite(span) and span >= 1 else 10.0)
+    if not spans:
+        return 0, 0.0
+    position = float(elapsed) if isinstance(elapsed, (int, float)) and math.isfinite(float(elapsed)) and float(elapsed) > 0 else 0.0
+    position %= sum(spans)
+    for index, span in enumerate(spans):
+        if position < span:
+            return index, position
+        position -= span
+    return 0, 0.0
+
+
+def show_command(multisync: dict, now: float) -> dict:
+    """Turn the latest MultiSync packet into play, hold, or stop.
+
+    Start and sync play the stored show at the packet's elapsed time. Open
+    holds that time without moving. Stop blacks the picture out. A start or
+    sync older than a few seconds is ignored so a quiet network falls back to
+    the Pi's own loop. One stop packet holds until it goes stale.
+    """
+    action = multisync.get("action") if isinstance(multisync, dict) else None
+    if action not in {"start", "sync", "stop", "open"}:
+        return {"action": None, "elapsed": 0.0}
+    try:
+        at = float(multisync.get("at") or 0)
+        elapsed = float(multisync.get("elapsed") or 0)
+    except (TypeError, ValueError):
+        return {"action": None, "elapsed": 0.0}
+    if not math.isfinite(at) or not math.isfinite(elapsed):
+        return {"action": None, "elapsed": 0.0}
+    if action in {"start", "sync"} and now - at > 3:
+        return {"action": None, "elapsed": 0.0}
+    if now - at > STALE_AFTER * 6:
+        return {"action": None, "elapsed": 0.0}
+    if action == "stop":
+        return {"action": "stop", "elapsed": max(0.0, elapsed)}
+    if action == "open":
+        return {"action": "hold", "elapsed": max(0.0, elapsed)}
+    return {"action": "play", "elapsed": max(0.0, elapsed)}
+
+
 def state() -> dict:
     """A JSON-safe snapshot for /health: what's currently syncing, and which
     universes have live data. Does not include raw channel bytes -- callers

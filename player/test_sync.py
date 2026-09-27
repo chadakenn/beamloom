@@ -47,6 +47,18 @@ class ReceiverTest(unittest.TestCase):
             self.assertIsNone(sync.channels(9))
             self.assertNotIn(9, sync.state()["universes"])
 
+    def test_show_clock_steps_and_stops(self):
+        self.assertEqual(sync.scene_at([10, 5], 12), (1, 2))
+        self.assertEqual(sync.scene_at([10, 5], 15), (0, 0))
+        self.assertEqual(sync.scene_at([], 4), (0, 0.0))
+        now = 100.0
+        playing = sync.show_command({"action": "sync", "elapsed": 12, "at": now}, now)
+        self.assertEqual(playing["action"], "play")
+        self.assertEqual(sync.scene_at([10, 5], playing["elapsed"]), (1, 2))
+        self.assertEqual(sync.show_command({"action": "sync", "elapsed": 12, "at": now - 4}, now)["action"], None)
+        self.assertEqual(sync.show_command({"action": "stop", "elapsed": 3, "at": now}, now)["action"], "stop")
+        self.assertEqual(sync.show_command({"action": "open", "elapsed": 3, "at": now}, now)["action"], "hold")
+
     def test_first_update_contains_sync_module(self):
         source = Path(beamloom_player.__file__).read_text(encoding="utf-8")
         payload = re.search(r'ROOT / "sync.py"\)\.write_bytes\(zlib\.decompress\(base64\.b64decode\("([^"]+)"\)\)\)', source)
