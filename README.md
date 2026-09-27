@@ -4,7 +4,23 @@
 
 # Beamloom
 
-Beamloom is a projection mapping studio for Windows. Add a surface to a projector frame, place its four corners over a wall, window, or other feature, and give it a built-in look, photo, or video. The separate projector window follows changes you make in the editor.
+Beamloom is a house projection studio. You design the show on a Windows PC, then a Raspberry Pi plugged into the projector plays it. The PC is the editor. The Pi is the player, in the same role Falcon Player has for lights. After setup you do not sign in on the Pi. The picture goes out over HDMI, and the settings page is [http://beamloom.local/](http://beamloom.local/) on the PC.
+
+## What it can do
+
+- **Map the house.** Put a surface on a window, door, garage, or wall. Drag the four corners until the light sits on that part of the house. **Align surface** shows a bright shape so you can line it up while you watch the projector.
+- **Follow a roofline.** Add up to 16 outline points so the light is not stuck as a rectangle. The four corners still set the perspective.
+- **Play looks, photos, and video.** Each surface can use a built-in look, a PNG or JPEG, or a video. Window and arch masks, soft edge, opacity, brightness, contrast, and blend are per surface.
+- **Run a show.** Scenes have their own timing. **Play show** loops them, with a cut or a fade up to two seconds. **Master** dims everything at once. **Solo** shows one surface. **Blackout** cuts the light.
+- **Start from a pack.** Halloween, Christmas, New Year, Fourth of July, and Skeleton test ship with the app. Open one, then drag its windows and door onto your house.
+- **Keep working when the PC is off.** **Send show** stores the project on the Pi. **Play stored show** loops it from the card, so the PC can close or shut down.
+- **See the house while you edit.** In live setup the Pi shows the PC's picture right away. Move a corner or change a mask and the projector follows.
+- **Listen to xLights or FPP.** A MultiSync start or sync steps the stored show. Stop turns the projector black. A surface can take four channels as red, green, blue, and brightness, or show a 32 by 18 DDP matrix inside the shape you mapped. The full steps are in [Connect xLights or FPP to mapped surfaces](#connect-xlights-or-fpp-to-mapped-surfaces).
+- **Update without a new card.** The Windows app can download a newer installer. **Update Pi player** replaces the player program on the Pi. Raspberry Pi OS stays as it is.
+
+One PC and one Pi on one projector is the setup that works today. Several Pis playing in lockstep is not built yet.
+
+Add a surface to a projector frame, place its four corners over a wall, window, or other feature, and give it a built-in look, photo, or video. The separate projector window follows changes you make in the editor.
 
 For live setup, select a surface and click **Align surface**. The projector or Pi shows a bright yellow shape with a white outline and corner marks. Drag corners in the editor while watching the light move on the house. **Stop Align** brings back the show; **Blackout** still turns the light off. Master brightness controls the test pattern. This mode is temporary and is not saved in the project.
 
