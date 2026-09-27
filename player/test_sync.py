@@ -142,6 +142,8 @@ class ReceiverTest(unittest.TestCase):
         self.assertEqual((result["matrixWidth"], result["matrixHeight"]), (256, 144))
         self.assertEqual(base64.b64decode(result["matrix"]), full)
         self.assertGreater(len(json.dumps(result)), 65535)  # WebSocket needs its 64-bit length header
+        self.assertEqual(sync.matrix_marker()[1], sync.MATRIX_BYTES)
+        self.assertNotIn("matrix", sync.frame(include_matrix=False))
 
     def test_kiosk_websocket_streams_channel_frame(self):
         sync._set_universe(12, bytes([7, 8, 9, 10]).ljust(512, b"\x00"))
@@ -195,6 +197,14 @@ class ReceiverTest(unittest.TestCase):
                 frame = json.loads(payload[10:10 + length])
                 self.assertEqual((frame["matrixWidth"], frame["matrixHeight"]), (256, 144))
                 self.assertEqual(len(base64.b64decode(frame["matrix"])), sync.MATRIX_BYTES)
+                payload = payload[10 + length:]
+                while len(payload) < 2:
+                    payload += client.recv(30000)
+                self.assertEqual(payload[0], 0x81)
+                small_length = payload[1]
+                while len(payload) < 2 + small_length:
+                    payload += client.recv(30000)
+                self.assertNotIn("matrix", json.loads(payload[2:2 + small_length]))
         finally:
             server.shutdown()
             server.server_close()

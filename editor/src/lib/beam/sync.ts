@@ -52,7 +52,7 @@ export function receiveSync(raw: unknown) {
           matrixAt = Date.now();
         }
       }
-    } else matrixAt = 0;
+    }
   } catch { /* Ignore invalid channel frames. */ }
 }
 
