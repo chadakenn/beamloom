@@ -283,6 +283,29 @@ let media = [];
 let sceneIndex = 0;
 let sceneStarted = performance.now();
 let activeScene = "";
+let clock = null;
+let clockAt = 0;
+
+function sceneAt(scenes, elapsed) {
+  const spans = scenes.map((scene) => Math.max(1, Number(scene.durationSeconds) || 10));
+  const total = spans.reduce((sum, span) => sum + span, 0);
+  let position = Number(elapsed) > 0 ? Number(elapsed) % total : 0;
+  for (let index = 0; index < spans.length; index += 1) {
+    if (position < spans[index]) return { index, offset: position };
+    position -= spans[index];
+  }
+  return { index: 0, offset: 0 };
+}
+async function pollClock() {
+  try {
+    const data = await (await fetch("/health")).json();
+    const next = data.syncShow && data.syncShow.action ? data.syncShow : null;
+    if (next && (!clock || clock.action !== next.action || Math.abs((Number(clock.elapsed) || 0) - (Number(next.elapsed) || 0)) > 0.05)) clockAt = performance.now();
+    clock = next;
+  } catch (error) {
+    clock = null;
+  }
+}
 
 function fit() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -326,6 +349,14 @@ function useMedia(scene) {
 function sceneNow(now) {
   const scenes = project && Array.isArray(project.scenes) ? project.scenes : [];
   if (!scenes.length) return null;
+  if (clock && clock.action === "stop") return null;
+  if (clock && (clock.action === "play" || clock.action === "hold")) {
+    const extra = clock.action === "play" ? Math.max(0, (now - clockAt) / 1000) : 0;
+    const place = sceneAt(scenes, (Number(clock.elapsed) || 0) + extra);
+    sceneIndex = place.index;
+    sceneStarted = now - place.offset * 1000;
+    return scenes[sceneIndex];
+  }
   const duration = Math.max(1, Number(scenes[sceneIndex].durationSeconds) || 10) * 1000;
   if (now - sceneStarted >= duration) {
     sceneIndex = (sceneIndex + 1) % scenes.length;
@@ -400,6 +431,8 @@ async function start() {
   requestAnimationFrame(draw);
 }
 window.addEventListener("resize", fit);
+pollClock();
+setInterval(pollClock, 400);
 start();
 </script>
 </body>
