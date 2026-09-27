@@ -3,6 +3,7 @@ import { createMapper, type DrawFace } from "@/lib/beam/gl-mapper";
 import { parseLiveFrame, type LiveFrame, type LiveSurface } from "@/lib/beam/live";
 import { gelRgb } from "@/lib/beam/looks";
 import { drawAlignment } from "@/lib/beam/align";
+import { clearSync, receiveSync, syncColor } from "@/lib/beam/sync";
 
 function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, videos: Map<string, HTMLVideoElement>): DrawFace[] {
   if (frame.blackout) return [];
@@ -21,6 +22,7 @@ function drawFaces(frame: LiveFrame, images: Map<string, HTMLImageElement>, vide
     blend: face.blend,
     visible: face.visible,
     source: sourceFor(face, images, videos),
+    syncColor: syncColor(face.sync),
   }));
 }
 
@@ -51,6 +53,11 @@ export function Player() {
     let socket: WebSocket | null = null;
     let retry = 0;
     let stopped = false;
+    const onSyncMessage = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.data?.type !== "beamloom-sync") return;
+      receiveSync(event.data.payload);
+    };
+    window.addEventListener("message", onSyncMessage);
     const images = new Map<string, HTMLImageElement>();
     const videos = new Map<string, HTMLVideoElement>();
     const loading = new Set<string>();
@@ -161,6 +168,8 @@ export function Player() {
     connect();
     return () => {
       root.style.cursor = previousCursor;
+      window.removeEventListener("message", onSyncMessage);
+      clearSync();
       document.body.style.cursor = "";
       stopped = true;
       mediaEpoch += 1;

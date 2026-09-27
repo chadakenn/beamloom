@@ -235,6 +235,21 @@ export function Inspector() {
       ) : null}
       <div className="rounded-md border border-line p-3">
         <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-fg">FPP / xLights color</span>
+          <button type="button" onClick={() => patchSurface(face.id, { sync: face.sync ? undefined : { universe: 1, channel: 1 } })} className="rounded border border-line px-3 py-2 text-xs text-fg">
+            {face.sync ? "Turn off" : "Assign channels"}
+          </button>
+        </div>
+        {face.sync ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <SyncNumber key={`${face.id}-universe`} label="Universe" value={face.sync.universe} max={63999} onCommit={(universe) => patchSurface(face.id, { sync: { ...face.sync!, universe } })} />
+            <SyncNumber key={`${face.id}-channel`} label="Start channel" value={face.sync.channel} max={509} onCommit={(channel) => patchSurface(face.id, { sync: { ...face.sync!, channel } })} />
+          </div>
+        ) : null}
+        <p className="mt-2 text-xs text-muted">Four channels: red, green, blue, brightness. Applies on the Pi when channel data arrives; the surface returns to its look if the signal stops.</p>
+      </div>
+      <div className="rounded-md border border-line p-3">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-fg">Shape · {face.outline?.length ?? 4} points</span>
           {face.outline ? <button type="button" disabled={face.locked} onClick={() => patchSurface(face.id, { outline: undefined })} className="text-xs text-beam disabled:opacity-40">Reset shape</button> : null}
         </div>
@@ -396,6 +411,27 @@ function cornerPlaces(corners: { x: number; y: number }[]): string[] {
   places[bottom[0]] = "Bottom left";
   places[bottom[1]] = "Bottom right";
   return places;
+}
+
+function SyncNumber({ label, value, max, onCommit }: { label: string; value: number; max: number; onCommit: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => { if (!focused) setDraft(String(value)); }, [value, focused]);
+  return (
+    <label className="text-xs text-muted">{label}
+      <input type="number" min={1} max={max} step={1} value={draft}
+        onFocus={() => setFocused(true)} onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          setFocused(false);
+          const parsed = Number(draft);
+          const next = draft.trim() && Number.isFinite(parsed) ? Math.max(1, Math.min(max, Math.trunc(parsed))) : value;
+          setDraft(String(next));
+          if (next !== value) onCommit(next);
+        }}
+        onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+        className="mt-1 h-11 w-full rounded-md border border-line bg-bg px-2 text-sm text-fg" />
+    </label>
+  );
 }
 
 function CornerNumber({

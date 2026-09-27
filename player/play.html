@@ -35,6 +35,9 @@ uniform int uKind;
 uniform vec3 uGel;
 uniform sampler2D uVideo;
 uniform int uHasVideo;
+uniform int uSyncEnabled;
+uniform vec3 uSyncColor;
+uniform float uSyncDimmer;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
 float noise(vec2 p) {
   vec2 i = floor(p); vec2 f = fract(p);
@@ -191,7 +194,8 @@ void main() {
   } else {
     col = uGel + 0.08 * sin(uv.y * 18.0 + uTime * 0.6);
   }
-  if (uHasVideo == 0) col += (hash(gl_FragCoord.xy + fract(uTime) * 80.0) - 0.5) * 0.035;
+  if (uSyncEnabled == 1) col = uSyncColor;
+  if (uHasVideo == 0 && uSyncEnabled == 0) col += (hash(gl_FragCoord.xy + fract(uTime) * 80.0) - 0.5) * 0.035;
   col += uBrightness;
   col = (col - 0.5) * uContrast + 0.5;
   float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
@@ -222,7 +226,7 @@ void main() {
     edge = min(edge, inside ? distanceToEdge : -distanceToEdge);
   }
   float soft = uFeather > 0.001 ? smoothstep(0.0, uFeather, edge) : step(0.0, edge);
-  float a = clamp(uOpacity, 0.0, 1.0) * soft * clamp(uMaster, 0.0, 1.0);
+  float a = clamp(uOpacity, 0.0, 1.0) * soft * clamp(uMaster, 0.0, 1.0) * (uSyncEnabled == 1 ? uSyncDimmer : 1.0);
   frag = vec4(col * a, a);
 }`;
 
@@ -273,11 +277,41 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 const loc = {};
-for (const name of ["uInv", "uRes", "uTime", "uOpacity", "uFeather", "uMask", "uOutlineCount", "uBrightness", "uMaster", "uContrast", "uSaturation", "uKind", "uGel", "uVideo", "uHasVideo"]) loc[name] = gl.getUniformLocation(program, name);
+for (const name of ["uInv", "uRes", "uTime", "uOpacity", "uFeather", "uMask", "uOutlineCount", "uBrightness", "uMaster", "uContrast", "uSaturation", "uKind", "uGel", "uVideo", "uHasVideo", "uSyncEnabled", "uSyncColor", "uSyncDimmer"]) loc[name] = gl.getUniformLocation(program, name);
 loc.uOutline = gl.getUniformLocation(program, "uOutline[0]");
 gl.uniform1i(loc.uVideo, 0);
 const images = new Map();
 const videos = new Map();
+const syncChannels = new Map();
+let syncSeen = 0;
+let syncSocket;
+function connectSync() {
+  syncSocket = new WebSocket("ws://" + location.host + "/sync/live");
+  syncSocket.onmessage = (event) => {
+    if (typeof event.data !== "string" || event.data.length > 60000) return;
+    try {
+      const frame = JSON.parse(event.data);
+      if (!frame.universes || typeof frame.universes !== "object" || Array.isArray(frame.universes)) return;
+      syncChannels.clear();
+      for (const [id, encoded] of Object.entries(frame.universes).slice(0, 32)) {
+        const universe = Number(id);
+        if (!Number.isInteger(universe) || universe < 0 || universe > 63999 || typeof encoded !== "string" || encoded.length > 700) continue;
+        const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
+        if (bytes.length === 512) syncChannels.set(universe, bytes);
+      }
+      syncSeen = Date.now();
+    } catch (error) {}
+  };
+  syncSocket.onclose = () => setTimeout(connectSync, 1000);
+}
+connectSync();
+function colorForSync(assignment) {
+  if (!assignment || !Number.isInteger(assignment.universe) || !Number.isInteger(assignment.channel) || assignment.channel < 1 || assignment.channel > 509 || Date.now() - syncSeen > 5000) return null;
+  const bytes = syncChannels.get(assignment.universe);
+  if (!bytes) return null;
+  const i = assignment.channel - 1;
+  return { rgb: [bytes[i] / 255, bytes[i + 1] / 255, bytes[i + 2] / 255], brightness: bytes[i + 3] / 255 };
+}
 let project = null;
 let media = [];
 let sceneIndex = 0;
@@ -403,6 +437,12 @@ function draw(now) {
     gl.uniform1f(loc.uContrast, Number.isFinite(Number(face.contrast)) ? Number(face.contrast) : 1);
     gl.uniform1f(loc.uSaturation, Number.isFinite(Number(face.saturation)) ? Number(face.saturation) : 1);
     gl.uniform1i(loc.uKind, KINDS[face.look] ?? 0);
+    const syncColor = colorForSync(face.sync);
+    gl.uniform1i(loc.uSyncEnabled, syncColor ? 1 : 0);
+    if (syncColor) {
+      gl.uniform3fv(loc.uSyncColor, syncColor.rgb);
+      gl.uniform1f(loc.uSyncDimmer, syncColor.brightness);
+    }
     const gel = GELS[Number(face.gel)] || GELS[0];
     gl.uniform3f(loc.uGel, gel[0], gel[1], gel[2]);
     const source = face.videoId ? sourceFor(face.videoId) : null;
