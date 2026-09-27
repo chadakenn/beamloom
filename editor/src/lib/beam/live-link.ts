@@ -136,6 +136,7 @@ function currentFrame() {
       outline: face.outline,
       sync: face.sync,
       matrix: face.matrix,
+      matrixCrop: face.matrixCrop,
     })),
   };
 }

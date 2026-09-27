@@ -4,6 +4,8 @@ import type { Blend, Mask } from "@/lib/beam/project";
 import { MAX_OUTLINE_POINTS } from "@/lib/beam/outline";
 import type { Pt } from "@/lib/beam/math";
 import type { SyncColor } from "@/lib/beam/sync";
+import type { MatrixCrop } from "@/lib/beam/matrix-crop";
+import { matrixCropRect } from "@/lib/beam/matrix-crop";
 
 export type DrawFace = {
   corners: Corners;
@@ -21,6 +23,7 @@ export type DrawFace = {
   blend: Blend;
   visible: boolean;
   source: TexImageSource | null;
+  matrixCrop?: MatrixCrop;
 };
 
 const VERT = `#version 300 es
@@ -48,6 +51,7 @@ uniform int uKind;
 uniform vec3 uGel;
 uniform sampler2D uVideo;
 uniform int uHasVideo;
+uniform vec4 uMatrixCrop;
 uniform int uSyncEnabled;
 uniform vec3 uSyncColor;
 uniform float uSyncDimmer;
@@ -73,7 +77,7 @@ void main() {
   vec3 col = vec3(0.0);
 
   if (uHasVideo == 1) {
-    col = texture(uVideo, uv).rgb;
+    col = texture(uVideo, uMatrixCrop.xy + uv * uMatrixCrop.zw).rgb;
   } else if (uKind == 0) {
     float n = noise(uv * 2.4 + vec2(uTime * 0.04, uTime * 0.02));
     float m = noise(uv * 5.0 - vec2(uTime * 0.05, 0.0));
@@ -320,6 +324,7 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
     gel: gl.getUniformLocation(program, "uGel"),
     video: gl.getUniformLocation(program, "uVideo"),
     hasVideo: gl.getUniformLocation(program, "uHasVideo"),
+    matrixCrop: gl.getUniformLocation(program, "uMatrixCrop"),
     syncEnabled: gl.getUniformLocation(program, "uSyncEnabled"),
     syncColor: gl.getUniformLocation(program, "uSyncColor"),
     syncDimmer: gl.getUniformLocation(program, "uSyncDimmer"),
@@ -395,6 +400,9 @@ export function createMapper(canvas: HTMLCanvasElement): Mapper | null {
         }
         gl.uniform3f(loc.gel, face.gel[0], face.gel[1], face.gel[2]);
         const source = face.source;
+        const crop = face.matrixCrop && source instanceof HTMLCanvasElement
+          ? matrixCropRect(face.matrixCrop, source.width, source.height) : [0, 0, 1, 1];
+        gl.uniform4fv(loc.matrixCrop, crop);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture);
         if (source) {

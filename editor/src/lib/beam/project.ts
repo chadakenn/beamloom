@@ -2,6 +2,7 @@ import { gelRgb, type LookId } from "@/lib/beam/looks";
 import { translateCorners, type Corners, type Pt } from "@/lib/beam/math";
 import { validOutline } from "@/lib/beam/outline";
 import { validSync, type SyncAssignment } from "@/lib/beam/sync";
+import { validMatrixCrop, type MatrixCrop } from "@/lib/beam/matrix-crop";
 
 export type Blend = "normal" | "add" | "screen";
 export type Mask = "full" | "window" | "arch";
@@ -26,6 +27,7 @@ export type Surface = {
   outline?: Pt[];
   sync?: SyncAssignment;
   matrix?: boolean;
+  matrixCrop?: MatrixCrop;
 };
 
 export type Scene = {
@@ -235,6 +237,7 @@ export function sanitizeProject(value: unknown): Project | null {
         outline: validOutline(face.outline),
     sync: validSync(face.sync),
     matrix: face.matrix === true,
+    matrixCrop: validMatrixCrop(face.matrixCrop),
       });
     }
     scenes.push({ id: s.id, name: s.name.slice(0, 32), durationSeconds: clampNum(s.durationSeconds, 10, 1, 3600), surfaces });

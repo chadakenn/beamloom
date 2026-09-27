@@ -240,7 +240,19 @@ export function Inspector() {
             {face.matrix ? "Turn off" : "Use DDP matrix"}
           </button>
         </div>
-        <p className="mt-2 text-xs text-muted">Show a 128 × 72 or 256 × 144 xLights matrix in this surface. Send DDP to the Pi; turn off Keep Channel Numbers so its first channel is 1. Surfaces with matrix enabled show the same picture.</p>
+        <p className="mt-2 text-xs text-muted">Pick which rectangle of the xLights picture fills this mapped surface. Columns and rows start at 1 in the top left. Leave Full picture on for the whole matrix.</p>
+        {face.matrix ? <>
+          <button type="button" onClick={() => patchSurface(face.id, { matrixCrop: face.matrixCrop ? undefined : { column: 1, row: 1, width: 256, height: 144 } })} className="mt-2 rounded border border-line px-3 py-2 text-xs text-fg">
+            {face.matrixCrop ? "Use full picture" : "Choose a piece"}
+          </button>
+          {face.matrixCrop ? <div className="mt-2 grid grid-cols-2 gap-2">
+            <SyncNumber key={`${face.id}-matrix-column`} label="Starting column" value={face.matrixCrop.column} max={256} onCommit={(column) => patchSurface(face.id, { matrixCrop: { ...face.matrixCrop!, column } })} />
+            <SyncNumber key={`${face.id}-matrix-row`} label="Starting row" value={face.matrixCrop.row} max={144} onCommit={(row) => patchSurface(face.id, { matrixCrop: { ...face.matrixCrop!, row } })} />
+            <SyncNumber key={`${face.id}-matrix-width`} label="Width (columns)" value={face.matrixCrop.width} max={256} onCommit={(width) => patchSurface(face.id, { matrixCrop: { ...face.matrixCrop!, width } })} />
+            <SyncNumber key={`${face.id}-matrix-height`} label="Height (rows)" value={face.matrixCrop.height} max={144} onCommit={(height) => patchSurface(face.id, { matrixCrop: { ...face.matrixCrop!, height } })} />
+          </div> : null}
+          <p className="mt-2 text-xs text-muted">The rectangle stays inside the incoming 128 × 72 or 256 × 144 frame.</p>
+        </> : null}
       </div>
       <div className="rounded-md border border-line p-3">
         <div className="flex items-center justify-between gap-2">

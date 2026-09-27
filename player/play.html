@@ -35,6 +35,7 @@ uniform int uKind;
 uniform vec3 uGel;
 uniform sampler2D uVideo;
 uniform int uHasVideo;
+uniform vec4 uMatrixCrop;
 uniform int uSyncEnabled;
 uniform vec3 uSyncColor;
 uniform float uSyncDimmer;
@@ -51,7 +52,7 @@ void main() {
   vec2 uv = h.xy / h.z;
   vec3 col = vec3(0.0);
   if (uHasVideo == 1) {
-    col = texture(uVideo, uv).rgb;
+    col = texture(uVideo, uMatrixCrop.xy + uv * uMatrixCrop.zw).rgb;
   } else if (uKind == 0) {
     float n = noise(uv * 2.4 + vec2(uTime * 0.04, uTime * 0.02));
     float m = noise(uv * 5.0 - vec2(uTime * 0.05, 0.0));
@@ -277,7 +278,7 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 const loc = {};
-for (const name of ["uInv", "uRes", "uTime", "uOpacity", "uFeather", "uMask", "uOutlineCount", "uBrightness", "uMaster", "uContrast", "uSaturation", "uKind", "uGel", "uVideo", "uHasVideo", "uSyncEnabled", "uSyncColor", "uSyncDimmer"]) loc[name] = gl.getUniformLocation(program, name);
+for (const name of ["uInv", "uRes", "uTime", "uOpacity", "uFeather", "uMask", "uOutlineCount", "uBrightness", "uMaster", "uContrast", "uSaturation", "uKind", "uGel", "uVideo", "uHasVideo", "uMatrixCrop", "uSyncEnabled", "uSyncColor", "uSyncDimmer"]) loc[name] = gl.getUniformLocation(program, name);
 loc.uOutline = gl.getUniformLocation(program, "uOutline[0]");
 gl.uniform1i(loc.uVideo, 0);
 const images = new Map();
@@ -473,6 +474,15 @@ function draw(now) {
     const gel = GELS[Number(face.gel)] || GELS[0];
     gl.uniform3f(loc.uGel, gel[0], gel[1], gel[2]);
     const source = matrixSource || (face.videoId ? sourceFor(face.videoId) : null);
+    const crop = matrixSource ? face.matrixCrop : null;
+    const validCrop = crop && [crop.column, crop.row, crop.width, crop.height].every(Number.isInteger) &&
+      crop.column >= 1 && crop.column <= 256 && crop.row >= 1 && crop.row <= 144 &&
+      crop.width >= 1 && crop.width <= 256 && crop.height >= 1 && crop.height <= 144;
+    const left = validCrop ? Math.min(matrixCanvas.width - 1, crop.column - 1) : 0;
+    const top = validCrop ? Math.min(matrixCanvas.height - 1, crop.row - 1) : 0;
+    gl.uniform4f(loc.uMatrixCrop, left / matrixCanvas.width, top / matrixCanvas.height,
+      (validCrop ? Math.min(crop.width, matrixCanvas.width - left) : matrixCanvas.width) / matrixCanvas.width,
+      (validCrop ? Math.min(crop.height, matrixCanvas.height - top) : matrixCanvas.height) / matrixCanvas.height);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     if (source) {
       try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); gl.uniform1i(loc.uHasVideo, 1); }
