@@ -45,6 +45,7 @@ _MATRIX = bytearray(MATRIX_BYTES)
 _MATRIX_RECEIVED = bytearray(MATRIX_BYTES)
 _MATRIX_FRAME: bytes | None = None
 _MATRIX_SEEN = 0.0
+_MATRIX_DESTINATION: int | None = None
 
 
 def scene_at(durations, elapsed: float) -> tuple[int, float]:
@@ -252,6 +253,7 @@ def _e131_loop() -> None:
 
 
 def _parse_ddp(payload: bytes) -> None:
+    global _MATRIX_FRAME, _MATRIX_SEEN, _MATRIX_DESTINATION
     if len(payload) < 10:
         return
     flags = payload[0]
@@ -265,10 +267,10 @@ def _parse_ddp(payload: bytes) -> None:
     data = payload[10:10 + length]
     if not data or len(payload) - 10 < length or length > 1440 or offset >= MATRIX_BYTES:
         return
-    if destination == 1:
-        global _MATRIX_FRAME, _MATRIX_SEEN
+    if (offset == 0 and length > 512) or (offset > 0 and destination == _MATRIX_DESTINATION):
         with _LOCK:
-            if offset == 0:
+            if offset == 0 and length > 512:
+                _MATRIX_DESTINATION = destination
                 _MATRIX_RECEIVED[:] = bytes(MATRIX_BYTES)
             end = min(offset + length, MATRIX_BYTES)
             _MATRIX[offset:end] = data[:end - offset]
@@ -276,8 +278,8 @@ def _parse_ddp(payload: bytes) -> None:
             if all(_MATRIX_RECEIVED):
                 _MATRIX_FRAME = bytes(_MATRIX)
                 _MATRIX_SEEN = time.time()
-    # Matrix packets must not overwrite E1.31 universe 1's four-channel colors.
-    if offset >= 512 or (destination == 1 and length > 512):
+    # Matrix packets must not overwrite the matching E1.31 universe's colors.
+    if offset >= 512 or length > 512:
         return
     with _LOCK:
         buffer = bytearray(_UNIVERSES.get(destination, bytes(512)))
