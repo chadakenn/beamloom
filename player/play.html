@@ -419,7 +419,10 @@ function draw(now) {
   fit();
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
-  const scene = sceneNow(now);
+  const scene = sceneNow(now) || (clock && clock.action === "stop" ? null : Date.now() - matrixSeen < 5000 ? {
+    id: "xlights",
+    surfaces: [{ opacity: 1, feather: 0, matrix: true, corners: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] }],
+  } : null);
   if (!scene) { requestAnimationFrame(draw); return; }
   useMedia(scene);
   gl.useProgram(program);
@@ -478,14 +481,17 @@ function draw(now) {
   requestAnimationFrame(draw);
 }
 async function start() {
-  const response = await fetch("/show/project");
-  if (!response.ok) return;
-  project = await response.json();
-  const listed = await fetch("/show/files");
-  media = listed.ok ? await listed.json() : [];
-  const scenes = Array.isArray(project.scenes) ? project.scenes : [];
-  const active = scenes.findIndex((scene) => scene.id === project.activeSceneId);
-  sceneIndex = active >= 0 ? active : 0;
+  try {
+    const response = await fetch("/show/project");
+    if (response.ok) {
+      project = await response.json();
+      const listed = await fetch("/show/files");
+      media = listed.ok ? await listed.json() : [];
+      const scenes = Array.isArray(project.scenes) ? project.scenes : [];
+      const active = scenes.findIndex((scene) => scene.id === project.activeSceneId);
+      sceneIndex = active >= 0 ? active : 0;
+    }
+  } catch (error) {}
   requestAnimationFrame(draw);
 }
 window.addEventListener("resize", fit);

@@ -109,9 +109,10 @@ def state() -> dict:
     with _LOCK:
         multisync = dict(_MULTISYNC)
         live = [universe for universe, seen in _UNIVERSE_SEEN.items() if now - seen < STALE_AFTER]
+        matrix = bool(_MATRIX_FRAME) and now - _MATRIX_SEEN < STALE_AFTER
     if multisync["at"] and now - multisync["at"] > STALE_AFTER * 6:
         multisync = {"action": None, "type": None, "name": "", "frame": 0, "elapsed": 0.0, "at": 0.0}
-    return {"multisync": multisync, "universes": sorted(live)}
+    return {"multisync": multisync, "universes": sorted(live), "matrix": matrix}
 
 
 def channels(universe: int) -> bytes | None:

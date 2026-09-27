@@ -157,6 +157,8 @@ There are two ways to use xLights:
 | Four E1.31 channels | **FPP / xLights color → Assign channels** | One solid red/green/blue color and brightness per surface. |
 | A 32 × 18 DDP matrix | **xLights matrix → Use DDP matrix** | Moving xLights effects and the xLights Video effect inside a mapped surface. |
 
+You can close the Windows app and xLights will keep playing on the Pi. The Pi uses the stored show for the window shapes, so press **Send show** after you turn the matrix or channel assignment on. If no show is stored yet, a live matrix still fills the projector. While Beamloom is open, the Pi keeps showing the live PC picture.
+
 ### Solid colors: first surface
 
 1. In Beamloom, select a surface, click **Assign channels**, and set **Universe 1** and **Start channel 1**. Channels **1, 2, 3, 4** are red, green, blue, brightness. Keep channel 4 above zero to see the color.
