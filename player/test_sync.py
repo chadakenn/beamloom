@@ -89,28 +89,37 @@ class ReceiverTest(unittest.TestCase):
         with patch.object(sync.time, "time", return_value=sync._UNIVERSE_SEEN[12] + 6):
             self.assertEqual(sync.frame()["universes"], {})
 
-    def test_ddp_matrix_assembles_two_packets_and_expires(self):
+    def test_ddp_matrix_assembles_hd_packets_and_expires(self):
         sync._set_universe(1, bytes([11, 22, 33, 44]).ljust(512, b"\x00"))
         first = bytes([255, 0, 0]) * 480
-        second = bytes([0, 0, 255]) * 96
+        middle = bytes([0, 255, 0]) * 480
+        last = bytes([0, 0, 255]) * 96
         def packet(offset, data):
             return b"\x40\x00\x00\x02" + struct.pack(">IH", offset, len(data)) + data
         sync._parse_ddp(packet(0, first))
         self.assertNotIn("matrix", sync.frame())
-        sync._parse_ddp(packet(1440, second))
+        for offset in range(1440, sync.MATRIX_BYTES - len(last), 1440):
+            sync._parse_ddp(packet(offset, middle))
+        self.assertNotIn("matrix", sync.frame())
+        sync._parse_ddp(packet(sync.MATRIX_BYTES - len(last), last))
         self.assertEqual(sync.channels(1)[:4], bytes([11, 22, 33, 44]))
         pixels = base64.b64decode(sync.frame()["matrix"])
-        self.assertEqual(pixels, first + second)
+        self.assertEqual(pixels, first + middle * 18 + last)
         sync._parse_ddp(packet(0, bytes(1440)))
-        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), first + second)
-        sync._parse_ddp(packet(1440, second))
-        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + second)
-        sync._parse_ddp(packet(1728, b"\xff"))
-        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + second)
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), pixels)
+        for offset in range(1440, sync.MATRIX_BYTES - len(last), 1440):
+            sync._parse_ddp(packet(offset, middle))
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), pixels)
+        sync._parse_ddp(packet(sync.MATRIX_BYTES - len(last), last))
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + middle * 18 + last)
+        sync._parse_ddp(packet(sync.MATRIX_BYTES, b"\xff"))
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + middle * 18 + last)
         sync._parse_ddp(b"\x40\x00\x00\x01" + struct.pack(">IH", 0, len(first)) + first)
-        sync._parse_ddp(b"\x40\x00\x00\x01" + struct.pack(">IH", 1440, len(second)) + second)
+        for offset in range(1440, sync.MATRIX_BYTES - len(last), 1440):
+            sync._parse_ddp(packet(offset, middle))
+        sync._parse_ddp(packet(sync.MATRIX_BYTES - len(last), last))
         self.assertEqual(sync.channels(1)[:4], bytes([11, 22, 33, 44]))
-        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), first + second)
+        self.assertEqual(base64.b64decode(sync.frame()["matrix"]), bytes(1440) + middle * 18 + last)
         with patch.object(sync.time, "time", return_value=sync._MATRIX_SEEN + 6):
             self.assertNotIn("matrix", sync.frame())
 

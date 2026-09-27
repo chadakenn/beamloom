@@ -155,7 +155,7 @@ There are two ways to use xLights:
 | What xLights sends | Beamloom surface setting | Result |
 | --- | --- | --- |
 | Four E1.31 channels | **FPP / xLights color → Assign channels** | One solid red/green/blue color and brightness per surface. |
-| A 32 × 18 DDP matrix | **xLights matrix → Use DDP matrix** | Moving xLights effects and the xLights Video effect inside a mapped surface. |
+| A 128 × 72 DDP matrix | **xLights matrix → Use DDP matrix** | Moving xLights effects and the xLights Video effect inside a mapped surface. |
 
 You can close the Windows app and xLights will keep playing on the Pi. The Pi uses the stored show for the window shapes, so press **Send show** after you turn the matrix or channel assignment on. If no show is stored yet, a live matrix still fills the projector. While Beamloom is open, the Pi keeps showing the live PC picture.
 
@@ -172,18 +172,20 @@ To control a second surface independently, set its Beamloom start channel to **5
 
 ### Moving effects and video: one matrix picture
 
-1. Keep the E1.31 controller above if you want solid-color surfaces too. In xLights **Controllers**, add a **second Ethernet controller** with **Protocol DDP** and the **same Pi IP address**. Use **1728 channels** (32 × 18 × 3) and the default **1440 channels per packet**. Turn **Keep Channels Per Packet off** so this DDP controller's first pixel starts at channel 1 *in its DDP packets*, even if an E1.31 controller occupies earlier xLights channel numbers. Save. Beamloom detects the DDP destination ID automatically.
-2. In xLights **Layout**, create a **Horizontal Matrix** model. Set **# Strings = 18**, **Nodes/String = 32**, **Strands/String = 1**, **Starting Location = top left**, and **Don't Zig Zag = on**. Assign it to the DDP controller. Check its channel allocation shows **1728 channels**. If xLights has Auto Size enabled, it may calculate that number for you.
+1. Keep the E1.31 controller above if you want solid-color surfaces too. In xLights **Controllers**, add a **second Ethernet controller** with **Protocol DDP** and the **same Pi IP address**. It needs **27648 channels** (128 × 72 × 3); leave **Channels Per Packet** at **1440**. Turn **Keep Channel Numbers off** so this DDP controller's first pixel starts at channel 1 *in its DDP packets*, even if an E1.31 controller occupies earlier xLights channel numbers. Save. Beamloom detects the DDP destination ID automatically.
+2. In xLights **Layout**, create a **Horizontal Matrix** model. Set **# Strings = 72**, **Nodes/String = 128**, **Strands/String = 1**, **Starting Location = top left**, and **Don't Zig Zag = on**. Assign it to the DDP controller, set **Controller Connection → Port 1**, and save. Check the DDP controller shows **27648 channels**. Auto Size computes this when the model has a valid port.
 3. In Beamloom, select the surface that should show the effect and click **Use DDP matrix**. Leave the Pi displaying the PC live show, or send the Beamloom show to the Pi for stored-show playback. The Windows editing preview does not display incoming Pi pixels; watch the Pi's HDMI display.
 4. In an xLights sequence, drag an effect onto the matrix model, enable **Output To Lights**, and press **Play**. To try video, use xLights' **Video** effect on the matrix row and choose its video file. Keep xLights or FPP sending DDP while you want to see the effect.
 
-Matrix mode shows **one shared 32 × 18 picture**. Enabling it on more surfaces mirrors that picture. It stays inside each surface's existing corners, mask, feather, and grading. When DDP stops for five seconds, the surface returns to its Beamloom look or imported media. A 32 × 18 video is visibly pixelated; for crisp photos/videos, import the file into Beamloom instead. This first version does not receive sound from xLights or place full-resolution video on the Pi.
+Matrix mode shows **one shared 128 × 72 picture**. Enabling it on more surfaces mirrors that picture. It stays inside each surface's existing corners, mask, feather, and grading. When DDP stops for five seconds, the surface returns to its Beamloom look or imported media. This sends 16 times as much pixel data as the original 32 × 18 mode; use a wired connection for reliable video, and expect quality below full-resolution video. This mode does not receive sound from xLights.
+
+**Upgrading an existing 32 × 18 setup:** Keep your current xLights matrix until the new Pi player release is installed (use **Update Pi player**, no SD card reflash). Then edit that matrix to **# Strings 72** and **Nodes/String 128**, keep **Port 1** and **Don't Zig Zag on**, save the xLights layout and controllers, and check the DDP controller shows **27648 channels**. With the updated player, the old 32 × 18 matrix no longer forms a complete picture until you resize it. If xLights warns while starting Output To Lights, check for duplicate E1.31 controllers using the same Pi IP and universe; only one is needed for channels 1–510.
 
 ### If nothing appears
 
 - **Pi online, no xLights color:** Recheck the Pi IP in the E1.31 controller, turn **Multicast off**, confirm the surface's universe/start channel, and make sure the fourth brightness channel is above zero. Try the individual channel test before sequence playback. The Pi receives unicast E1.31 on **UDP 5568**.
 - **xLights says “Error opening output 1 0”:** Check **Controllers** for an extra active E1.31 controller with no IP. Remove the unused row, save, and confirm the Pi controller starts at **[1–510]**. Close **Tools → Test** before replaying the sequence.
-- **RGB test works but matrix does not:** Confirm the DDP controller points to the Pi, **Keep Channels Per Packet is off**, the matrix uses 32 × 18 RGB nodes and 1728 channels, and xLights sends **UDP 4048**. The Pi must have a player release containing matrix mode; your old RGB test alone does not prove that update installed.
+- **RGB test works but matrix does not:** Confirm the DDP controller points to the Pi, **Keep Channel Numbers is off**, the matrix uses 128 × 72 RGB nodes and 27648 channels, and xLights sends **UDP 4048**. The Pi must have a player release containing the 128 × 72 matrix; your old RGB test alone does not prove that update installed.
 - **The effect looks mirrored or scrambled:** Verify **top left**, **horizontal**, and **Don't Zig Zag** in the xLights matrix model. Use xLights' node layout to check rows run left to right.
 - **Colors freeze or drop:** Try Ethernet if available. Confirm xLights **Output To Lights** is on and the PC has not gone to sleep. Beamloom deliberately reverts to its normal look after five seconds without data.
 
