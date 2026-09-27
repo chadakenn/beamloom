@@ -129,13 +129,21 @@ def channels(universe: int) -> bytes | None:
     return data
 
 
-def frame() -> dict:
+def matrix_marker() -> tuple[float, int]:
+    """Timestamp and size of the latest complete, still-live matrix frame."""
+    with _LOCK:
+        if _MATRIX_FRAME is None or time.time() - _MATRIX_SEEN >= STALE_AFTER:
+            return 0.0, 0
+        return _MATRIX_SEEN, len(_MATRIX_FRAME)
+
+
+def frame(include_matrix: bool = True) -> dict:
     """JSON frame for the local kiosk WebSocket, max 32 live universes."""
     now = time.time()
     with _LOCK:
         live = sorted((universe, data) for universe, data in _UNIVERSES.items()
                       if now - _UNIVERSE_SEEN.get(universe, 0) < STALE_AFTER)[:32]
-        matrix = _MATRIX_FRAME if now - _MATRIX_SEEN < STALE_AFTER else None
+        matrix = _MATRIX_FRAME if include_matrix and now - _MATRIX_SEEN < STALE_AFTER else None
     result = {"universes": {str(universe): base64.b64encode(data).decode("ascii") for universe, data in live}}
     if matrix is not None:
         result["matrix"] = base64.b64encode(matrix).decode("ascii")

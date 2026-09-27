@@ -322,7 +322,7 @@ function connectSync() {
           matrixContext.putImageData(image, 0, 0);
           matrixSeen = Date.now();
         }
-      } else matrixSeen = 0;
+      }
     } catch (error) {}
   };
   syncSocket.onclose = () => setTimeout(connectSync, 1000);
