@@ -38,8 +38,8 @@ E131_PORT = 5568
 DDP_PORT = 4048
 STALE_AFTER = 5.0  # seconds of silence before a universe/sync is treated as gone
 MAX_UNIVERSES = 256
-MATRIX_WIDTH = 32
-MATRIX_HEIGHT = 18
+MATRIX_WIDTH = 128
+MATRIX_HEIGHT = 72
 MATRIX_BYTES = MATRIX_WIDTH * MATRIX_HEIGHT * 3
 _MATRIX = bytearray(MATRIX_BYTES)
 _MATRIX_RECEIVED = bytearray(MATRIX_BYTES)
@@ -127,7 +127,7 @@ def channels(universe: int) -> bytes | None:
 
 
 def frame() -> dict:
-    """Small JSON frame for the local kiosk WebSocket, max 32 live universes."""
+    """JSON frame for the local kiosk WebSocket, max 32 live universes."""
     now = time.time()
     with _LOCK:
         live = sorted((universe, data) for universe, data in _UNIVERSES.items()

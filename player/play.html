@@ -285,15 +285,15 @@ const videos = new Map();
 const syncChannels = new Map();
 let syncSeen = 0;
 const matrixCanvas = document.createElement("canvas");
-matrixCanvas.width = 32;
-matrixCanvas.height = 18;
+matrixCanvas.width = 128;
+matrixCanvas.height = 72;
 const matrixContext = matrixCanvas.getContext("2d");
 let matrixSeen = 0;
 let syncSocket;
 function connectSync() {
   syncSocket = new WebSocket("ws://" + location.host + "/sync/live");
   syncSocket.onmessage = (event) => {
-    if (typeof event.data !== "string" || event.data.length > 60000) return;
+    if (typeof event.data !== "string" || event.data.length > 100000) return;
     try {
       const frame = JSON.parse(event.data);
       if (!frame.universes || typeof frame.universes !== "object" || Array.isArray(frame.universes)) return;
@@ -305,11 +305,11 @@ function connectSync() {
         if (bytes.length === 512) syncChannels.set(universe, bytes);
       }
       syncSeen = Date.now();
-      if (typeof frame.matrix === "string" && frame.matrix.length <= 2400 && matrixContext) {
+      if (typeof frame.matrix === "string" && frame.matrix.length <= 40000 && matrixContext) {
         const pixels = Uint8Array.from(atob(frame.matrix), (char) => char.charCodeAt(0));
-        if (pixels.length === 32 * 18 * 3) {
-          const image = matrixContext.createImageData(32, 18);
-          for (let i = 0; i < 32 * 18; i++) {
+        if (pixels.length === 128 * 72 * 3) {
+          const image = matrixContext.createImageData(128, 72);
+          for (let i = 0; i < 128 * 72; i++) {
             image.data.set(pixels.subarray(i * 3, i * 3 + 3), i * 4);
             image.data[i * 4 + 3] = 255;
           }
