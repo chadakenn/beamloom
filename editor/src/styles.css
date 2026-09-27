@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0e0f12;
-  --color-panel: #17191e;
-  --color-fg: #e8e4dc;
-  --color-muted: #8e9088;
-  --color-beam: #e2a12b;
-  --color-ink: #14120c;
-  --color-line: #2c2f36;
-  --font-sans: "Outfit", "Avenir Next", "Segoe UI", sans-serif;
-  --font-display: "Syne", "Avenir Next", sans-serif;
-  --radius-md: 0.5rem;
+  --color-bg: #090e18;
+  --color-panel: #121b29;
+  --color-fg: #f3f5f8;
+  --color-muted: #a2b2c5;
+  --color-beam: #f6b850;
+  --color-ink: #1b1307;
+  --color-line: #2e3d50;
+  --font-sans: "Segoe UI Variable", "Segoe UI", sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --radius-md: 0.75rem;
 }
 
 @layer base {
@@ -79,5 +79,143 @@
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* The editor chrome frames the projection surface without changing the output view. */
+#beamloom-output {
+  background: radial-gradient(ellipse at 46% -35%, #1c3349 0%, #0b121e 48%, #090e18 100%);
+}
+#beamloom-output .studio-header {
+  background: linear-gradient(110deg, #19283b 0%, #101a29 48%, #0d1624 100%);
+  border-bottom-color: #34485f;
+  box-shadow: 0 10px 30px #02060d55;
+  position: relative;
+  z-index: 10;
+}
+#beamloom-output .studio-brand {
+  border-right: 1px solid #394b60;
+  margin-right: 0.4rem;
+}
+#beamloom-output .studio-brand img {
+  filter: drop-shadow(0 0 10px #f6b85070);
+}
+#beamloom-output .studio-brand .font-display {
+  letter-spacing: -0.035em;
+}
+#beamloom-output .studio-project-name {
+  border: 1px solid transparent;
+  color: #dce5ee;
+  max-width: 16rem;
+}
+#beamloom-output .studio-project-name:hover,
+#beamloom-output .studio-project-name:focus {
+  border-color: #465d75;
+  background: #ffffff0b;
+}
+#beamloom-output .studio-scenes {
+  scrollbar-width: thin;
+  scrollbar-color: #4a6078 transparent;
+  order: 10;
+  flex-basis: 100%;
+  padding-top: 0.35rem;
+  margin-top: 0.15rem;
+  border-top: 1px solid #34485f;
+}
+#beamloom-output .studio-scenes::before {
+  content: "SCENES";
+  align-self: center;
+  margin-right: 0.55rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #aebfd1;
+}
+#beamloom-output .studio-scene {
+  border-radius: 0.7rem;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+#beamloom-output .studio-scene[aria-pressed="true"],
+#beamloom-output .studio-scene:has(> button[aria-pressed="true"]) {
+  background: #f6b85018;
+  box-shadow: inset 0 -2px #f6b850;
+}
+#beamloom-output .studio-header button,
+#beamloom-output .studio-library button,
+#beamloom-output .studio-inspector button,
+#beamloom-output [aria-label="Show and alignment controls"] button {
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+#beamloom-output .studio-header button:not(:disabled):hover,
+#beamloom-output .studio-library button:not(:disabled):hover,
+#beamloom-output .studio-inspector button:not(:disabled):hover,
+#beamloom-output [aria-label="Show and alignment controls"] button:not(:disabled):hover {
+  border-color: #f6b85091;
+  background-color: #f6b8501f;
+}
+#beamloom-output .studio-header button.bg-beam:not(:disabled):hover,
+#beamloom-output .studio-library button.bg-beam:not(:disabled):hover {
+  background-color: #ffd082;
+  color: #1b1307;
+}
+#beamloom-output [aria-label="Show and alignment controls"] {
+  background: #101a29;
+  border-bottom-color: #32455a;
+  padding-block: 0.6rem;
+  padding-inline: 1rem;
+}
+#beamloom-output .studio-library,
+#beamloom-output .studio-inspector {
+  background: linear-gradient(180deg, #162235, #111b2a 45%);
+  scrollbar-width: thin;
+  scrollbar-color: #455a73 transparent;
+}
+#beamloom-output .studio-library {
+  border-right-color: #33465b;
+}
+#beamloom-output .studio-inspector {
+  border-left-color: #33465b;
+}
+#beamloom-output .studio-library h2,
+#beamloom-output .studio-inspector h2 {
+  font-size: 0.9rem;
+  letter-spacing: 0.015em;
+}
+#beamloom-output .studio-library .border-t,
+#beamloom-output .studio-inspector .border-t {
+  border-color: #34475b;
+}
+#beamloom-output .studio-library li > div[class*="border-beam"] {
+  background: #f6b85014;
+  box-shadow: inset 3px 0 #f6b850;
+}
+#beamloom-output .studio-stage {
+  background: radial-gradient(ellipse at center, #1a2a3d, #070b13 75%);
+}
+#beamloom-output .studio-stage-edit .projector-bay {
+  inset: clamp(0.5rem, 1.2vw, 1.2rem);
+}
+#beamloom-output .studio-stage-edit .projector-fit {
+  border-radius: 0.85rem;
+  border-color: #42566b;
+  box-shadow: 0 28px 64px #0009, 0 0 0 1px #ffffff0b;
+}
+#beamloom-output input:not([type="range"]),
+#beamloom-output select {
+  outline-color: #f6b850;
+}
+#beamloom-output .opacity-range::-webkit-slider-runnable-track {
+  background: #3b5068;
+}
+#beamloom-output .opacity-range::-webkit-slider-thumb {
+  background: #fff3d6;
+}
+@media (max-width: 1280px) {
+  #beamloom-output .studio-header {
+    gap: 0.4rem;
+  }
+  #beamloom-output .studio-scenes {
+    order: 10;
+    flex-basis: 100%;
   }
 }

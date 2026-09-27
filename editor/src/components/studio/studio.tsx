@@ -402,8 +402,8 @@ export function Studio() {
         </div>
       ) : null}
       {output ? null : (
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line px-3">
-          <div className="flex items-center gap-2 pr-1">
+        <header className="studio-header flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-4 py-2">
+          <div className="studio-brand flex items-center gap-2 pr-2">
             <img src="/beamloom-mark.svg" alt="" className="size-8" aria-hidden="true" />
             <span className="font-display text-lg font-semibold leading-none">Beamloom</span>
             {appInfo ? <span className="text-xs text-muted">v{appInfo.version}</span> : null}
@@ -415,14 +415,14 @@ export function Studio() {
             onFocus={beginHistoryGroup}
             onBlur={endHistoryGroup}
             onChange={(event) => setName(event.target.value)}
-            className="hidden h-11 min-w-0 flex-1 rounded-md bg-transparent px-2 text-sm text-fg sm:block"
+            className="studio-project-name hidden h-10 min-w-[9rem] flex-1 rounded-md bg-transparent px-3 text-sm text-fg sm:block"
           />
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto sm:flex-none">
+          <div className="studio-scenes flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
             {scenes.map((item) => (
               <div
                 key={item.id}
                 className={cn(
-                  "flex shrink-0 items-center rounded-md border-x-2 border-transparent",
+                  "studio-scene flex shrink-0 items-center rounded-md border-x-2 border-transparent",
                   item.id === activeSceneId ? "bg-panel text-fg" : "text-muted",
                   sceneDrop?.id === item.id && (sceneDrop.after ? "border-r-beam" : "border-l-beam"),
                 )}
@@ -663,15 +663,15 @@ export function Studio() {
 
       <div className={cn("flex min-h-0 flex-1", output ? "flex-col" : "flex-col lg:flex-row")}>
         {output ? null : (
-          <aside className="hidden w-64 shrink-0 overflow-auto border-r border-line bg-panel lg:block">
+          <aside className="studio-library hidden w-64 shrink-0 overflow-auto border-r border-line bg-panel lg:block">
             <Library />
           </aside>
         )}
-        <main className={cn("relative min-w-0", output ? "min-h-0 flex-1" : "aspect-video shrink-0 lg:aspect-auto lg:min-h-0 lg:flex-1")}>
+        <main className={cn("studio-stage relative min-w-0", output ? "min-h-0 flex-1" : "studio-stage-edit aspect-video shrink-0 lg:aspect-auto lg:min-h-0 lg:flex-1")}>
           <Stage edit={!output} lineup={lineup} blackout={blackout} />
         </main>
         {output ? null : (
-          <aside className="hidden w-80 shrink-0 overflow-auto border-l border-line bg-panel lg:block">
+          <aside className="studio-inspector hidden w-80 shrink-0 overflow-auto border-l border-line bg-panel lg:block">
             <Inspector />
           </aside>
         )}
