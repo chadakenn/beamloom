@@ -8,7 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { startLiveServer } = require("./live.cjs");
 const { squirrelInstall, isSquirrelInstalled } = require("./squirrel.cjs");
-const { newerRelease } = require("./update-version.cjs");
+const { newerRelease, githubRelease, releasesListing } = require("./update-version.cjs");
 
 if (squirrelInstall(process.execPath)) {
   app.quit();
@@ -176,53 +176,97 @@ function createWindow({ output = false, display } = {}) {
   return window;
 }
 
+function readHttps(url, redirects = 0) {
+  return new Promise((resolve) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      resolve(null);
+      return;
+    }
+    if (parsed.protocol !== "https:" || !["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"].includes(parsed.hostname)) {
+      resolve(null);
+      return;
+    }
+    const request = https.get(parsed, { headers: { "user-agent": "Beamloom", accept: "application/vnd.github+json" } }, (response) => {
+      const location = response.headers.location;
+      if (response.statusCode >= 300 && response.statusCode < 400 && location && redirects < 3) {
+        response.resume();
+        resolve(readHttps(new URL(location, parsed).href, redirects + 1));
+        return;
+      }
+      if (response.statusCode !== 200) {
+        response.resume();
+        resolve(null);
+        return;
+      }
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    });
+    request.setTimeout(15000, () => request.destroy());
+    request.on("error", () => resolve(null));
+  });
+}
+
 function startUpdates() {
   if (!app.isPackaged || !isSquirrelInstalled()) return;
-  const feed = `https://update.electronjs.org/chadakenn/beamloom/win32-x64/${app.getVersion()}`;
-  try {
-    autoUpdater.setFeedURL({ url: feed });
-  } catch {
-    return;
-  }
   let phase = "idle";
   let version = null;
   let errorMessage = null;
+  let feedText = "";
+  let feedServer = null;
   const send = (next) => {
     phase = next.phase;
     version = next.version ?? version;
     errorMessage = next.message ?? null;
     if (editor && !editor.isDestroyed()) editor.webContents.send("beamloom:update", { phase, version, message: errorMessage });
   };
+  const ensureFeed = () => new Promise((resolve, reject) => {
+    if (feedServer) {
+      resolve();
+      return;
+    }
+    feedServer = http.createServer((req, res) => {
+      if (req.url === "/RELEASES" || req.url.startsWith("/RELEASES?")) {
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+        res.end(feedText);
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    feedServer.once("error", reject);
+    feedServer.listen(0, "127.0.0.1", () => {
+      try {
+        autoUpdater.setFeedURL({ url: `http://127.0.0.1:${feedServer.address().port}` });
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
   autoUpdater.on("error", (error) => {
     if (phase === "downloading") send({ phase: "failed", version, message: error.message });
   });
   autoUpdater.on("update-downloaded", () => {
     send({ phase: "ready", version });
   });
-  const probe = () => {
+  const probe = async () => {
     if (phase === "downloading" || phase === "ready") return;
-    const request = https.get(`${feed}/RELEASES`, (response) => {
-      if (response.statusCode !== 200) {
-        response.resume();
-        return;
-      }
-      const chunks = [];
-      response.on("data", (chunk) => chunks.push(chunk));
-      response.on("end", () => {
-        const body = Buffer.concat(chunks).toString("utf8");
-        const found = body.match(/releases\/download\/([^/\s]+)\//)?.[1] ?? null;
-        if (!newerRelease(found, app.getVersion())) return;
-        send({ phase: "available", version: found });
-      });
-    });
-    request.setTimeout(15000, () => request.destroy());
-    request.on("error", () => {});
+    const release = githubRelease(await readHttps("https://api.github.com/repos/chadakenn/beamloom/releases/latest"));
+    if (!release || !newerRelease(release.version, app.getVersion())) return;
+    const listing = releasesListing(await readHttps(release.releasesUrl), release.nupkgName, release.nupkgUrl);
+    if (!listing) return;
+    feedText = listing;
+    send({ phase: "available", version: release.version });
   };
   ipcMain.handle("beamloom:update-current", (event) => {
     if (event.sender !== editor?.webContents || phase === "idle") return null;
     return { phase, version, message: errorMessage };
   });
-  ipcMain.handle("beamloom:update-apply", (event) => {
+  ipcMain.handle("beamloom:update-apply", async (event) => {
     if (event.sender !== editor?.webContents) return false;
     if (phase === "ready") {
       autoUpdater.quitAndInstall();
@@ -231,18 +275,19 @@ function startUpdates() {
     if (phase !== "available" && phase !== "failed") return false;
     send({ phase: "downloading", version });
     try {
+      await ensureFeed();
       autoUpdater.checkForUpdates();
       return true;
-    } catch {
-      send({ phase: "failed", version });
+    } catch (error) {
+      send({ phase: "failed", version, message: error instanceof Error ? error.message : "Could not download the update." });
       return false;
     }
   });
   autoUpdater.on("update-not-available", () => {
     if (phase === "downloading") send({ phase: "failed", version, message: "The update service did not offer a downloadable installer. Use the latest Setup.exe to reinstall." });
   });
-  setTimeout(probe, process.argv.includes("--squirrel-firstrun") ? 15000 : 4000);
-  setInterval(probe, 30 * 60 * 1000);
+  setTimeout(() => void probe(), process.argv.includes("--squirrel-firstrun") ? 15000 : 4000);
+  setInterval(() => void probe(), 30 * 60 * 1000);
 }
 
 ipcMain.handle("beamloom:app-info", (event) => {
