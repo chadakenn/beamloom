@@ -67,6 +67,14 @@ class ReceiverTest(unittest.TestCase):
         self.assertEqual(sync.show_command({"action": "stop", "elapsed": 3, "at": now}, now)["action"], "stop")
         self.assertEqual(sync.show_command({"action": "open", "elapsed": 3, "at": now}, now)["action"], "hold")
 
+    def test_screen_stays_on_pi_when_the_app_closes(self):
+        play = beamloom_player.screen_target
+        self.assertEqual(play("live", "http://pc:8751/?player=1", True, True, True), "http://pc:8751/?player=1")
+        self.assertEqual(play("live", "http://pc:8751/?player=1", True, False, True), "/play")
+        self.assertEqual(play("auto", "http://pc:8751/?player=1", False, False, True), "/play")
+        self.assertEqual(play("show", "http://pc:8751/?player=1", True, True, False), "/play")
+        self.assertEqual(play("auto", "http://pc:8751/?player=1", False, False, False), "")
+
     def test_first_update_contains_sync_module(self):
         source = Path(beamloom_player.__file__).read_text(encoding="utf-8")
         payload = re.search(r'ROOT / "sync.py"\)\.write_bytes\(zlib\.decompress\(base64\.b64decode\("([^"]+)"\)\)\)', source)
