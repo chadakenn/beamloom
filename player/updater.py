@@ -1,7 +1,7 @@
 """Install a published Beamloom release onto the player.
 
 Updates come from a GitHub release tag such as 0.1.5, never from the moving
-main branch. Only the three player programs are replaced. Startup files stay
+main branch. Only the player programs are replaced. Startup files stay
 on the card. If the new player does not answer, the previous programs are put back.
 """
 import base64
@@ -26,6 +26,7 @@ FILES = {
     "player/wifi.py": ROOT / "wifi.py",
     "player/updater.py": ROOT / "updater.py",
     "player/play.html": ROOT / "play.html",
+    "player/sync.py": ROOT / "sync.py",
 }
 _update_lock = threading.Lock()
 _cache_lock = threading.Lock()
@@ -145,6 +146,8 @@ def _restore(changed):
         previous = BACKUP / str(index)
         if previous.exists():
             shutil.copy2(previous, target)
+        else:
+            target.unlink(missing_ok=True)
     previous_version = BACKUP / "version"
     if previous_version.exists():
         shutil.copy2(previous_version, ROOT / "version")
@@ -177,11 +180,15 @@ else:
         Path("/opt/beamloom-player/beamloom_player.py"),
         Path("/opt/beamloom-player/wifi.py"),
         Path("/opt/beamloom-player/updater.py"),
+        Path("/opt/beamloom-player/play.html"),
+        Path("/opt/beamloom-player/sync.py"),
     ]
     for index, target in enumerate(targets):
         previous = backup / str(index)
         if previous.exists():
             shutil.copy2(previous, target)
+        else:
+            target.unlink(missing_ok=True)
     previous_version = backup / "version"
     if previous_version.exists():
         shutil.copy2(previous_version, version)

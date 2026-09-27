@@ -128,6 +128,8 @@ The Pi settings page and the PC live page are open to anyone on the same network
 
 The Windows app's **Pi online** indicator shows the Pi's response time and the number of live viewers. Open it to change the Pi address. **Update Pi player** installs a published GitHub release, and it names that version before it starts. It replaces only the player program, not the Pi startup files and not Raspberry Pi OS. If the new player does not answer, the Pi puts the previous one back. The PC and the Pi both need internet for the update.
 
+**FPP/xLights receiver (early stage):** The Pi listens for FPP MultiSync on UDP 32320 (unicast or multicast group `239.70.80.80`), unicast E1.31 on UDP 5568, and DDP on UDP 4048. Its `/health` response includes `sync.multisync` and the active `sync.universes`; data older than five seconds is ignored. This reports show timing and channel activity only. It does not change the picture, trigger a Beamloom scene, or join sACN multicast universes. A released Pi player update installs it; no new SD image is required.
+
 You can open the same PC address in a browser on the PC before the Pi is ready. That checks the live page without the projector.
 
 ## Develop from source
