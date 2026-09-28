@@ -27,6 +27,7 @@ FILES = {
     "player/updater.py": ROOT / "updater.py",
     "player/play.html": ROOT / "play.html",
     "player/sync.py": ROOT / "sync.py",
+    "player/schedule.py": ROOT / "schedule.py",
 }
 _update_lock = threading.Lock()
 _cache_lock = threading.Lock()
@@ -182,6 +183,7 @@ else:
         Path("/opt/beamloom-player/updater.py"),
         Path("/opt/beamloom-player/play.html"),
         Path("/opt/beamloom-player/sync.py"),
+        Path("/opt/beamloom-player/schedule.py"),
     ]
     for index, target in enumerate(targets):
         previous = backup / str(index)

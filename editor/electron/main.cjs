@@ -464,6 +464,29 @@ app.whenReady().then(() => {
       return await piPost(host, "/output", { "content-type": "application/x-www-form-urlencoded", "content-length": body.length, accept: "application/json" }, body);
     } catch (error) { return showResult(error); }
   });
+  ipcMain.handle("beamloom:pi-schedule", async (event, host, schedule) => {
+    if (event.sender !== editor?.webContents || !schedule || typeof schedule !== "object") return { ok: false, error: "Enter the dusk clock settings." };
+    const latitude = Number(schedule.latitude);
+    const longitude = Number(schedule.longitude);
+    const after = Number(schedule.afterSunset);
+    const end = typeof schedule.end === "string" ? schedule.end : "";
+    if (schedule.enabled && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
+      return { ok: false, error: "Enter the latitude and longitude for this house." };
+    }
+    if (schedule.enabled && (!Number.isInteger(after) || after < -60 || after > 180 || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(end))) {
+      return { ok: false, error: "Use minutes after sunset and a stop time like 23:00." };
+    }
+    try {
+      const body = Buffer.from(new URLSearchParams({
+        enabled: schedule.enabled ? "1" : "0",
+        latitude: Number.isFinite(latitude) ? String(latitude) : "",
+        longitude: Number.isFinite(longitude) ? String(longitude) : "",
+        after: Number.isInteger(after) ? String(after) : "20",
+        end: /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(end) ? end : "23:00",
+      }).toString());
+      return await piPost(host, "/schedule", { "content-type": "application/x-www-form-urlencoded", "content-length": body.length, accept: "application/json" }, body);
+    } catch (error) { return showResult(error); }
+  });
   ipcMain.handle("beamloom:live-stop", async (event) => {
     if (event.sender !== editor?.webContents) return false;
     const stopping = live;

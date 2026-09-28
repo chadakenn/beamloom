@@ -4,6 +4,7 @@ install -m 0644 files/beamloom_player.py "${ROOTFS_DIR}/opt/beamloom-player/beam
 install -m 0644 files/wifi.py "${ROOTFS_DIR}/opt/beamloom-player/wifi.py"
 install -m 0644 files/updater.py "${ROOTFS_DIR}/opt/beamloom-player/updater.py"
 install -m 0644 files/sync.py "${ROOTFS_DIR}/opt/beamloom-player/sync.py"
+install -m 0644 files/schedule.py "${ROOTFS_DIR}/opt/beamloom-player/schedule.py"
 install -m 0644 files/play.html "${ROOTFS_DIR}/opt/beamloom-player/play.html"
 install -m 0644 files/VERSION "${ROOTFS_DIR}/opt/beamloom-player/version"
 install -m 0644 files/beamloom-player.service "${ROOTFS_DIR}/etc/systemd/system/beamloom-player.service"

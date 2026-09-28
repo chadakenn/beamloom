@@ -21,6 +21,7 @@ import sys
 import threading
 import time
 import zlib
+from datetime import datetime
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
@@ -32,6 +33,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import wifi
 import updater
+# Existing Pi installs have an older updater which does not yet fetch schedule.py.
+# The first update writes this copy; later updates fetch schedule.py normally.
+try:
+    import schedule
+except ModuleNotFoundError as error:
+    if error.name != "schedule":
+        raise
+    (ROOT / "schedule.py").write_bytes(zlib.decompress(base64.b64decode("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")))
+    import schedule
 # Existing Pi installs have an older updater which does not yet fetch sync.py.
 # The first update carries a compressed copy; later updates fetch sync.py normally.
 try:
@@ -242,7 +252,9 @@ def load_config() -> dict:
     mode = data.get("playMode", "auto") if isinstance(data, dict) else "auto"
     if mode not in {"auto", "show", "live"}:
         mode = "auto"
-    return {"pcUrl": url if isinstance(url, str) else "", "playMode": mode}
+    result = {"pcUrl": url if isinstance(url, str) else "", "playMode": mode}
+    result["schedule"] = schedule.clean(data.get("schedule") if isinstance(data, dict) else None)
+    return result
 
 
 def save_config(config: dict) -> None:
@@ -256,6 +268,7 @@ def save_config(config: dict) -> None:
     current.update(config)
     mode = current.get("playMode", "auto")
     kept = {"pcUrl": current.get("pcUrl", "") if isinstance(current.get("pcUrl"), str) else "", "playMode": mode if mode in {"auto", "show", "live"} else "auto"}
+    kept["schedule"] = schedule.clean(current.get("schedule"))
     CONFIG.parent.mkdir(parents=True, exist_ok=True)
     temporary = CONFIG.with_suffix(".tmp")
     temporary.write_text(json.dumps(kept, indent=2) + "\n", encoding="utf-8")
@@ -282,17 +295,20 @@ def pc_is_up() -> bool:
     return bool(_PC["up"])
 
 
-def screen_target(mode: str, url: str, stored: bool, pc_up: bool, lighting: bool) -> str:
+def screen_target(mode: str, url: str, stored: bool, pc_up: bool, lighting: bool, scheduled: bool | None = None) -> str:
     """Choose the projector page.
 
-    The Windows picture is used only while that app answers. After it closes,
-    a stored show or live xLights data stays on the Pi.
+    The Windows picture is used only while that app answers. A dusk clock can
+    hold the stored show until sunset. xLights data and an explicit stored-show
+    choice still play.
     """
     if mode == "show" and stored:
         return "/play"
     if pc_up and url:
         return url
-    if stored or lighting:
+    if lighting:
+        return "/play"
+    if stored and scheduled is not False:
         return "/play"
     return ""
 
@@ -326,6 +342,16 @@ def show_media_path(media_id: str) -> tuple[Path, str] | None:
     except (OSError, json.JSONDecodeError):
         pass
     return path, mime
+
+
+def _form_number(fields: dict, name: str) -> float | None:
+    raw = (fields.get(name) or [""])[0].strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
 
 
 def clean_url(value: str) -> str:
@@ -383,6 +409,11 @@ def settings_page(config: dict, error: str = "") -> str:
         f"Stored show: <strong>{escape(str(stored['name']))}</strong>, {stored['files']} file(s). It loops on the projector when the PC is off."
         if stored["saved"] else "No show is stored on this Pi yet. Send one from the Windows app."
     )
+    clock = schedule.status(config.get("schedule"), datetime.now().astimezone())
+    clock_checked = " checked" if clock["enabled"] else ""
+    latitude = "" if clock["latitude"] is None else clock["latitude"]
+    longitude = "" if clock["longitude"] is None else clock["longitude"]
+    clock_note = escape(clock["note"] or "The Pi clock is off. The stored show plays whenever the PC is off.")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -413,6 +444,22 @@ def settings_page(config: dict, error: str = "") -> str:
     <h1>Beamloom</h1>
     <p>Set up the Pi from your PC. The picture appears on the screen connected to this Pi.</p>
     <p>{stored_note}</p>
+    <section class="card">
+    <h2>Dusk clock</h2>
+    <p>The Pi's clock says <strong>{escape(clock["now"])}</strong>. {clock_note} The PC can be off. Choose <strong>Always play the stored show</strong> above if you do not want the clock to wait.</p>
+    <form method="post" action="/schedule">
+      <label><input type="checkbox" name="enabled" value="1"{clock_checked} style="width:auto;height:auto" /> Start the stored show at dusk</label>
+      <label for="latitude">Latitude</label>
+      <input id="latitude" name="latitude" value="{latitude}" inputmode="decimal" placeholder="40.71" autocomplete="off" />
+      <label for="longitude">Longitude</label>
+      <input id="longitude" name="longitude" value="{longitude}" inputmode="decimal" placeholder="-74.01" autocomplete="off" />
+      <label for="after">Minutes after sunset</label>
+      <input id="after" name="after" value="{clock["afterSunset"]}" inputmode="numeric" />
+      <label for="end">Stop at</label>
+      <input id="end" name="end" value="{escape(clock["end"])}" placeholder="23:00" />
+      <button type="submit">Save clock</button>
+    </form>
+    </section>
     <form method="post" action="/output">
       <label for="playMode">Projector picture</label>
       <select id="playMode" name="playMode">{options}</select>
@@ -515,6 +562,10 @@ def screen_page() -> str:
           title.textContent = "Waiting for a network";
           message.textContent = "Connect an Ethernet cable to your router to set up this Pi.";
           step.textContent = "Then open http://beamloom.local on your PC";
+        } else if (data.clock && data.clock.enabled && data.clock.on === false && data.show && data.show.saved) {
+          title.textContent = "Waiting for dusk";
+          message.textContent = data.clock.note || "The stored show starts at dusk.";
+          step.textContent = "Pi clock: " + data.clock.now;
         } else {
           title.textContent = "Ready for your show";
           message.textContent = "The Pi is connected. Open Beamloom on your show PC.";
@@ -652,7 +703,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/health":
             snap = sync.state()
-            data = json.dumps({**load_config(), "wifi": wifi.status(), "update": updater.status(), "join": JOIN, "display": display_status(), "show": show_status(), "pcUp": pc_is_up(), "sync": snap, "syncShow": sync.show_command(snap["multisync"], time.time()), "screen": screen_target(load_config().get("playMode", "auto"), load_config().get("pcUrl", ""), bool(show_status().get("saved")), pc_is_up(), bool(snap.get("universes") or snap.get("matrix")))}).encode("utf-8")
+            config = load_config()
+            clock = schedule.status(config.get("schedule"), datetime.now().astimezone())
+            stored_show = bool(show_status().get("saved"))
+            data = json.dumps({**config, "wifi": wifi.status(), "update": updater.status(), "join": JOIN, "display": display_status(), "show": show_status(), "pcUp": pc_is_up(), "sync": snap, "syncShow": sync.show_command(snap["multisync"], time.time()), "clock": clock, "screen": screen_target(config.get("playMode", "auto"), config.get("pcUrl", ""), stored_show, pc_is_up(), bool(snap.get("universes") or snap.get("matrix")), clock["active"])}).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(data)))
@@ -757,6 +811,22 @@ class Handler(BaseHTTPRequestHandler):
             JOIN.update(state="connecting", message="Trying to join your Wi-Fi.")
             self.send_html("""<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="8;url=http://beamloom.local/"><body style="background:#101929;color:#f5f3ed;font:20px/1.5 Segoe UI,sans-serif;max-width:32rem;margin:15vh auto;padding:2rem"><h1>Connecting to your Wi-Fi…</h1><p>The Beamloom setup network will disappear if the connection succeeds. Connect your phone or PC to your home Wi-Fi, then open <a style="color:#80e2d0" href="http://beamloom.local/">beamloom.local</a>.</p><p>No reboot is needed. If Beamloom Wi-Fi comes back, reconnect to it and check the error on the setup page.</p></body></html>""")
             threading.Timer(1.5, lambda: self._join_home(ssid, password)).start()
+            return
+        if path == "/schedule":
+            saved = schedule.clean({
+                "enabled": (fields.get("enabled") or [""])[0] == "1",
+                "latitude": _form_number(fields, "latitude"),
+                "longitude": _form_number(fields, "longitude"),
+                "afterSunset": _form_number(fields, "after"),
+                "end": (fields.get("end") or ["23:00"])[0].strip(),
+            })
+            save_config({"schedule": saved})
+            if "application/json" in self.headers.get("Accept", ""):
+                self._json({"ok": True, "clock": schedule.status(saved, datetime.now().astimezone())})
+                return
+            self.send_response(303)
+            self.send_header("location", "/")
+            self.end_headers()
             return
         if path != "/settings" and path != "/output":
             self.send_error(404)
