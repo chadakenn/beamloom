@@ -103,6 +103,24 @@
 #beamloom-output .studio-brand .font-display {
   letter-spacing: -0.035em;
 }
+#beamloom-output .studio-menu-trigger[aria-expanded="true"] {
+  background: #f6b85020;
+  color: var(--color-beam);
+}
+#beamloom-output .studio-menu-panel {
+  background: #182538;
+  border-color: #435971;
+  box-shadow: 0 20px 50px #000a;
+}
+#beamloom-output .studio-menu-item:not(:disabled):hover,
+#beamloom-output .studio-menu-item:focus-visible {
+  background: #f6b85024;
+  color: #ffe0a2;
+}
+#beamloom-output .studio-menu-divider {
+  border-top: 1px solid #40536a;
+  margin: 0.35rem 0.5rem;
+}
 #beamloom-output .studio-project-name {
   border: 1px solid transparent;
   color: #dce5ee;
@@ -170,6 +188,26 @@
   scrollbar-width: thin;
   scrollbar-color: #455a73 transparent;
 }
+#beamloom-output .studio-library .text-xs,
+#beamloom-output .studio-inspector .text-xs {
+  font-size: 0.8125rem;
+  line-height: 1.3rem;
+}
+#beamloom-output .studio-library .text-sm,
+#beamloom-output .studio-inspector .text-sm {
+  font-size: 0.9375rem;
+  line-height: 1.4rem;
+}
+#beamloom-output .studio-inspector > div > div {
+  scroll-margin-block: 1rem;
+}
+#beamloom-output .studio-inspector input[type="range"] {
+  accent-color: var(--color-beam);
+}
+#beamloom-output .studio-library button:focus-visible,
+#beamloom-output .studio-inspector button:focus-visible {
+  outline-offset: -2px;
+}
 #beamloom-output .studio-library {
   border-right-color: #33465b;
 }
@@ -178,7 +216,7 @@
 }
 #beamloom-output .studio-library h2,
 #beamloom-output .studio-inspector h2 {
-  font-size: 0.9rem;
+  font-size: 1rem;
   letter-spacing: 0.015em;
 }
 #beamloom-output .studio-library .border-t,
