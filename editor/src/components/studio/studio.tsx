@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getAlign, setAlign, subscribeAlign } from "@/lib/beam/align";
-import { Copy, Crosshair, Grid2x2, Monitor, Pencil, Plus, Power, X } from "lucide-react";
+import { Copy, Crosshair, Grid2x2, Monitor, Pencil, Plus, Power, Trash2, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
 import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
 import { openProjectFile, saveProjectFile } from "@/lib/beam/project-file";
@@ -13,6 +13,7 @@ import { Library } from "@/components/studio/library";
 import { Stage } from "@/components/studio/stage";
 import { ShowBar } from "@/components/studio/show-bar";
 import { ConnectionsPage } from "@/components/studio/connections-page";
+import { sendShowToPi } from "@/lib/beam/send-show";
 import { setLiveBlackout } from "@/lib/beam/live-link";
 
 type Dock = "looks" | "adjust";
@@ -75,6 +76,8 @@ export function Studio() {
   const blackoutRef = useRef(false);
   const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
   const [appInfo, setAppInfo] = useState<{ version: string; installed: boolean } | null>(null);
+  const [sendingShow, setSendingShow] = useState(false);
+  const [sendNote, setSendNote] = useState("");
 
   useEffect(() => { if (!output) setAlign(false); }, []);
 
@@ -114,6 +117,24 @@ export function Studio() {
     if (editingSceneId && !cancelRename.current) renameScene(editingSceneId, sceneNameDraft);
     cancelRename.current = false;
     setEditingSceneId(null);
+  }
+
+  function deleteSceneTab(id: string, sceneName: string) {
+    if (scenes.length < 2) return;
+    if (!window.confirm(`Delete the ${sceneName} tab? The other scenes stay in this show.`)) return;
+    useEditor.getState().removeScene(id);
+  }
+
+  async function sendCurrentShow() {
+    setSendingShow(true);
+    try {
+      const host = localStorage.getItem("beamloom-pi-host") || "beamloom.local";
+      setSendNote(await sendShowToPi(host, setSendNote));
+    } catch (error) {
+      setSendNote(error instanceof Error ? error.message : "The Pi could not store the show.");
+    } finally {
+      setSendingShow(false);
+    }
   }
 
   function toggleBlackout() {
@@ -436,10 +457,11 @@ export function Studio() {
             <span className="font-display text-lg font-semibold leading-none">Beamloom</span>
             {appInfo ? <span className="text-xs text-muted">v{appInfo.version}</span> : null}
           </div>
-          <nav className="flex shrink-0 items-center gap-1" aria-label="Workspace pages">
-            <button type="button" aria-current={view === "editor" ? "page" : undefined} onClick={() => setView("editor")} className={cn("rounded-md px-3 py-2 text-sm", view === "editor" ? "bg-beam/15 font-semibold text-beam" : "text-muted hover:text-fg")}>Editor</button>
-            <button type="button" aria-current={view === "connections" ? "page" : undefined} onClick={() => setView("connections")} className={cn("rounded-md px-3 py-2 text-sm", view === "connections" ? "bg-beam/15 font-semibold text-beam" : "text-muted hover:text-fg")}>Connections</button>
+          <nav className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-bg p-1" aria-label="Work tabs">
+            <button type="button" aria-current={view === "editor" ? "page" : undefined} onClick={() => setView("editor")} className={cn("rounded-md px-3 py-1.5 text-sm", view === "editor" ? "bg-beam font-semibold text-ink" : "text-muted hover:text-fg")}>Editor</button>
+            <button type="button" aria-current={view === "connections" ? "page" : undefined} onClick={() => setView("connections")} className={cn("rounded-md px-3 py-1.5 text-sm", view === "connections" ? "bg-beam font-semibold text-ink" : "text-muted hover:text-fg")}>Connections</button>
           </nav>
+          <button type="button" disabled={sendingShow} onClick={() => void sendCurrentShow()} title={sendNote || "Send this show to the Pi"} className="h-10 shrink-0 rounded-md bg-beam px-3 text-sm font-semibold text-ink disabled:opacity-40">{sendingShow ? "Sending…" : "Send to Pi"}</button>
           <nav ref={menuRef} className="studio-menubar flex items-center gap-0.5" aria-label="Application menu">
             {(["file", "edit", "view", "help"] as const).map((menu) => (
               <div key={menu} className="relative">
@@ -457,6 +479,8 @@ export function Studio() {
                       <MenuItem label="Save project…" shortcut="Ctrl+S" onClick={() => { setOpenMenu(null); void saveFile(); }} disabled={fileBusy} />
                       <div className="studio-menu-divider" />
                       <MenuItem label="Reset show…" onClick={() => { setOpenMenu(null); if (window.confirm("Reset the whole show to the facade study? Your current scenes and presets will be replaced.")) reset(); }} />
+                      <div className="studio-menu-divider" />
+                      <MenuItem label="Send show to Pi" onClick={() => { setOpenMenu(null); void sendCurrentShow(); }} disabled={sendingShow} />
                     </> : null}
                     {menu === "edit" ? <>
                       <MenuItem label="Undo" shortcut="Ctrl+Z" onClick={() => { setOpenMenu(null); undo(); }} disabled={!canUndo} />
@@ -464,6 +488,7 @@ export function Studio() {
                       <div className="studio-menu-divider" />
                       <MenuItem label="Add surface" onClick={() => { setOpenMenu(null); useEditor.getState().addSurface(); }} />
                       <MenuItem label="Add scene" onClick={() => { setOpenMenu(null); addScene(); }} />
+                      <MenuItem label="Delete scene" onClick={() => { setOpenMenu(null); const current = scenes.find((item) => item.id === activeSceneId); if (current) deleteSceneTab(current.id, current.name); }} disabled={scenes.length < 2} />
                     </> : null}
                     {menu === "view" ? <>
                       <MenuItem label="Guides" shortcut={guides ? "On" : "Off"} onClick={() => { setOpenMenu(null); setGuides(!guides); }} />
@@ -556,6 +581,9 @@ export function Studio() {
                     <button type="button" onClick={() => startSceneRename(item.id, item.name)} aria-label={`Rename ${item.name}`} title="Rename scene" className="inline-flex size-11 items-center justify-center"><Pencil className="size-4" aria-hidden="true" /></button>
                     <button type="button" onClick={() => duplicateScene(item.id)} aria-label={`Duplicate ${item.name}`} title="Duplicate scene after this tab" className="inline-flex size-11 items-center justify-center"><Copy className="size-4" aria-hidden="true" /></button>
                   </>
+                ) : null}
+                {editingSceneId !== item.id && scenes.length > 1 ? (
+                  <button type="button" onClick={() => deleteSceneTab(item.id, item.name)} aria-label={`Delete ${item.name}`} title="Delete this tab" className="inline-flex size-11 items-center justify-center text-muted"><Trash2 className="size-4" aria-hidden="true" /></button>
                 ) : null}
               </div>
             ))}
