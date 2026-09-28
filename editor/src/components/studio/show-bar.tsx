@@ -32,6 +32,14 @@ export function ShowBar() {
   const [sendingShow, setSendingShow] = useState(false);
   const [foundPis, setFoundPis] = useState<{ host: string; wifi: { mode: string; ssid: string } }[]>([]);
   const [testResult, setTestResult] = useState<"ok" | "failed" | null>(null);
+  const [clockOn, setClockOn] = useState(false);
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [afterSunset, setAfterSunset] = useState("20");
+  const [clockStart, setClockStart] = useState("");
+  const [clockEnd, setClockEnd] = useState("23:00");
+  const [savingClock, setSavingClock] = useState(false);
+  const clockDirty = useRef(false);
   const piStatusRef = useRef(piStatus);
   piStatusRef.current = piStatus;
   const fade = useSyncExternalStore(subscribeFade, getFadeSeconds, () => 0);
@@ -51,6 +59,17 @@ export function ShowBar() {
     const timer = window.setInterval(refresh, 5000);
     return () => { active = false; window.clearInterval(timer); };
   }, [piHost]);
+
+  useEffect(() => {
+    const clock = piStatus?.clock;
+    if (!clock || clockDirty.current) return;
+    setClockOn(clock.enabled);
+    setLatitude(clock.latitude == null ? "" : String(clock.latitude));
+    setLongitude(clock.longitude == null ? "" : String(clock.longitude));
+    setAfterSunset(String(clock.afterSunset));
+    setClockStart(clock.start || "");
+    setClockEnd(clock.end);
+  }, [piStatus]);
 
   useEffect(() => {
     if (!window.beamloomDesktop?.piDiscover) return;
@@ -156,6 +175,23 @@ export function ShowBar() {
     }
   }
 
+  async function saveClock(enabled = clockOn) {
+    setSavingClock(true);
+    const result = await window.beamloomDesktop?.piSchedule?.(piHost, {
+      enabled,
+      latitude: latitude.trim() === "" ? Number.NaN : Number(latitude),
+      longitude: longitude.trim() === "" ? Number.NaN : Number(longitude),
+      afterSunset: Number(afterSunset),
+      start: clockStart.trim(),
+      end: clockEnd,
+    });
+    setSavingClock(false);
+    clockDirty.current = false;
+    setClockOn(enabled);
+    setPiMessage(result?.error?.includes("store a show") ? "Update the Pi player, then save the clock again." : result?.error || (enabled ? result?.clock?.note || "Clock is on." : "Clock is off."));
+    if (result?.ok) setPiStatus(await window.beamloomDesktop?.piStatus?.(piHost) ?? null);
+  }
+
   async function testPi() {
     if (!suggestedPiUrl) return;
     const result = await window.beamloomDesktop?.piCheck?.(piHost, suggestedPiUrl);
@@ -250,6 +286,23 @@ export function ShowBar() {
             <button type="button" disabled={!!piStatus?.error} onClick={() => void window.beamloomDesktop?.piPlayMode?.(piHost, "show").then((result) => setPiMessage(result?.ok ? "The Pi is switching to the stored show. The picture may blink, then it keeps playing after this PC closes." : result?.error || "The Pi could not switch to the stored show."))} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Play stored show</button>
             <button type="button" disabled={!!piStatus?.error} onClick={() => void window.beamloomDesktop?.piPlayMode?.(piHost, "auto").then((result) => setPiMessage(result?.ok ? "The Pi will follow this PC, and play the stored show when the PC is off." : result?.error || "The Pi could not follow this PC."))} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Follow this PC</button>
             <button type="button" disabled={!piOn || !suggestedPiUrl || !!piStatus?.error} onClick={() => void testPi()} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Test connection</button>
+            <div className="mt-4 border-t border-line pt-3">
+              <h3 className="font-semibold">Dusk clock</h3>
+              <p className="mt-1 text-xs text-muted">After you send a show, the Pi starts it at the time you type, or at sunset if you leave the start time blank. It stops at the time you type. The PC can be off.</p>
+              {piStatus?.clock ? <p className="mt-1 text-xs" role="status">{piStatus.clock.enabled ? piStatus.clock.note || "Clock is on." : "Clock is off."} Pi time {piStatus.clock.now}.</p> : null}
+              <div className="mt-2 flex gap-2" role="group" aria-label="Pi clock">
+                <button type="button" aria-pressed={!clockOn} disabled={savingClock || !!piStatus?.error} onClick={() => void saveClock(false)} className={`rounded px-3 py-2 text-xs disabled:opacity-40 ${clockOn ? "border border-line" : "bg-amber-400 text-black"}`}>Off</button>
+                <button type="button" aria-pressed={clockOn} disabled={!!piStatus?.error} onClick={() => { clockDirty.current = true; setClockOn(true); }} className={`rounded px-3 py-2 text-xs disabled:opacity-40 ${clockOn ? "bg-amber-400 text-black" : "border border-line"}`}>On</button>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className="text-xs">Start at<input value={clockStart} onChange={(event) => { clockDirty.current = true; setClockStart(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="18:30 or blank for sunset" /></label>
+                <label className="text-xs">Stop at<input value={clockEnd} onChange={(event) => { clockDirty.current = true; setClockEnd(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="23:00" /></label>
+                <label className="text-xs">Latitude, for sunset<input value={latitude} onChange={(event) => { clockDirty.current = true; setLatitude(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="decimal" placeholder="40.71" /></label>
+                <label className="text-xs">Longitude, for sunset<input value={longitude} onChange={(event) => { clockDirty.current = true; setLongitude(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="decimal" placeholder="-74.01" /></label>
+                <label className="text-xs">Minutes after sunset<input value={afterSunset} onChange={(event) => { clockDirty.current = true; setAfterSunset(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="numeric" /></label>
+              </div>
+              <button type="button" disabled={savingClock || !!piStatus?.error || !clockOn} onClick={() => void saveClock(true)} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{savingClock ? "Saving…" : "Save clock"}</button>
+            </div>
             <ol className="mt-4 space-y-1 text-xs" aria-label="Pi setup checklist">
               <li>{piStatus && !piStatus.error ? "✓" : "○"} Pi found on your network</li>
               <li>{piOn ? "✓" : "○"} Pi output running on this PC</li>

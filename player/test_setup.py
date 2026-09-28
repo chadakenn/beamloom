@@ -115,6 +115,13 @@ class SetupTest(unittest.TestCase):
                 server.server_close()
                 thread.join()
 
+    def test_dusk_clock_holds_the_stored_show_until_sunset(self):
+        self.assertEqual(player.screen_target("auto", "http://192.168.1.20:8751/?player=1", True, False, False, False), "")
+        self.assertEqual(player.screen_target("auto", "http://192.168.1.20:8751/?player=1", True, False, False, True), "/play")
+        self.assertEqual(player.screen_target("auto", "http://192.168.1.20:8751/?player=1", True, False, False), "/play")
+        self.assertEqual(player.screen_target("auto", "http://192.168.1.20:8751/?player=1", True, False, True, False), "/play")
+        self.assertEqual(player.screen_target("show", "", True, False, False, False), "/play")
+
     def test_stored_show_can_be_played_without_the_pc(self):
         self.assertEqual(zlib.decompress(base64.b64decode(player.PLAY_PAGE)).decode("utf-8"), Path(__file__).with_name("play.html").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as directory:

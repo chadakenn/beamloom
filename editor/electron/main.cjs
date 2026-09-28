@@ -464,6 +464,35 @@ app.whenReady().then(() => {
       return await piPost(host, "/output", { "content-type": "application/x-www-form-urlencoded", "content-length": body.length, accept: "application/json" }, body);
     } catch (error) { return showResult(error); }
   });
+  ipcMain.handle("beamloom:pi-schedule", async (event, host, schedule) => {
+    if (event.sender !== editor?.webContents || !schedule || typeof schedule !== "object") return { ok: false, error: "Enter the dusk clock settings." };
+    const latitude = Number(schedule.latitude);
+    const longitude = Number(schedule.longitude);
+    const after = Number(schedule.afterSunset);
+    const start = typeof schedule.start === "string" ? schedule.start.trim() : "";
+    const end = typeof schedule.end === "string" ? schedule.end : "";
+    const clockTime = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+    const usesSunset = !start;
+    if (schedule.enabled && start && !clockTime.test(start)) return { ok: false, error: "Use a start time like 18:30, or leave it blank for sunset." };
+    if (schedule.enabled && usesSunset && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
+      return { ok: false, error: "Enter the latitude and longitude for this house, or type a start time." };
+    }
+    if (schedule.enabled && usesSunset && (!Number.isInteger(after) || after < -60 || after > 180)) {
+      return { ok: false, error: "Use minutes after sunset, from -60 to 180." };
+    }
+    if (schedule.enabled && !clockTime.test(end)) return { ok: false, error: "Use a stop time like 23:00." };
+    try {
+      const body = Buffer.from(new URLSearchParams({
+        enabled: schedule.enabled ? "1" : "0",
+        latitude: Number.isFinite(latitude) ? String(latitude) : "",
+        longitude: Number.isFinite(longitude) ? String(longitude) : "",
+        after: Number.isInteger(after) ? String(after) : "20",
+        start: clockTime.test(start) ? start : "",
+        end: clockTime.test(end) ? end : "23:00",
+      }).toString());
+      return await piPost(host, "/schedule", { "content-type": "application/x-www-form-urlencoded", "content-length": body.length, accept: "application/json" }, body);
+    } catch (error) { return showResult(error); }
+  });
   ipcMain.handle("beamloom:live-stop", async (event) => {
     if (event.sender !== editor?.webContents) return false;
     const stopping = live;

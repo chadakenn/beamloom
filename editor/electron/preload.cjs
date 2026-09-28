@@ -31,4 +31,5 @@ contextBridge.exposeInMainWorld("beamloomDesktop", {
   piShowFile: (host, id) => ipcRenderer.invoke("beamloom:pi-show-file", host, id),
   piShowFinish: (host) => ipcRenderer.invoke("beamloom:pi-show-finish", host),
   piPlayMode: (host, mode) => ipcRenderer.invoke("beamloom:pi-play-mode", host, mode),
+  piSchedule: (host, schedule) => ipcRenderer.invoke("beamloom:pi-schedule", host, schedule),
 });
