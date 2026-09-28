@@ -423,6 +423,24 @@ function useMedia(scene) {
     for (const video of videos.values()) { try { video.currentTime = 0; } catch (error) {} video.play().catch(() => {}); }
   }
 }
+function syncStoredVideos(scene, now) {
+  if (!clock || (clock.action !== "play" && clock.action !== "hold")) return;
+  const wanted = Math.max(0, (now - sceneStarted) / 1000);
+  const ids = new Set(scene.surfaces.map((face) => face.videoId).filter(Boolean));
+  for (const id of ids) {
+    const video = videos.get(id);
+    if (!video || video.readyState < 1) continue;
+    const duration = video.duration;
+    const target = Number.isFinite(duration) && duration > 0 ? wanted % duration : wanted;
+    const drift = Math.abs(video.currentTime - target);
+    const loopDrift = Number.isFinite(duration) && duration > 0 ? Math.min(drift, Math.abs(duration - drift)) : drift;
+    if (loopDrift > 0.3 && !video.seeking) {
+      try { video.currentTime = target; } catch (error) {}
+    }
+    if (clock.action === "hold") video.pause();
+    else if (video.paused) video.play().catch(() => {});
+  }
+}
 function sceneNow(now) {
   const scenes = project && Array.isArray(project.scenes) ? project.scenes : [];
   if (!scenes.length) return null;
@@ -464,8 +482,13 @@ function draw(now) {
     id: "xlights",
     surfaces: [{ opacity: 1, feather: 0, matrix: true, corners: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] }],
   } : null);
-  if (!scene) { requestAnimationFrame(draw); return; }
+  if (!scene) {
+    if (clock && clock.action === "stop") for (const video of videos.values()) video.pause();
+    requestAnimationFrame(draw);
+    return;
+  }
   useMedia(scene);
+  syncStoredVideos(scene, now);
   gl.useProgram(program);
   gl.uniform2f(loc.uRes, canvas.width, canvas.height);
   gl.uniform1f(loc.uMaster, 1);
@@ -498,7 +521,10 @@ function draw(now) {
     gl.uniform1f(loc.uContrast, Number.isFinite(Number(face.contrast)) ? Number(face.contrast) : 1);
     gl.uniform1f(loc.uSaturation, Number.isFinite(Number(face.saturation)) ? Number(face.saturation) : 1);
     gl.uniform1i(loc.uKind, KINDS[face.look] ?? 0);
-    const matrixSource = face.matrix === true && matrixPixels && Date.now() - matrixSeen < 5000 ? matrixPixels : null;
+    // A stored video assigned to this surface follows the FPP clock at full
+    // file resolution; the DDP matrix remains the fallback outside playback.
+    const localVideo = face.videoId && videos.has(face.videoId) && clock && (clock.action === "play" || clock.action === "hold") ? sourceFor(face.videoId) : null;
+    const matrixSource = !localVideo && face.matrix === true && matrixPixels && Date.now() - matrixSeen < 5000 ? matrixPixels : null;
     const syncColor = matrixSource ? null : colorForSync(face.sync);
     gl.uniform1i(loc.uSyncEnabled, syncColor ? 1 : 0);
     if (syncColor) {
@@ -507,7 +533,7 @@ function draw(now) {
     }
     const gel = GELS[Number(face.gel)] || GELS[0];
     gl.uniform3f(loc.uGel, gel[0], gel[1], gel[2]);
-    const source = matrixSource || (face.videoId ? sourceFor(face.videoId) : null);
+    const source = localVideo || matrixSource || (face.videoId ? sourceFor(face.videoId) : null);
     const crop = matrixSource ? face.matrixCrop : null;
     const validCrop = crop && [crop.column, crop.row, crop.width, crop.height].every(Number.isInteger) &&
       crop.column >= 1 && crop.column <= 256 && crop.row >= 1 && crop.row <= 144 &&

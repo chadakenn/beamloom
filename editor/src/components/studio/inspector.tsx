@@ -241,6 +241,7 @@ export function Inspector() {
           </button>
         </div>
         <p className="mt-2 text-xs text-muted">Pick which rectangle of the xLights picture fills this mapped surface. Columns and rows start at 1 in the top left. Leave Full picture on for the whole matrix.</p>
+        {face.matrix && face.videoId && clipInfo?.kind === "video" ? <p className="mt-2 text-xs text-beam">For full quality playback: send this show to the Pi and select Play stored show in Connections. FPP MultiSync then plays the stored video here at the sequence time; the DDP picture fills in until the file is ready.</p> : null}
         {face.matrix ? <>
           <button type="button" onClick={() => patchSurface(face.id, { matrixCrop: face.matrixCrop ? undefined : { column: 1, row: 1, width: 256, height: 144 } })} className="mt-2 rounded border border-line px-3 py-2 text-xs text-fg">
             {face.matrixCrop ? "Use full picture" : "Choose a piece"}

@@ -66,13 +66,19 @@ export function drawAlignment(canvas: HTMLCanvasElement, corners: Corners | null
     ctx.lineWidth = Math.max(2, Math.min(width, height) * 0.003);
     ctx.stroke();
   }
-  for (const point of points) {
+  for (const [index, point] of points.entries()) {
     ctx.beginPath();
-    ctx.arc(point.x, point.y, Math.max(7, Math.min(width, height) * 0.012), 0, Math.PI * 2);
+    const radius = Math.max(11, Math.min(width, height) * 0.014);
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = "#ffffff";
     ctx.fill();
     ctx.strokeStyle = "#242025";
     ctx.stroke();
+    ctx.fillStyle = "#242025";
+    ctx.font = `bold ${Math.max(12, Math.round(radius * 1.1))}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(index + 1), point.x, point.y);
   }
   ctx.restore();
 }

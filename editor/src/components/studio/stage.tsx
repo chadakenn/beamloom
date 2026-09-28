@@ -250,7 +250,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
                       dragRef.current = { type: "corner", id: selected.id, index };
                     }}
                   >
-                    <span className="size-3.5 rounded-full border-2 border-beam bg-fg" />
+                    <span className={align && !selected.outline ? "flex size-6 items-center justify-center rounded-full border-2 border-beam bg-fg text-xs font-bold text-bg" : "size-3.5 rounded-full border-2 border-beam bg-fg"}>{align && !selected.outline ? index + 1 : null}</span>
                   </button>
                 ))
               : null}
@@ -268,7 +268,7 @@ export function Stage({ edit, lineup, blackout }: { edit: boolean; lineup: boole
                   beginHistoryGroup();
                   dragRef.current = { type: "outline", id: selected.id, index };
                 }}
-              ><span className="size-3 rounded-full border-2 border-black bg-yellow-300" /></button>
+              ><span className={align ? "flex size-6 items-center justify-center rounded-full border-2 border-black bg-yellow-300 text-xs font-bold text-black" : "size-3 rounded-full border-2 border-black bg-yellow-300"}>{align ? index + 1 : null}</span></button>
             )) : null}
             {selected && !selected.locked && (selected.outline?.length ?? 4) < MAX_OUTLINE_POINTS ? outlineToScreen(selected.corners, selected.outline).map((point, index, all) => {
               const next = all[(index + 1) % all.length];
