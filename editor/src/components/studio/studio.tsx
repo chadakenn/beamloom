@@ -12,6 +12,7 @@ import { Inspector } from "@/components/studio/inspector";
 import { Library } from "@/components/studio/library";
 import { Stage } from "@/components/studio/stage";
 import { ShowBar } from "@/components/studio/show-bar";
+import { ConnectionsPage } from "@/components/studio/connections-page";
 import { setLiveBlackout } from "@/lib/beam/live-link";
 
 type Dock = "looks" | "adjust";
@@ -48,6 +49,7 @@ export function Studio() {
   const beginHistoryGroup = useEditor((s) => s.beginHistoryGroup);
   const endHistoryGroup = useEditor((s) => s.endHistoryGroup);
   const [dock, setDock] = useState<Dock>("looks");
+  const [view, setView] = useState<"editor" | "connections">("editor");
   const [chrome, setChrome] = useState(true);
   const [ready, setReady] = useState(false);
   const [picker, setPicker] = useState(false);
@@ -434,6 +436,10 @@ export function Studio() {
             <span className="font-display text-lg font-semibold leading-none">Beamloom</span>
             {appInfo ? <span className="text-xs text-muted">v{appInfo.version}</span> : null}
           </div>
+          <nav className="flex shrink-0 items-center gap-1" aria-label="Workspace pages">
+            <button type="button" aria-current={view === "editor" ? "page" : undefined} onClick={() => setView("editor")} className={cn("rounded-md px-3 py-2 text-sm", view === "editor" ? "bg-beam/15 font-semibold text-beam" : "text-muted hover:text-fg")}>Editor</button>
+            <button type="button" aria-current={view === "connections" ? "page" : undefined} onClick={() => setView("connections")} className={cn("rounded-md px-3 py-2 text-sm", view === "connections" ? "bg-beam/15 font-semibold text-beam" : "text-muted hover:text-fg")}>Connections</button>
+          </nav>
           <nav ref={menuRef} className="studio-menubar flex items-center gap-0.5" aria-label="Application menu">
             {(["file", "edit", "view", "help"] as const).map((menu) => (
               <div key={menu} className="relative">
@@ -487,7 +493,7 @@ export function Studio() {
             onChange={(event) => setName(event.target.value)}
             className="studio-project-name hidden h-10 min-w-[9rem] flex-1 rounded-md bg-transparent px-3 text-sm text-fg sm:block"
           />
-          <div className="studio-scenes flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          {view === "editor" ? <div className="studio-scenes flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
             {scenes.map((item) => (
               <div
                 key={item.id}
@@ -561,7 +567,8 @@ export function Studio() {
             >
               <Plus className="size-4" aria-hidden="true" />
             </button>
-          </div>
+          </div> : null}
+          {view === "editor" ? <>
           <button
             type="button"
             aria-pressed={guides}
@@ -609,6 +616,7 @@ export function Studio() {
             <Power className="size-4" aria-hidden="true" />
             <span className="hidden xl:inline">Blackout</span>
           </button>
+          </> : null}
           <input
             ref={fileInput}
             type="file"
@@ -621,17 +629,17 @@ export function Studio() {
               if (file) void openFile(file);
             }}
           />
-          <button
+          {view === "editor" ? <button
             type="button"
             onClick={() => void chooseDisplay()}
             className="studio-output-action ml-auto inline-flex h-11 items-center gap-2 rounded-md bg-beam px-3 text-sm font-medium text-ink"
           >
             <Monitor className="size-4" aria-hidden="true" />
             <span className="hidden sm:inline">Output</span>
-          </button>
+          </button> : null}
         </header>
       )}
-      {output ? null : <ShowBar />}
+      {output || view !== "editor" ? null : <ShowBar />}
       {shortcutsOpen && !output ? <ShortcutCard onClose={() => setShortcutsOpen(false)} /> : null}
       {fileMessage && !output ? (
         <div role="status" className="absolute bottom-3 left-3 z-30 max-w-sm rounded-md border border-line bg-panel px-3 py-2 text-sm text-fg">
@@ -692,7 +700,7 @@ export function Studio() {
         </div>
       ) : null}
 
-      <div className={cn("flex min-h-0 flex-1", output ? "flex-col" : "flex-col lg:flex-row")}>
+      {view === "connections" && !output ? <ConnectionsPage /> : <div className={cn("flex min-h-0 flex-1", output ? "flex-col" : "flex-col lg:flex-row")}>
         {output ? null : (
           <aside className="studio-library hidden w-72 shrink-0 overflow-auto border-r border-line bg-panel lg:block">
             <Library />
@@ -717,7 +725,7 @@ export function Studio() {
             </div>
           </section>
         )}
-      </div>
+      </div>}
 
       {output && chrome ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end p-3">
