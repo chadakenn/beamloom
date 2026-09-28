@@ -129,25 +129,138 @@ def restart_kiosk() -> None:
         return
 
 
-def show_status() -> dict:
-    project_path = show_root() / "project.json"
-    if not project_path.is_file():
-        return {"saved": False, "name": "", "files": 0, "bytes": 0}
+def show_slug(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-")[:40]
+    return slug or "show"
+
+
+def library_root() -> Path:
+    return show_root().parent / "library"
+
+
+def read_config_file() -> dict:
     try:
-        project = json.loads(project_path.read_text(encoding="utf-8"))
+        data = json.loads(CONFIG.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"saved": False, "name": "", "files": 0, "bytes": 0}
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def clean_playlist(value: object) -> dict:
+    raw = value if isinstance(value, dict) else {}
+    items = []
+    seen = set()
+    incoming = raw.get("items")
+    if isinstance(incoming, list):
+        for item in incoming[:24]:
+            if not isinstance(item, dict):
+                continue
+            ident = item.get("id")
+            if not isinstance(ident, str) or not re.fullmatch(r"[a-z0-9-]{1,40}", ident) or ident in seen:
+                continue
+            seen.add(ident)
+            items.append({"id": ident, "enabled": item.get("enabled") is not False})
+    return {"loop": raw.get("loop") is not False, "items": items}
+
+
+def read_show_folder(path: Path) -> dict | None:
     try:
-        media = json.loads((show_root() / "media.json").read_text(encoding="utf-8"))
+        project = json.loads((path / "project.json").read_text(encoding="utf-8"))
+        media = json.loads((path / "media.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        media = []
+        return None
+    if not isinstance(project, dict):
+        return None
     files = media if isinstance(media, list) else []
+    scenes = project.get("scenes")
     return {
-        "saved": True,
-        "name": project.get("name", "") if isinstance(project, dict) else "",
-        "files": len(files),
+        "id": path.name,
+        "name": str(project.get("name") or "Show")[:80],
+        "files": len([item for item in files if isinstance(item, dict)]),
         "bytes": sum(int(item.get("bytes", 0)) for item in files if isinstance(item, dict)),
+        "scenes": len(scenes) if isinstance(scenes, list) else 0,
     }
+
+
+def migrate_legacy_show() -> None:
+    """Keep an older single stored show when the playlist library is new."""
+    final = show_root()
+    if final.is_symlink() or not (final / "project.json").is_file():
+        return
+    info = read_show_folder(final)
+    if info is None:
+        return
+    ident = show_slug(info["name"])
+    library_root().mkdir(parents=True, exist_ok=True)
+    dest = library_root() / ident
+    if not dest.exists():
+        shutil.copytree(final, dest)
+    shutil.rmtree(final)
+    final.symlink_to(dest, target_is_directory=True)
+    playlist = clean_playlist(read_config_file().get("playlist"))
+    if ident not in {item["id"] for item in playlist["items"]}:
+        playlist["items"].append({"id": ident, "enabled": True})
+        save_config({"playlist": playlist})
+
+
+def link_active_show(dest: Path) -> None:
+    final = show_root()
+    final.parent.mkdir(parents=True, exist_ok=True)
+    if final.is_symlink() or final.is_file():
+        final.unlink()
+    elif final.exists():
+        migrate_legacy_show()
+        if final.is_symlink() or final.is_file():
+            final.unlink()
+        elif final.exists():
+            shutil.rmtree(final)
+    final.symlink_to(dest, target_is_directory=True)
+
+
+def stored_shows() -> tuple[list[dict], bool]:
+    try:
+        migrate_legacy_show()
+    except OSError:
+        pass
+    playlist = clean_playlist(read_config_file().get("playlist"))
+    enabled = {item["id"]: item["enabled"] for item in playlist["items"]}
+    order = [item["id"] for item in playlist["items"]]
+    rows = []
+    folder = library_root()
+    if folder.is_dir():
+        for path in folder.iterdir():
+            if not path.is_dir() or not re.fullmatch(r"[a-z0-9-]{1,40}", path.name):
+                continue
+            info = read_show_folder(path)
+            if info is None:
+                continue
+            info["enabled"] = enabled.get(path.name, True)
+            rows.append(info)
+    rows.sort(key=lambda item: order.index(item["id"]) if item["id"] in order else len(order))
+    return rows, playlist["loop"]
+
+
+def save_playlist(loop: bool, items: list[dict]) -> None:
+    save_config({"playlist": clean_playlist({"loop": loop, "items": items})})
+
+
+def show_status() -> dict:
+    rows, _loop = stored_shows()
+    enabled = [row for row in rows if row["enabled"]]
+    chosen = enabled or rows
+    if not chosen:
+        project_path = show_root() / "project.json"
+        if not project_path.is_file():
+            return {"saved": False, "name": "", "files": 0, "bytes": 0}
+        try:
+            project = json.loads(project_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {"saved": False, "name": "", "files": 0, "bytes": 0}
+        return {"saved": True, "name": project.get("name", "") if isinstance(project, dict) else "", "files": 0, "bytes": 0}
+    row = chosen[0]
+    if len(enabled) > 1:
+        return {"saved": True, "name": f"{len(enabled)} shows", "files": sum(item["files"] for item in enabled), "bytes": sum(item["bytes"] for item in enabled)}
+    return {"saved": bool(enabled), "name": row["name"], "files": row["files"], "bytes": row["bytes"]}
 
 
 def begin_show() -> None:
@@ -217,15 +330,18 @@ def commit_show() -> dict:
     stage = show_staging()
     if not (stage / "project.json").is_file():
         raise ValueError("There is no project to store.")
-    final = show_root()
-    final.parent.mkdir(parents=True, exist_ok=True)
-    previous = final.parent / f"{final.name}-previous"
-    if previous.exists():
-        shutil.rmtree(previous)
-    if final.exists():
-        final.rename(previous)
-    stage.rename(final)
-    shutil.rmtree(previous, ignore_errors=True)
+    project = json.loads((stage / "project.json").read_text(encoding="utf-8"))
+    ident = show_slug(project.get("name") if isinstance(project, dict) else "Show")
+    library_root().mkdir(parents=True, exist_ok=True)
+    dest = library_root() / ident
+    if dest.exists():
+        shutil.rmtree(dest)
+    stage.rename(dest)
+    rows, loop = stored_shows()
+    items = [{"id": row["id"], "enabled": row["enabled"]} for row in rows if row["id"] != ident]
+    items.append({"id": ident, "enabled": True})
+    save_playlist(loop, items)
+    link_active_show(dest)
     return show_status()
 
 
@@ -295,6 +411,7 @@ def save_config(config: dict) -> None:
     mode = current.get("playMode", "auto")
     kept = {"pcUrl": current.get("pcUrl", "") if isinstance(current.get("pcUrl"), str) else "", "playMode": mode if mode in {"auto", "show", "live"} else "auto"}
     kept["schedule"] = schedule.clean(current.get("schedule"))
+    kept["playlist"] = clean_playlist(current.get("playlist"))
     CONFIG.parent.mkdir(parents=True, exist_ok=True)
     temporary = CONFIG.with_suffix(".tmp")
     temporary.write_text(json.dumps(kept, indent=2) + "\n", encoding="utf-8")
@@ -339,7 +456,7 @@ def screen_target(mode: str, url: str, stored: bool, pc_up: bool, lighting: bool
     return ""
 
 
-PLAY_PAGE = "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"
+PLAY_PAGE = "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"
 
 
 def play_page() -> str:
@@ -352,16 +469,17 @@ def play_page() -> str:
     return zlib.decompress(base64.b64decode(PLAY_PAGE)).decode("utf-8")
 
 
-def show_media_path(media_id: str) -> tuple[Path, str] | None:
+def show_media_path(media_id: str, root: Path | None = None) -> tuple[Path, str] | None:
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", media_id):
         return None
-    root = (show_root() / "media").resolve()
-    path = (root / media_id).resolve()
-    if path.parent != root or not path.is_file():
+    base = show_root() if root is None else root
+    folder = (base / "media").resolve()
+    path = (folder / media_id).resolve()
+    if path.parent != folder or not path.is_file():
         return None
     mime = "application/octet-stream"
     try:
-        items = json.loads((show_root() / "media.json").read_text(encoding="utf-8"))
+        items = json.loads((base / "media.json").read_text(encoding="utf-8"))
         for item in items if isinstance(items, list) else []:
             if isinstance(item, dict) and item.get("id") == media_id and item.get("mime") in SHOW_TYPES:
                 mime = str(item["mime"])
@@ -403,6 +521,120 @@ def clean_url(value: str) -> str:
     return value
 
 
+def page_nav(active: str) -> str:
+    setup = "active" if active == "setup" else ""
+    playlist = "active" if active == "playlist" else ""
+    return f'<nav class="tabs"><a class="{setup}" href="/">Setup</a><a class="{playlist}" href="/playlist">Playlist</a></nav>'
+
+
+def playlist_action(fields: dict) -> None:
+    rows, loop = stored_shows()
+    ids = [row["id"] for row in rows]
+    action = (fields.get("action") or ["save"])[0]
+    ident = (fields.get("id") or [""])[0]
+    if action == "remove" and ident in ids:
+        target = library_root() / ident
+        if target.is_dir():
+            shutil.rmtree(target)
+        remaining = [row for row in rows if row["id"] != ident]
+        save_playlist(loop, [{"id": row["id"], "enabled": row["enabled"]} for row in remaining])
+        if remaining:
+            link_active_show(library_root() / remaining[0]["id"])
+        elif show_root().is_symlink():
+            show_root().unlink()
+        return
+    if action in {"up", "down"} and ident in ids:
+        index = ids.index(ident)
+        swap = index - 1 if action == "up" else index + 1
+        if 0 <= swap < len(ids):
+            ids[index], ids[swap] = ids[swap], ids[index]
+        enabled = {row["id"]: row["enabled"] for row in rows}
+        save_playlist(loop, [{"id": item, "enabled": enabled[item]} for item in ids])
+        return
+    chosen = [item for item in fields.get("order") or [] if item in ids]
+    for item in ids:
+        if item not in chosen:
+            chosen.append(item)
+    checked = set(fields.get("play") or [])
+    save_playlist((fields.get("loop") or ["1"])[0] != "0", [{"id": item, "enabled": item in checked} for item in chosen])
+
+
+def playlist_page(error: str = "") -> str:
+    rows, loop = stored_shows()
+    loop_on = " checked" if loop else ""
+    loop_off = "" if loop else " checked"
+    if rows:
+        blocks = []
+        for index, row in enumerate(rows):
+            checked = " checked" if row["enabled"] else ""
+            ident = escape(row["id"])
+            label = escape(row["name"])
+            blocks.append(f"""
+            <div class="row">
+              <input type="hidden" name="order" value="{ident}" form="playlist-save">
+              <label class="check"><input type="checkbox" name="play" value="{ident}" form="playlist-save"{checked}> {label}</label>
+              <span>{row["scenes"]} scene(s), {row["files"]} file(s)</span>
+              <button type="submit" form="up-{index}" {"disabled" if index == 0 else ""}>Up</button>
+              <button type="submit" form="down-{index}" {"disabled" if index == len(rows) - 1 else ""}>Down</button>
+              <button type="submit" form="remove-{index}">Remove</button>
+            </div>
+            <form id="up-{index}" method="post" action="/playlist"><input type="hidden" name="action" value="up"><input type="hidden" name="id" value="{ident}"></form>
+            <form id="down-{index}" method="post" action="/playlist"><input type="hidden" name="action" value="down"><input type="hidden" name="id" value="{ident}"></form>
+            <form id="remove-{index}" method="post" action="/playlist" onsubmit="return confirm('Remove {label} from this Pi?')"><input type="hidden" name="action" value="remove"><input type="hidden" name="id" value="{ident}"></form>""")
+        listing = "".join(blocks)
+    else:
+        listing = "<p>No shows are stored yet. In the Windows app, open a show and press <strong>Send show</strong>. Sending the same name again updates that show.</p>"
+    problem = f'<p class="error">{escape(error)}</p>' if error else ""
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Beamloom playlist</title>
+  <style>
+    :root {{ color-scheme: dark; }}
+    body {{ margin: 0; background: radial-gradient(circle at 50% 0%, #18283a, #0e0f12 55%); color: #f4f1ea; font: 18px/1.45 "Segoe UI", sans-serif; }}
+    main {{ max-width: 40rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }}
+    h1 {{ font-size: 2.4rem; margin: 0 0 0.5rem; }}
+    p {{ color: #b7b2a8; }}
+    .eyebrow {{ color: #70dfcb; font-size: .8rem; letter-spacing: .16em; font-weight: 700; text-transform: uppercase; }}
+    .tabs {{ display: flex; gap: .5rem; margin: 1rem 0 1.4rem; }}
+    .tabs a {{ color: #b7b2a8; text-decoration: none; padding: .45rem .9rem; border-radius: 999px; border: 1px solid #3a3d44; }}
+    .tabs a.active {{ color: #1a1408; background: #e4b15a; border-color: #e4b15a; }}
+    .card {{ background: #181d26; border: 1px solid #3a3d44; border-radius: 16px; padding: 1.5rem; margin: 1.2rem 0; }}
+    .row {{ display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .9rem 0; }}
+    .check {{ display: flex; align-items: center; gap: .4rem; margin: 0; min-width: 10rem; }}
+    .row span {{ color: #b7b2a8; font-size: .9rem; }}
+    label {{ display: block; margin: 1rem 0 0.4rem; color: #f4f1ea; }}
+    input[type="radio"], input[type="checkbox"] {{ width: auto; height: auto; }}
+    button {{ height: 2.4rem; border: 0; border-radius: 8px; background: #e4b15a; color: #1a1408; font: inherit; padding: 0 .8rem; cursor: pointer; }}
+    button[disabled] {{ opacity: .35; }}
+    .error {{ color: #ffb4b4; }}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Projector player</div>
+    <h1>Beamloom</h1>
+    {page_nav("playlist")}
+    <section class="card">
+      <h2>Playlist</h2>
+      <p>Checked shows play from top to bottom. Loop on repeats the list. Loop off plays it once, then the projector stays dark. The PC can be off.</p>
+      <form id="playlist-save" method="post" action="/playlist">
+        <input type="hidden" name="action" value="save">
+        <label class="check"><input type="radio" name="loop" value="1"{loop_on}> Loop on</label>
+        <label class="check"><input type="radio" name="loop" value="0"{loop_off}> Loop off</label>
+      </form>
+      {listing}
+      <button type="submit" form="playlist-save">Save playlist</button>
+    </section>
+    {problem}
+  </main>
+</body>
+</html>
+"""
+
+
 def settings_page(config: dict, error: str = "") -> str:
     url = escape(config["pcUrl"])
     current = url or "No show PC selected yet."
@@ -421,7 +653,18 @@ def settings_page(config: dict, error: str = "") -> str:
         wifi_note = "This Pi is on Ethernet."
     else:
         wifi_note = f"If the Pi is not on your network yet, join Wi-Fi <strong>{escape(wifi.SETUP_SSID)}</strong>, password <strong>{escape(wifi.SETUP_PASSWORD)}</strong>, and open <strong>http://{escape(wifi.SETUP_ADDRESS)}/</strong>."
-    stored = show_status()
+    rows, looping = stored_shows()
+    enabled_rows = [row for row in rows if row["enabled"]]
+    if not rows:
+        stored_note = "No show is stored on this Pi yet. Send one from the Windows app."
+    elif len(enabled_rows) == 1:
+        stored_note = f"Playlist: <strong>{escape(enabled_rows[0]['name'])}</strong>. It plays on the projector when the PC is off."
+    elif enabled_rows and looping:
+        stored_note = f"Playlist: <strong>{len(enabled_rows)} shows</strong> play in a loop when the PC is off."
+    elif enabled_rows:
+        stored_note = f"Playlist: <strong>{len(enabled_rows)} shows</strong> play once when the PC is off."
+    else:
+        stored_note = "Shows are stored, but none are checked on the Playlist tab."
     mode = config.get("playMode", "auto")
     options = "".join(
         f'<option value="{value}"{" selected" if mode == value else ""}>{label}</option>'
@@ -430,10 +673,6 @@ def settings_page(config: dict, error: str = "") -> str:
             ("show", "Always play the stored show"),
             ("live", "Only show the PC"),
         )
-    )
-    stored_note = (
-        f"Stored show: <strong>{escape(str(stored['name']))}</strong>, {stored['files']} file(s). It loops on the projector when the PC is off."
-        if stored["saved"] else "No show is stored on this Pi yet. Send one from the Windows app."
     )
     clock = schedule.status(config.get("schedule"), datetime.now().astimezone())
     clock_checked = " checked" if clock["enabled"] else ""
@@ -458,6 +697,9 @@ def settings_page(config: dict, error: str = "") -> str:
     .status {{ padding: .8rem 1rem; background: #17382f; border: 1px solid #397d68; border-radius: 10px; color: #d9fff4; overflow-wrap: anywhere; }}
     details {{ margin-top: 1.5rem; }}
     summary {{ cursor: pointer; color: #e4b15a; }}
+    .tabs {{ display: flex; gap: .5rem; margin: 1rem 0 1.2rem; }}
+    .tabs a {{ color: #b7b2a8; text-decoration: none; padding: .45rem .9rem; border-radius: 999px; border: 1px solid #3a3d44; }}
+    .tabs a.active {{ color: #1a1408; background: #e4b15a; border-color: #e4b15a; }}
     label {{ display: block; margin: 1.5rem 0 0.4rem; color: #f4f1ea; }}
     input, select {{ box-sizing: border-box; width: 100%; height: 3rem; border: 1px solid #3a3d44; border-radius: 8px; background: #17191d; color: #f4f1ea; padding: 0 0.8rem; font: inherit; }}
     button {{ margin-top: 1rem; height: 3rem; border: 0; border-radius: 8px; background: #e4b15a; color: #1a1408; font: inherit; padding: 0 1.2rem; cursor: pointer; }}
@@ -468,6 +710,7 @@ def settings_page(config: dict, error: str = "") -> str:
   <main>
     <div class="eyebrow">Projector player</div>
     <h1>Beamloom</h1>
+    {page_nav("setup")}
     <p>Set up the Pi from your PC. The picture appears on the screen connected to this Pi.</p>
     <p>{stored_note}</p>
     <section class="card">
@@ -769,6 +1012,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             self.send_html(settings_page(load_config()))
             return
+        if path == "/playlist":
+            self.send_html(playlist_page())
+            return
+        if path == "/show/playlist":
+            rows, loop = stored_shows()
+            self._json({"loop": loop, "items": [{"id": row["id"], "name": row["name"], "enabled": row["enabled"], "files": row["files"], "scenes": row["scenes"]} for row in rows]})
+            return
         if path == "/show":
             self._json(show_status())
             return
@@ -791,6 +1041,34 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/show/media/"):
             found = show_media_path(path.removeprefix("/show/media/"))
+            if not found:
+                self.send_error(404)
+                return
+            self._send_file(*found)
+            return
+        library_match = re.fullmatch(r"/library/([a-z0-9-]{1,40})/(project|files|media/[A-Za-z0-9_-]{1,64})", path)
+        if library_match:
+            show_id, kind = library_match.group(1), library_match.group(2)
+            folder = (library_root() / show_id).resolve()
+            if folder.parent != library_root().resolve() or not folder.is_dir():
+                self.send_error(404)
+                return
+            if kind == "project":
+                project = folder / "project.json"
+                if not project.is_file():
+                    self.send_error(404)
+                    return
+                self._send_file(project, "application/json")
+                return
+            if kind == "files":
+                try:
+                    items = json.loads((folder / "media.json").read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    items = []
+                self._json(items if isinstance(items, list) else [])
+                return
+            media_id = kind.removeprefix("media/")
+            found = show_media_path(media_id, folder)
             if not found:
                 self.send_error(404)
                 return
@@ -833,6 +1111,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(413)
             return
         fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
+        if path == "/playlist":
+            try:
+                playlist_action(fields)
+            except OSError:
+                self.send_html(playlist_page("The Pi could not update the playlist."), 500)
+                return
+            self.send_response(303)
+            self.send_header("location", "/playlist")
+            self.end_headers()
+            return
         if path in {"/connect", "/check"}:
             try:
                 url = check_pc((fields.get("pcUrl") or [""])[0])
