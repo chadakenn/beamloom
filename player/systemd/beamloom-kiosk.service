@@ -10,6 +10,8 @@ User=beamloom
 PAMName=beamloom-kiosk
 Environment=XCURSOR_THEME=beamloom-blank
 Environment=XCURSOR_SIZE=1
+Environment=XCURSOR_PATH=/usr/share/icons
+Environment=WLR_NO_HARDWARE_CURSORS=1
 ExecStart=/usr/bin/cage -s -- /usr/bin/chromium --kiosk --ozone-platform=wayland --autoplay-policy=no-user-gesture-required --disable-dev-shm-usage --noerrdialogs http://127.0.0.1/screen
 ExecStartPost=+/usr/bin/chvt 1
 Restart=on-failure
