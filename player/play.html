@@ -377,6 +377,13 @@ async function pollClock() {
   try {
     const data = await (await fetch("/health")).json();
     const next = data.syncShow && data.syncShow.action ? data.syncShow : null;
+    if (next?.showId && playing[showPos]?.id !== next.showId) {
+      const index = playing.findIndex((item) => item.id === next.showId);
+      clock = { action: "waiting", sequence: next.sequence };
+      if (index < 0 || switching) return;
+      await openShow(index);
+      if (playing[showPos]?.id !== next.showId) return;
+    }
     if (next && (!clock || clock.action !== next.action || Math.abs((Number(clock.elapsed) || 0) - (Number(next.elapsed) || 0)) > 0.05)) clockAt = performance.now();
     clock = next;
   } catch (error) {
@@ -445,7 +452,7 @@ function sceneNow(now) {
   const scenes = project && Array.isArray(project.scenes) ? project.scenes : [];
   if (!scenes.length) return null;
   if (sceneIndex >= scenes.length) sceneIndex = 0;
-  if (clock && clock.action === "stop") return null;
+  if (clock && (clock.action === "stop" || clock.action === "waiting")) return null;
   if (clock && (clock.action === "play" || clock.action === "hold")) {
     const extra = clock.action === "play" ? Math.max(0, (now - clockAt) / 1000) : 0;
     const place = sceneAt(scenes, (Number(clock.elapsed) || 0) + extra);
