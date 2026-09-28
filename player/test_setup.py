@@ -77,6 +77,8 @@ class SetupTest(unittest.TestCase):
     def test_send_show_keeps_the_old_copy_until_the_new_one_finishes(self):
         with tempfile.TemporaryDirectory() as directory:
             os.environ["BEAMLOOM_SHOW_DIR"] = str(Path(directory) / "show")
+            previous = player.CONFIG
+            player.CONFIG = Path(directory) / "player.json"
             server = player.ThreadingHTTPServer(("127.0.0.1", 0), player.Handler)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -111,6 +113,63 @@ class SetupTest(unittest.TestCase):
                 self.assertEqual(post("/show/project", other, {"Content-Type": "application/json", "Content-Length": str(len(other))})[1]["ok"], True)
                 self.assertEqual(json.loads((Path(directory) / "show" / "project.json").read_text())["name"], "Facade")
             finally:
+                player.CONFIG = previous
+                server.shutdown()
+                server.server_close()
+                thread.join()
+
+    def test_playlist_keeps_every_sent_show(self):
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ["BEAMLOOM_SHOW_DIR"] = str(Path(directory) / "show")
+            previous = player.CONFIG
+            player.CONFIG = Path(directory) / "player.json"
+            server = player.ThreadingHTTPServer(("127.0.0.1", 0), player.Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                def post(path, body=b"", headers=None):
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                    connection.request("POST", path, body, headers or {"Content-Length": str(len(body))})
+                    response = connection.getresponse()
+                    result = response.status, response.read()
+                    connection.close()
+                    return result
+
+                def send(name):
+                    project = json.dumps({"name": name, "scenes": [{"id": "a", "durationSeconds": 5, "surfaces": []}]}).encode()
+                    self.assertEqual(post("/show/start")[0], 200)
+                    self.assertEqual(post("/show/project", project, {"Content-Type": "application/json", "Content-Length": str(len(project))})[0], 200)
+                    self.assertEqual(post("/show/finish")[0], 200)
+
+                def get(path):
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                    connection.request("GET", path)
+                    response = connection.getresponse()
+                    result = response.status, response.read()
+                    connection.close()
+                    return result
+
+                send("Christmas")
+                send("Halloween")
+                page = get("/playlist")[1].decode()
+                self.assertIn("Christmas", page)
+                self.assertIn("Halloween", page)
+                self.assertIn("Playlist", page)
+                listed = json.loads(get("/show/playlist")[1])
+                self.assertEqual([item["id"] for item in listed["items"]], ["christmas", "halloween"])
+                self.assertTrue(listed["loop"])
+                up = b"action=up&id=halloween"
+                self.assertEqual(post("/playlist", up, {"Content-Type": "application/x-www-form-urlencoded", "Content-Length": str(len(up))})[0], 303)
+                listed = json.loads(get("/show/playlist")[1])
+                self.assertEqual([item["id"] for item in listed["items"]], ["halloween", "christmas"])
+                body = "action=save&loop=0&order=halloween&order=christmas&play=christmas"
+                self.assertEqual(post("/playlist", body.encode(), {"Content-Type": "application/x-www-form-urlencoded", "Content-Length": str(len(body))})[0], 303)
+                listed = json.loads(get("/show/playlist")[1])
+                self.assertFalse(listed["loop"])
+                self.assertEqual([(item["id"], item["enabled"]) for item in listed["items"]], [("halloween", False), ("christmas", True)])
+                self.assertEqual(json.loads(get("/library/christmas/project")[1])["name"], "Christmas")
+            finally:
+                player.CONFIG = previous
                 server.shutdown()
                 server.server_close()
                 thread.join()

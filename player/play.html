@@ -362,6 +362,11 @@ function colorForSync(assignment) {
 }
 let project = null;
 let media = [];
+let mediaBase = "/show/media/";
+let playing = [];
+let showPos = 0;
+let loopPlaylist = true;
+let switching = false;
 let sceneIndex = 0;
 let sceneStarted = performance.now();
 let activeScene = "";
@@ -413,12 +418,12 @@ function useMedia(scene) {
       if (!images.has(id)) {
         const image = new Image();
         image.onload = () => images.set(id, image);
-        image.src = "/show/media/" + id;
+        image.src = mediaBase + id;
       }
     } else if (!videos.has(id)) {
       const video = document.createElement("video");
       video.muted = true; video.loop = true; video.playsInline = true; video.autoplay = true;
-      video.src = "/show/media/" + id;
+      video.src = mediaBase + id;
       video.play().catch(() => {});
       videos.set(id, video);
     } else if (videos.get(id).paused) videos.get(id).play().catch(() => {});
@@ -431,6 +436,7 @@ function useMedia(scene) {
 function sceneNow(now) {
   const scenes = project && Array.isArray(project.scenes) ? project.scenes : [];
   if (!scenes.length) return null;
+  if (sceneIndex >= scenes.length) sceneIndex = 0;
   if (clock && clock.action === "stop") return null;
   if (clock && (clock.action === "play" || clock.action === "hold")) {
     const extra = clock.action === "play" ? Math.max(0, (now - clockAt) / 1000) : 0;
@@ -441,8 +447,22 @@ function sceneNow(now) {
   }
   const duration = Math.max(1, Number(scenes[sceneIndex].durationSeconds) || 10) * 1000;
   if (now - sceneStarted >= duration) {
-    sceneIndex = (sceneIndex + 1) % scenes.length;
-    sceneStarted = now;
+    if (sceneIndex + 1 < scenes.length) {
+      sceneIndex += 1;
+      sceneStarted = now;
+    } else if (playing.length > 1 || !loopPlaylist) {
+      if (!switching) {
+        const next = showPos + 1;
+        if (next < playing.length) showPos = next;
+        else if (loopPlaylist && playing.length) showPos = 0;
+        else { project = { scenes: [] }; return null; }
+        sceneStarted = now + 600000;
+        openShow(showPos);
+      }
+    } else {
+      sceneIndex = 0;
+      sceneStarted = now;
+    }
   }
   return scenes[sceneIndex];
 }
@@ -525,16 +545,69 @@ function draw(now) {
   }
   requestAnimationFrame(draw);
 }
+async function openShow(index) {
+  if (switching) return;
+  const item = playing[index];
+  if (!item || !/^[a-z0-9-]{1,40}$/.test(item.id)) return;
+  switching = true;
+  try {
+    const response = await fetch("/library/" + item.id + "/project");
+    if (!response.ok) return;
+    const nextProject = await response.json();
+    const listed = await fetch("/library/" + item.id + "/files");
+    const files = listed.ok ? await listed.json() : [];
+    project = nextProject;
+    media = Array.isArray(files) ? files : [];
+    mediaBase = "/library/" + item.id + "/media/";
+    showPos = index;
+    sceneIndex = 0;
+    sceneStarted = performance.now();
+    activeScene = "";
+    for (const video of videos.values()) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+    videos.clear();
+    images.clear();
+  } catch (error) {
+    sceneStarted = performance.now();
+  } finally {
+    switching = false;
+  }
+}
+async function refreshPlaylist() {
+  try {
+    const listed = await fetch("/show/playlist");
+    if (!listed.ok) return;
+    const data = await listed.json();
+    loopPlaylist = data.loop !== false;
+    const next = Array.isArray(data.items) ? data.items.filter((item) => item && item.enabled !== false && /^[a-z0-9-]{1,40}$/.test(item.id)) : [];
+    const same = next.map((item) => item.id).join("|") === playing.map((item) => item.id).join("|");
+    const current = playing[showPos] && playing[showPos].id;
+    playing = next;
+    if (!same) {
+      const keep = playing.findIndex((item) => item.id === current);
+      showPos = keep >= 0 ? keep : 0;
+      if (playing.length) await openShow(showPos);
+      else project = null;
+    }
+  } catch (error) {}
+}
 async function start() {
   try {
-    const response = await fetch("/show/project");
-    if (response.ok) {
-      project = await response.json();
-      const listed = await fetch("/show/files");
-      media = listed.ok ? await listed.json() : [];
-      const scenes = Array.isArray(project.scenes) ? project.scenes : [];
-      const active = scenes.findIndex((scene) => scene.id === project.activeSceneId);
-      sceneIndex = active >= 0 ? active : 0;
+    await refreshPlaylist();
+    if (!project) {
+      const response = await fetch("/show/project");
+      if (response.ok) {
+        project = await response.json();
+        const listed = await fetch("/show/files");
+        media = listed.ok ? await listed.json() : [];
+        mediaBase = "/show/media/";
+        const scenes = Array.isArray(project.scenes) ? project.scenes : [];
+        const active = scenes.findIndex((scene) => scene.id === project.activeSceneId);
+        sceneIndex = active >= 0 ? active : 0;
+      }
     }
   } catch (error) {}
   requestAnimationFrame(draw);
@@ -542,6 +615,7 @@ async function start() {
 window.addEventListener("resize", fit);
 pollClock();
 setInterval(pollClock, 400);
+setInterval(refreshPlaylist, 15000);
 start();
 </script>
 </body>

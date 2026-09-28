@@ -167,7 +167,7 @@ export function ShowBar() {
       const finished = await desktop.piShowFinish(piHost);
       if (!finished?.ok) throw new Error(finished?.error || "The Pi could not store the show.");
       const count = finished.show?.files ?? media.length;
-      setPiMessage(`Saved ${finished.show?.name || project.name} on the Pi${count ? `, with ${count} file${count === 1 ? "" : "s"}` : ""}. Press Play stored show, then this PC can close and the projector keeps going.`);
+      setPiMessage(`Saved ${finished.show?.name || project.name} on the Pi${count ? `, with ${count} file${count === 1 ? "" : "s"}` : ""}. It is in the playlist. Open the Playlist tab on the Pi page to choose which shows loop.`);
     } catch (error) {
       setPiMessage(error instanceof Error ? error.message : "The Pi could not store the show.");
     } finally {
