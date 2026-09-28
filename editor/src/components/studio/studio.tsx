@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getAlign, setAlign, subscribeAlign } from "@/lib/beam/align";
-import { Copy, Crosshair, Download, FolderOpen, Grid2x2, Monitor, Pencil, Plus, Power, Redo2, RotateCcw, Undo2, X } from "lucide-react";
+import { Copy, Crosshair, Grid2x2, Monitor, Pencil, Plus, Power, X } from "lucide-react";
 import { LOOKS } from "@/lib/beam/looks";
 import { CLIP_CHANGE_KEY, restoreClips, syncClips } from "@/lib/beam/clips";
 import { openProjectFile, saveProjectFile } from "@/lib/beam/project-file";
@@ -15,6 +15,7 @@ import { ShowBar } from "@/components/studio/show-bar";
 import { setLiveBlackout } from "@/lib/beam/live-link";
 
 type Dock = "looks" | "adjust";
+type AppMenu = "file" | "edit" | "view" | "help";
 type AppUpdate = { phase: "available" | "downloading" | "ready" | "failed"; version: string | null; message?: string | null };
 const LINEUP_KEY = "beamloom.lineup.v1";
 const BLACKOUT_KEY = "beamloom.blackout.v1";
@@ -61,6 +62,8 @@ export function Studio() {
   const [lineup, setLineup] = useState(false);
   const align = useSyncExternalStore(subscribeAlign, getAlign, () => false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<AppMenu | null>(null);
+  const menuRef = useRef<HTMLElement>(null);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
   const [sceneNameDraft, setSceneNameDraft] = useState("");
   const cancelRename = useRef(false);
@@ -210,12 +213,25 @@ export function Studio() {
   }, [playlistPlaying, activeSceneId, currentDuration]);
 
   useEffect(() => {
+    if (!openMenu) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpenMenu(null);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [openMenu]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const typing =
         target?.tagName === "INPUT" ||
         target?.tagName === "TEXTAREA" ||
         target?.isContentEditable;
+      if (event.key === "Escape" && openMenu) {
+        setOpenMenu(null);
+        return;
+      }
       if (event.key === "Escape" && shortcutsOpen) {
         setShortcutsOpen(false);
         return;
@@ -236,6 +252,16 @@ export function Studio() {
         return;
       }
       if (shortcutsOpen) return;
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void saveFile();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        fileInput.current?.click();
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) redo();
@@ -281,7 +307,7 @@ export function Studio() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nudge, picker, redo, removeSurface, setArmedLook, setGuides, setOutput, shortcutsOpen, undo]);
+  }, [nudge, openMenu, picker, redo, removeSurface, setArmedLook, setGuides, setOutput, shortcutsOpen, undo]);
 
   useEffect(() => {
     const onFull = () => {
@@ -408,6 +434,50 @@ export function Studio() {
             <span className="font-display text-lg font-semibold leading-none">Beamloom</span>
             {appInfo ? <span className="text-xs text-muted">v{appInfo.version}</span> : null}
           </div>
+          <nav ref={menuRef} className="studio-menubar flex items-center gap-0.5" aria-label="Application menu">
+            {(["file", "edit", "view", "help"] as const).map((menu) => (
+              <div key={menu} className="relative">
+                <button
+                  type="button"
+                  aria-expanded={openMenu === menu}
+                  aria-controls={`studio-menu-${menu}`}
+                  onClick={() => setOpenMenu(openMenu === menu ? null : menu)}
+                  className="studio-menu-trigger rounded-md px-3 py-2 text-sm text-fg"
+                >{menu[0].toUpperCase() + menu.slice(1)}</button>
+                {openMenu === menu ? (
+                  <div id={`studio-menu-${menu}`} className="studio-menu-panel absolute left-0 top-full z-40 mt-1 min-w-56 rounded-lg border border-line bg-panel p-1.5 shadow-2xl">
+                    {menu === "file" ? <>
+                      <MenuItem label="Open project…" shortcut="Ctrl+O" onClick={() => { setOpenMenu(null); fileInput.current?.click(); }} disabled={fileBusy} />
+                      <MenuItem label="Save project…" shortcut="Ctrl+S" onClick={() => { setOpenMenu(null); void saveFile(); }} disabled={fileBusy} />
+                      <div className="studio-menu-divider" />
+                      <MenuItem label="Reset show…" onClick={() => { setOpenMenu(null); if (window.confirm("Reset the whole show to the facade study? Your current scenes and presets will be replaced.")) reset(); }} />
+                    </> : null}
+                    {menu === "edit" ? <>
+                      <MenuItem label="Undo" shortcut="Ctrl+Z" onClick={() => { setOpenMenu(null); undo(); }} disabled={!canUndo} />
+                      <MenuItem label="Redo" shortcut="Ctrl+Y" onClick={() => { setOpenMenu(null); redo(); }} disabled={!canRedo} />
+                      <div className="studio-menu-divider" />
+                      <MenuItem label="Add surface" onClick={() => { setOpenMenu(null); useEditor.getState().addSurface(); }} />
+                      <MenuItem label="Add scene" onClick={() => { setOpenMenu(null); addScene(); }} />
+                    </> : null}
+                    {menu === "view" ? <>
+                      <MenuItem label="Guides" shortcut={guides ? "On" : "Off"} onClick={() => { setOpenMenu(null); setGuides(!guides); }} />
+                      <MenuItem label="Lineup grid" shortcut={lineup ? "On" : "Off"} onClick={() => { setOpenMenu(null); toggleLineup(); }} />
+                      <MenuItem label="Align selected surface" shortcut={align ? "On" : "Off"} onClick={() => { setOpenMenu(null); setAlign(!align); }} />
+                      <MenuItem label="Blackout" shortcut={blackout ? "On" : "Off"} onClick={() => { setOpenMenu(null); toggleBlackout(); }} />
+                      <div className="studio-menu-divider" />
+                      <MenuItem label="Choose output display…" onClick={() => { setOpenMenu(null); void chooseDisplay(); }} />
+                      <MenuItem label="Fullscreen preview" shortcut="F" onClick={() => { setOpenMenu(null); void enterOutput(); }} />
+                    </> : null}
+                    {menu === "help" ? <>
+                      <MenuItem label="Keyboard shortcuts" shortcut="?" onClick={() => { setOpenMenu(null); setShortcutsOpen(true); }} />
+                      <div className="studio-menu-divider" />
+                      <p className="px-3 py-2 text-xs text-muted">Beamloom {appInfo?.version ?? ""}</p>
+                    </> : null}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </nav>
           <input
             aria-label="Project name"
             value={name}
@@ -539,25 +609,6 @@ export function Studio() {
             <Power className="size-4" aria-hidden="true" />
             <span className="hidden xl:inline">Blackout</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setShortcutsOpen(true)}
-            className="inline-flex size-11 items-center justify-center rounded-md border border-line text-lg font-medium text-muted"
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts (?)"
-          >
-            ?
-          </button>
-          <button
-            type="button"
-            onClick={() => { if (window.confirm("Reset the whole show to the facade study? Your current scenes and presets will be replaced.")) reset(); }}
-            className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted"
-            aria-label="Reset to the facade study"
-          >
-            <RotateCcw className="size-4" aria-hidden="true" />
-          </button>
-          <button type="button" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)" className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted disabled:opacity-40"><Undo2 className="size-4" aria-hidden="true" /></button>
-          <button type="button" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Y)" className="inline-flex size-11 items-center justify-center rounded-md border border-line text-muted disabled:opacity-40"><Redo2 className="size-4" aria-hidden="true" /></button>
           <input
             ref={fileInput}
             type="file"
@@ -572,28 +623,8 @@ export function Studio() {
           />
           <button
             type="button"
-            disabled={fileBusy}
-            onClick={() => fileInput.current?.click()}
-            className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm text-fg disabled:opacity-50"
-            aria-label="Open project file"
-          >
-            <FolderOpen className="size-4" aria-hidden="true" />
-            <span className="hidden xl:inline">Open</span>
-          </button>
-          <button
-            type="button"
-            disabled={fileBusy}
-            onClick={() => void saveFile()}
-            className="inline-flex h-11 items-center gap-1 rounded-md border border-line px-2 text-sm text-fg disabled:opacity-50"
-            aria-label="Save project file"
-          >
-            <Download className="size-4" aria-hidden="true" />
-            <span className="hidden xl:inline">Save</span>
-          </button>
-          <button
-            type="button"
             onClick={() => void chooseDisplay()}
-            className="inline-flex h-11 items-center gap-2 rounded-md bg-beam px-3 text-sm font-medium text-ink"
+            className="studio-output-action ml-auto inline-flex h-11 items-center gap-2 rounded-md bg-beam px-3 text-sm font-medium text-ink"
           >
             <Monitor className="size-4" aria-hidden="true" />
             <span className="hidden sm:inline">Output</span>
@@ -663,7 +694,7 @@ export function Studio() {
 
       <div className={cn("flex min-h-0 flex-1", output ? "flex-col" : "flex-col lg:flex-row")}>
         {output ? null : (
-          <aside className="studio-library hidden w-64 shrink-0 overflow-auto border-r border-line bg-panel lg:block">
+          <aside className="studio-library hidden w-72 shrink-0 overflow-auto border-r border-line bg-panel lg:block">
             <Library />
           </aside>
         )}
@@ -671,7 +702,7 @@ export function Studio() {
           <Stage edit={!output} lineup={lineup} blackout={blackout} />
         </main>
         {output ? null : (
-          <aside className="studio-inspector hidden w-80 shrink-0 overflow-auto border-l border-line bg-panel lg:block">
+          <aside className="studio-inspector hidden w-88 shrink-0 overflow-auto border-l border-line bg-panel lg:block">
             <Inspector />
           </aside>
         )}
@@ -750,6 +781,8 @@ function ShortcutCard({ onClose }: { onClose: () => void }) {
         <Shortcut keys="Delete / Backspace" action="Remove selected surface" />
         <Shortcut keys="Ctrl+Z" action="Undo" />
         <Shortcut keys="Ctrl+Shift+Z / Ctrl+Y" action="Redo" />
+        <Shortcut keys="Ctrl+O" action="Open a project file" />
+        <Shortcut keys="Ctrl+S" action="Save a project file" />
         <Shortcut keys="G" action="Toggle editor guides" />
         <Shortcut keys="B" action="Blackout the projector" />
         <Shortcut keys="Alt" action="Drag a corner freely while Lineup is on" />
@@ -765,6 +798,15 @@ function ShortcutCard({ onClose }: { onClose: () => void }) {
 
 function Shortcut({ keys, action }: { keys: string; action: string }) {
   return <div className="flex items-center justify-between gap-3 border-b border-line py-1"><dt>{action}</dt><dd className="shrink-0 rounded border border-line px-2 py-1 font-mono text-xs text-beam">{keys}</dd></div>;
+}
+
+function MenuItem({ label, shortcut, disabled, onClick }: { label: string; shortcut?: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} className="studio-menu-item flex min-h-10 w-full items-center justify-between gap-6 rounded-md px-3 text-left text-sm text-fg disabled:opacity-40">
+      <span>{label}</span>
+      {shortcut ? <span className="whitespace-nowrap text-xs text-muted">{shortcut}</span> : null}
+    </button>
+  );
 }
 
 function DockTab({
