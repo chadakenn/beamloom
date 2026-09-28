@@ -41,9 +41,12 @@ MAX_UNIVERSES = 256
 MATRIX_WIDTH = 256
 MATRIX_HEIGHT = 144
 MATRIX_BYTES = MATRIX_WIDTH * MATRIX_HEIGHT * 3
+HD_MATRIX_WIDTH = 512
+HD_MATRIX_HEIGHT = 288
+HD_MATRIX_BYTES = HD_MATRIX_WIDTH * HD_MATRIX_HEIGHT * 3
 SMALL_MATRIX_BYTES = 128 * 72 * 3
-_MATRIX = bytearray(MATRIX_BYTES)
-_MATRIX_RECEIVED = bytearray(MATRIX_BYTES)
+_MATRIX = bytearray(HD_MATRIX_BYTES)
+_MATRIX_RECEIVED = bytearray(HD_MATRIX_BYTES)
 _MATRIX_RECEIVED_COUNT = 0
 _MATRIX_EXPECTED_BYTES = 0
 _MATRIX_FRAME: bytes | None = None
@@ -139,6 +142,8 @@ def matrix_packet() -> bytes | None:
         width, height = 128, 72
     elif len(matrix) == MATRIX_BYTES:
         width, height = MATRIX_WIDTH, MATRIX_HEIGHT
+    elif len(matrix) == HD_MATRIX_BYTES:
+        width, height = HD_MATRIX_WIDTH, HD_MATRIX_HEIGHT
     else:
         return None
     return struct.pack(">HH", width, height) + matrix
@@ -162,8 +167,8 @@ def frame(include_matrix: bool = True) -> dict:
     result = {"universes": {str(universe): base64.b64encode(data).decode("ascii") for universe, data in live}}
     if matrix is not None:
         result["matrix"] = base64.b64encode(matrix).decode("ascii")
-        result["matrixWidth"] = 128 if len(matrix) == SMALL_MATRIX_BYTES else MATRIX_WIDTH
-        result["matrixHeight"] = 72 if len(matrix) == SMALL_MATRIX_BYTES else MATRIX_HEIGHT
+        result["matrixWidth"] = {SMALL_MATRIX_BYTES: 128, MATRIX_BYTES: MATRIX_WIDTH, HD_MATRIX_BYTES: HD_MATRIX_WIDTH}[len(matrix)]
+        result["matrixHeight"] = {SMALL_MATRIX_BYTES: 72, MATRIX_BYTES: MATRIX_HEIGHT, HD_MATRIX_BYTES: HD_MATRIX_HEIGHT}[len(matrix)]
     return result
 
 
@@ -294,23 +299,23 @@ def _parse_ddp(payload: bytes) -> None:
     (offset,) = struct.unpack(">I", payload[4:8])
     (length,) = struct.unpack(">H", payload[8:10])
     data = payload[10:10 + length]
-    if not data or len(payload) - 10 < length or length > 1440 or offset >= MATRIX_BYTES:
+    if not data or len(payload) - 10 < length or length > 1440 or offset >= HD_MATRIX_BYTES:
         return
     if (offset == 0 and length > 512) or (offset > 0 and destination == _MATRIX_DESTINATION):
         with _LOCK:
             if offset == 0 and length > 512:
                 _MATRIX_DESTINATION = destination
-                _MATRIX_RECEIVED[:] = bytes(MATRIX_BYTES)
+                _MATRIX_RECEIVED[:] = bytes(HD_MATRIX_BYTES)
                 _MATRIX_RECEIVED_COUNT = 0
                 _MATRIX_EXPECTED_BYTES = 0
-            end = min(offset + length, MATRIX_BYTES)
+            end = min(offset + length, HD_MATRIX_BYTES)
             _MATRIX[offset:end] = data[:end - offset]
             _MATRIX_RECEIVED_COUNT += _MATRIX_RECEIVED[offset:end].count(0)
             _MATRIX_RECEIVED[offset:end] = b"\x01" * (end - offset)
             # Both supported sizes end with a 288-byte DDP packet. Its offset
             # tells us which complete frame to publish without guessing from
             # a partial first packet of a larger frame.
-            if offset + length in (SMALL_MATRIX_BYTES, MATRIX_BYTES) and length < 1440:
+            if offset + length in (SMALL_MATRIX_BYTES, MATRIX_BYTES, HD_MATRIX_BYTES) and length < 1440:
                 _MATRIX_EXPECTED_BYTES = offset + length
             if _MATRIX_EXPECTED_BYTES and _MATRIX_RECEIVED_COUNT >= _MATRIX_EXPECTED_BYTES:
                 _MATRIX_FRAME = bytes(_MATRIX[:_MATRIX_EXPECTED_BYTES])

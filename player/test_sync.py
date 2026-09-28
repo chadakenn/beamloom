@@ -21,8 +21,8 @@ class ReceiverTest(unittest.TestCase):
             sync._MULTISYNC.update(action=None, type=None, name="", frame=0, elapsed=0.0, at=0.0)
             sync._UNIVERSES.clear()
             sync._UNIVERSE_SEEN.clear()
-            sync._MATRIX[:] = bytes(sync.MATRIX_BYTES)
-            sync._MATRIX_RECEIVED[:] = bytes(sync.MATRIX_BYTES)
+            sync._MATRIX[:] = bytes(sync.HD_MATRIX_BYTES)
+            sync._MATRIX_RECEIVED[:] = bytes(sync.HD_MATRIX_BYTES)
             sync._MATRIX_RECEIVED_COUNT = 0
             sync._MATRIX_EXPECTED_BYTES = 0
             sync._MATRIX_FRAME = None
@@ -146,6 +146,20 @@ class ReceiverTest(unittest.TestCase):
         self.assertEqual(sync.matrix_packet()[:4], b"\x01\x00\x00\x90")
         self.assertEqual(sync.matrix_packet()[4:], full)
         self.assertNotIn("matrix", sync.frame(include_matrix=False))
+
+    def test_hd_picture_waits_for_complete_frame(self):
+        def packet(offset, data):
+            return b"\x40\x00\x00\x02" + struct.pack(">IH", offset, len(data)) + data
+        picture = bytes([18, 91, 240]) * (512 * 288)
+        chunks = [(offset, picture[offset:offset + 1440]) for offset in range(0, len(picture), 1440)]
+        sync._parse_ddp(packet(*chunks[0]))
+        sync._parse_ddp(packet(*chunks[-1]))
+        for offset, data in chunks[1:-2]:
+            sync._parse_ddp(packet(offset, data))
+        self.assertNotIn("matrix", sync.frame())
+        sync._parse_ddp(packet(*chunks[-2]))
+        self.assertEqual(sync.matrix_packet(), struct.pack(">HH", 512, 288) + picture)
+        self.assertEqual((sync.frame()["matrixWidth"], sync.frame()["matrixHeight"]), (512, 288))
 
     def test_kiosk_websocket_streams_channel_frame(self):
         sync._set_universe(12, bytes([7, 8, 9, 10]).ljust(512, b"\x00"))
