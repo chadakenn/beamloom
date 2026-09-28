@@ -14,6 +14,38 @@ import beamloom_player as player
 
 
 class SetupTest(unittest.TestCase):
+    def test_xlights_chunk_upload_and_matching_show_video(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"BEAMLOOM_SHOW_DIR": str(Path(directory) / "show")}):
+                server = player.ThreadingHTTPServer(("127.0.0.1", 0), player.Handler)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    def request(method, path, body=b"", headers=None):
+                        connection = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                        connection.request(method, path, body, headers or {})
+                        response = connection.getresponse()
+                        result = response.status, response.read()
+                        connection.close()
+                        return result
+
+                    headers = {"Content-Type": "application/offset+octet-stream", "Upload-Name": "Porch.mp4", "Upload-Length": "6", "Upload-Offset": "0"}
+                    self.assertEqual(request("PATCH", "/api/file/videos", b"abc", headers)[0], 200)
+                    self.assertEqual(request("GET", "/api/media/Porch.mp4/meta")[0], 404)
+                    self.assertEqual(request("PATCH", "/api/file/videos", b"def", {**headers, "Upload-Offset": "3"})[0], 200)
+                    meta = json.loads(request("GET", "/api/media/Porch.mp4/meta")[1])
+                    self.assertEqual(meta["format"]["size"], 6)
+                    self.assertEqual(request("PATCH", "/api/file/videos", b"z", {**headers, "Upload-Name": "../bad.mp4"})[0], 400)
+                    self.assertEqual(request("PATCH", "/api/file/videos", b"z", {**headers, "Upload-Name": "unsafe.exe"})[0], 400)
+                    show = Path(directory) / "show"
+                    (show / "media").mkdir(parents=True)
+                    (show / "media.json").write_text(json.dumps([{"id": "clip1", "name": "Porch.mp4", "mime": "video/mp4"}]))
+                    self.assertEqual(player.show_media_path("clip1")[0].read_bytes(), b"abcdef")
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join()
+
     def test_check_pc_rejects_non_lan_and_requires_a_live_page(self):
         for url in ("http://169.254.1.2:8751/?player=1", "http://127.0.0.1:8751/?player=1",
                     "https://192.168.1.64:8751/?player=1", "http://192.168.1.64:8080/?player=1",
