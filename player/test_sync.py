@@ -143,6 +143,8 @@ class ReceiverTest(unittest.TestCase):
         self.assertEqual(base64.b64decode(result["matrix"]), full)
         self.assertGreater(len(json.dumps(result)), 65535)  # WebSocket needs its 64-bit length header
         self.assertEqual(sync.matrix_marker()[1], sync.MATRIX_BYTES)
+        self.assertEqual(sync.matrix_packet()[:4], b"\x01\x00\x00\x90")
+        self.assertEqual(sync.matrix_packet()[4:], full)
         self.assertNotIn("matrix", sync.frame(include_matrix=False))
 
     def test_kiosk_websocket_streams_channel_frame(self):
@@ -188,23 +190,34 @@ class ReceiverTest(unittest.TestCase):
                 while b"\r\n\r\n" not in response:
                     response += client.recv(30000)
                 _, payload = response.split(b"\r\n\r\n", 1)
-                while len(payload) < 10:
-                    payload += client.recv(30000)
-                self.assertEqual(payload[:2], b"\x81\x7f")
-                length = struct.unpack(">Q", payload[2:10])[0]
-                while len(payload) < 10 + length:
-                    payload += client.recv(30000)
-                frame = json.loads(payload[10:10 + length])
-                self.assertEqual((frame["matrixWidth"], frame["matrixHeight"]), (256, 144))
-                self.assertEqual(len(base64.b64decode(frame["matrix"])), sync.MATRIX_BYTES)
-                payload = payload[10 + length:]
-                while len(payload) < 2:
-                    payload += client.recv(30000)
-                self.assertEqual(payload[0], 0x81)
-                small_length = payload[1]
-                while len(payload) < 2 + small_length:
-                    payload += client.recv(30000)
-                self.assertNotIn("matrix", json.loads(payload[2:2 + small_length]))
+
+                def take_frame(payload):
+                    while len(payload) < 2:
+                        payload += client.recv(30000)
+                    opcode = payload[0] & 0x0F
+                    length = payload[1] & 0x7F
+                    start = 2
+                    if length == 126:
+                        while len(payload) < 4:
+                            payload += client.recv(30000)
+                        length = struct.unpack(">H", payload[2:4])[0]
+                        start = 4
+                    elif length == 127:
+                        while len(payload) < 10:
+                            payload += client.recv(30000)
+                        length = struct.unpack(">Q", payload[2:10])[0]
+                        start = 10
+                    while len(payload) < start + length:
+                        payload += client.recv(30000)
+                    return opcode, payload[start:start + length], payload[start + length:]
+
+                opcode, body, payload = take_frame(payload)
+                self.assertEqual(opcode, 1)
+                self.assertNotIn("matrix", json.loads(body))
+                opcode, body, _rest = take_frame(payload)
+                self.assertEqual(opcode, 2)
+                self.assertEqual(body[:4], b"\x01\x00\x00\x90")
+                self.assertEqual(body[4:], bytes([12, 34, 56]) * (256 * 144))
         finally:
             server.shutdown()
             server.server_close()
