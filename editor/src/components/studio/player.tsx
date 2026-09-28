@@ -45,6 +45,9 @@ export function Player() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const style = document.createElement("style");
+    style.textContent = "html, body, canvas, * { cursor: none !important; }";
+    document.head.appendChild(style);
     const root = document.documentElement;
     const previousCursor = root.style.cursor;
     root.style.cursor = "none";
@@ -169,6 +172,7 @@ export function Player() {
     connect();
     return () => {
       root.style.cursor = previousCursor;
+      style.remove();
       window.removeEventListener("message", onSyncMessage);
       clearSync();
       document.body.style.cursor = "";
