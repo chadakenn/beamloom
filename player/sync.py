@@ -129,6 +129,21 @@ def channels(universe: int) -> bytes | None:
     return data
 
 
+def matrix_packet() -> bytes | None:
+    """Raw picture for the kiosk: width, height, then RGB bytes. No base64."""
+    with _LOCK:
+        matrix = _MATRIX_FRAME if _MATRIX_FRAME is not None and time.time() - _MATRIX_SEEN < STALE_AFTER else None
+    if matrix is None:
+        return None
+    if len(matrix) == SMALL_MATRIX_BYTES:
+        width, height = 128, 72
+    elif len(matrix) == MATRIX_BYTES:
+        width, height = MATRIX_WIDTH, MATRIX_HEIGHT
+    else:
+        return None
+    return struct.pack(">HH", width, height) + matrix
+
+
 def matrix_marker() -> tuple[float, int]:
     """Timestamp and size of the latest complete, still-live matrix frame."""
     with _LOCK:

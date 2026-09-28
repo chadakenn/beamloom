@@ -16,7 +16,36 @@ const MATRIX_HEIGHT = 144;
 let matrixCanvas: HTMLCanvasElement | undefined;
 let matrixAt = 0;
 
+function paintMatrix(pixels: Uint8Array, width: number, height: number) {
+  if ((width !== 128 && width !== MATRIX_WIDTH) || (height !== 72 && height !== MATRIX_HEIGHT) || pixels.length !== width * height * 3) return;
+  matrixCanvas ??= document.createElement("canvas");
+  if (matrixCanvas.width !== width || matrixCanvas.height !== height) {
+    matrixCanvas.width = width;
+    matrixCanvas.height = height;
+  }
+  const context = matrixCanvas.getContext("2d", { alpha: false });
+  if (!context) return;
+  const image = context.createImageData(width, height);
+  const rgba = image.data;
+  const count = width * height;
+  for (let index = 0, pixel = 0; index < count; index += 1, pixel += 4) {
+    const source = index * 3;
+    rgba[pixel] = pixels[source];
+    rgba[pixel + 1] = pixels[source + 1];
+    rgba[pixel + 2] = pixels[source + 2];
+    rgba[pixel + 3] = 255;
+  }
+  context.putImageData(image, 0, 0);
+  matrixAt = Date.now();
+}
+
 export function receiveSync(raw: unknown) {
+  if (raw instanceof ArrayBuffer) {
+    const bytes = new Uint8Array(raw);
+    if (bytes.length < 4) return;
+    paintMatrix(bytes.subarray(4), (bytes[0] << 8) | bytes[1], (bytes[2] << 8) | bytes[3]);
+    return;
+  }
   if (typeof raw !== "string" || raw.length > 200000) return;
   try {
     const frame = JSON.parse(raw) as { universes?: Record<string, string>; matrix?: string; matrixWidth?: number; matrixHeight?: number };
@@ -25,33 +54,19 @@ export function receiveSync(raw: unknown) {
     for (const [id, encoded] of Object.entries(frame.universes).slice(0, 32)) {
       const universe = Number(id);
       if (!Number.isInteger(universe) || universe < 0 || universe > 63999 || typeof encoded !== "string" || encoded.length > 700) continue;
-      const data = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
+      const binary = atob(encoded);
+      const data = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) data[index] = binary.charCodeAt(index);
       if (data.length === 512) next.set(universe, data);
     }
     values.clear();
     next.forEach((data, universe) => values.set(universe, data));
     lastFrameAt = Date.now();
-    const width = frame.matrixWidth ?? 128;
-    const height = frame.matrixHeight ?? 72;
-    if (typeof frame.matrix === "string" && frame.matrix.length <= 150000 &&
-      ((width === 128 && height === 72) ||
-       (width === MATRIX_WIDTH && height === MATRIX_HEIGHT))) {
-      const pixels = Uint8Array.from(atob(frame.matrix), (char) => char.charCodeAt(0));
-      if (pixels.length === width * height * 3) {
-        matrixCanvas ??= document.createElement("canvas");
-        if (matrixCanvas.width !== width) matrixCanvas.width = width;
-        if (matrixCanvas.height !== height) matrixCanvas.height = height;
-        const context = matrixCanvas.getContext("2d");
-        if (context) {
-          const image = context.createImageData(width, height);
-          for (let i = 0; i < width * height; i++) {
-            image.data.set(pixels.subarray(i * 3, i * 3 + 3), i * 4);
-            image.data[i * 4 + 3] = 255;
-          }
-          context.putImageData(image, 0, 0);
-          matrixAt = Date.now();
-        }
-      }
+    if (typeof frame.matrix === "string") {
+      const binary = atob(frame.matrix);
+      const pixels = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) pixels[index] = binary.charCodeAt(index);
+      paintMatrix(pixels, frame.matrixWidth ?? 128, frame.matrixHeight ?? 72);
     }
   } catch { /* Ignore invalid channel frames. */ }
 }
