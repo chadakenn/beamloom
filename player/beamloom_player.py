@@ -448,7 +448,9 @@ def settings_page(config: dict, error: str = "") -> str:
     <h2>Dusk clock</h2>
     <p>The Pi's clock says <strong>{escape(clock["now"])}</strong>. {clock_note} The PC can be off. Choose <strong>Always play the stored show</strong> above if you do not want the clock to wait.</p>
     <form method="post" action="/schedule">
-      <label><input type="checkbox" name="enabled" value="1"{clock_checked} style="width:auto;height:auto" /> Use the Pi clock</label>
+      <p>Clock</p>
+      <label style="display:inline;margin-right:1rem"><input type="radio" name="enabled" value="0"{"" if clock["enabled"] else " checked"} style="width:auto;height:auto" /> Off</label>
+      <label style="display:inline"><input type="radio" name="enabled" value="1"{clock_checked} style="width:auto;height:auto" /> On</label>
       <label for="start">Start at (leave blank to use sunset)</label>
       <input id="start" name="start" value="{escape(clock["start"])}" placeholder="18:30" />
       <label for="latitude">Latitude, only for sunset</label>
