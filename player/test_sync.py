@@ -69,6 +69,22 @@ class ReceiverTest(unittest.TestCase):
         self.assertEqual(sync.show_command({"action": "stop", "elapsed": 3, "at": now}, now)["action"], "stop")
         self.assertEqual(sync.show_command({"action": "open", "elapsed": 3, "at": now}, now)["action"], "hold")
 
+    def test_fpp_selects_only_the_matching_enabled_show(self):
+        rows = [
+            {"id": "house", "name": "House Show", "enabled": True},
+            {"id": "garage", "name": "Garage", "enabled": True},
+            {"id": "retired", "name": "Retired", "enabled": False},
+        ]
+        packet = {"action": "sync", "type": "fseq", "name": "HOUSE_SHOW.fseq", "elapsed": 12.5, "at": 100}
+        result = beamloom_player.fpp_show_match(packet, rows, 100)
+        self.assertEqual((result["showId"], result["action"], result["elapsed"]), ("house", "play", 12.5))
+        self.assertEqual(beamloom_player.fpp_show_match({**packet, "name": "Other.fseq"}, rows, 100)["reason"], "missing")
+        self.assertEqual(beamloom_player.fpp_show_match({**packet, "name": "Retired.fseq"}, rows, 100)["action"], "waiting")
+        self.assertEqual(beamloom_player.fpp_show_match(packet, rows + [{"id": "other", "name": "House-Show", "enabled": True}], 100)["reason"], "ambiguous")
+        self.assertEqual(beamloom_player.fpp_show_match({**packet, "type": "media"}, rows, 100)["action"], None)
+        self.assertEqual(beamloom_player.fpp_show_match({**packet, "at": 95}, rows, 100)["action"], None)
+        self.assertEqual(beamloom_player.screen_target("auto", "http://pc:8751/?player=1", True, True, False, None, True), "/play")
+
     def test_screen_stays_on_pi_when_the_app_closes(self):
         play = beamloom_player.screen_target
         self.assertEqual(play("live", "http://pc:8751/?player=1", True, True, True), "http://pc:8751/?player=1")

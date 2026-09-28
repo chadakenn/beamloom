@@ -229,6 +229,18 @@ export function ConnectionsPage() {
               {piOn && suggestedPiUrl ? <p className="mt-3 break-all text-xs text-muted">PC live address: {suggestedPiUrl}</p> : null}
               {piOn && mediaNote ? <p className="mt-2 text-xs text-amber-400" role="status">{mediaNote}</p> : null}
             </section>
+            <section className="rounded-xl border border-line bg-panel p-5" aria-label="FPP remote status">
+              <h2 className="font-display text-lg font-semibold">FPP remote</h2>
+              {piStatus?.syncShow?.showId ? (
+                <p className="mt-2 text-sm" role="status"><span className="text-beam">Matched:</span> {piStatus.syncShow.sequence} → {piStatus.syncShow.showName} · {piStatus.syncShow.action === "play" ? "Playing" : piStatus.syncShow.action === "hold" ? "Paused" : "Stopped"}{typeof piStatus.syncShow.elapsed === "number" ? ` · ${piStatus.syncShow.elapsed.toFixed(1)}s` : ""}</p>
+              ) : piStatus?.syncShow?.action === "waiting" ? (
+                <p className="mt-2 text-sm text-amber-400" role="status">{piStatus.syncShow.reason === "ambiguous" ? "More than one enabled show matches" : "No enabled stored show matches"} {piStatus.syncShow.sequence}. Name a Beamloom show after that sequence, send it to this Pi, and enable it in the Pi playlist.</p>
+              ) : (
+                <p className="mt-2 text-sm text-muted" role="status">{piStatus?.error ? "Pi offline." : "Waiting for an FPP sequence."}</p>
+              )}
+              <p className="mt-2 text-xs text-muted">The Pi matches the FPP sequence filename (without .fseq) to a stored Beamloom show name. The show and its videos stay on the Pi.</p>
+              {piStatus?.syncShow?.action && piStatus.screen !== "/play" ? <p className="mt-2 text-xs text-amber-400">The Pi is displaying PC output. Select Play stored show or Follow this PC to let FPP take over.</p> : null}
+            </section>
             <section className="rounded-xl border border-line bg-panel p-5" aria-label="Dusk clock">
               <h2 className="font-display text-lg font-semibold">Dusk clock</h2>
               <p className="mt-1 text-xs text-muted">After you send a show, the Pi starts it at the time you type, or at sunset if you leave the start time blank. It stops at the time you type. The PC can be off.</p>
