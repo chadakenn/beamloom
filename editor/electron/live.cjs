@@ -152,6 +152,7 @@ function startLiveServer({ root, port = 8751 }) {
   const images = new Map();
   const videos = new Map();
   const pendingVideos = new Map();
+  const streams = new Set();
   let mediaDir = null;
   let last = null;
   const ensureDir = () => {
@@ -170,7 +171,10 @@ function startLiveServer({ root, port = 8751 }) {
         "x-content-type-options": "nosniff",
       });
       const stream = fs.createReadStream(video.file);
+      streams.add(stream);
+      stream.on("close", () => streams.delete(stream));
       stream.on("error", () => response.destroy());
+      response.on("close", () => stream.destroy());
       stream.pipe(response);
       return;
     }
@@ -192,7 +196,10 @@ function startLiveServer({ root, port = 8751 }) {
       "x-content-type-options": "nosniff",
     });
     const stream = fs.createReadStream(video.file, { start, end });
+    streams.add(stream);
+    stream.on("close", () => streams.delete(stream));
     stream.on("error", () => response.destroy());
+    response.on("close", () => stream.destroy());
     stream.pipe(response);
   };
   const server = http.createServer((request, response) => {
@@ -314,7 +321,7 @@ function startLiveServer({ root, port = 8751 }) {
           if (!item || item.received !== item.size || !validVideo(item.mime, item.file)) {
             if (item) {
               pendingVideos.delete(id);
-              fs.rmSync(item.file, { force: true });
+              try { fs.rmSync(item.file, { force: true }); } catch { /* The next close removes the folder. */ }
             }
             return false;
           }
@@ -327,14 +334,24 @@ function startLiveServer({ root, port = 8751 }) {
           for (const socket of clients) sendText(socket, last);
         },
         stop() {
+          for (const stream of streams) stream.destroy();
+          streams.clear();
           images.clear();
           videos.clear();
           pendingVideos.clear();
-          if (mediaDir) fs.rmSync(mediaDir, { recursive: true, force: true });
+          const folder = mediaDir;
           mediaDir = null;
           last = null;
           for (const socket of clients) socket.destroy();
           clients.clear();
+          if (typeof server.closeAllConnections === "function") server.closeAllConnections();
+          if (folder) {
+            try {
+              fs.rmSync(folder, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+            } catch {
+              // Windows leaves the folder locked while the Pi is still reading the video. A leftover temp folder must not crash the app.
+            }
+          }
           return new Promise((done) => server.close(() => done()));
         },
       });

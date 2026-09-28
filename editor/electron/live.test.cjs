@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const net = require("node:net");
 const http = require("node:http");
 const os = require("node:os");
+const fs = require("node:fs");
 const { startLiveServer, lanUrls } = require("./live.cjs");
 
 test("Pi address choices exclude VPN and link-local adapters and prefer the home LAN", () => {
@@ -139,5 +140,29 @@ test("a finished MP4 is served in ranges and a bad video is rejected", async () 
   } finally {
     await server.stop();
     os.networkInterfaces = interfaces;
+  }
+});
+
+test("closing does not crash when Windows still has the video folder open", async () => {
+  const server = await startLiveServer({ root: __dirname, port: 0 });
+  const body = Buffer.alloc(16);
+  body.writeUInt32BE(16, 0);
+  body.write("ftyp", 4);
+  const original = fs.rmSync;
+  fs.rmSync = (target, options) => {
+    if (String(target).includes("beamloom-live-")) {
+      const error = new Error("ENOTEMPTY, Directory not empty");
+      error.code = "ENOTEMPTY";
+      throw error;
+    }
+    return original(target, options);
+  };
+  try {
+    assert.equal(server.beginVideo("clip-busy", "video/mp4", body.length), "started");
+    assert.equal(server.videoChunk("clip-busy", 0, body), true);
+    assert.equal(server.finishVideo("clip-busy"), true);
+    await server.stop();
+  } finally {
+    fs.rmSync = original;
   }
 });
