@@ -26,7 +26,7 @@ from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
@@ -201,6 +201,68 @@ def steady_projector_browser() -> None:
 
 SHOW_MEDIA_LIMIT = 512 * 1024 * 1024
 SHOW_TYPES = {"image/png", "image/jpeg", "video/mp4", "video/webm", "video/quicktime"}
+
+# xLights FPP Connect's file transport. These files are separate from Beamloom's
+# mapped show; an FSEQ does not contain the mapping project or Video effect assets.
+XLIGHTS_FILE_LIMIT = 2 * 1024 * 1024 * 1024
+XLIGHTS_CHUNK_LIMIT = 16 * 1024 * 1024
+XLIGHTS_EXTENSIONS = {
+    "sequences": {".fseq", ".eseq"},
+    "music": {".mp3", ".wav", ".ogg", ".flac", ".m4a"},
+    "videos": {".mp4", ".mov", ".webm", ".mkv"},
+}
+_upload_locks: dict[str, threading.Lock] = {}
+_upload_locks_guard = threading.Lock()
+
+
+def xlights_root() -> Path:
+    return show_root().parent / "xlights"
+
+
+def xlights_file(kind: str, name: str) -> Path | None:
+    if kind not in XLIGHTS_EXTENSIONS or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _().-]{0,119}", name):
+        return None
+    if Path(name).suffix.lower() not in XLIGHTS_EXTENSIONS[kind] or name in {".", ".."}:
+        return None
+    return xlights_root() / kind / name
+
+
+def receive_xlights_chunk(handler: BaseHTTPRequestHandler, kind: str) -> dict:
+    name = handler.headers.get("Upload-Name", "")
+    target = xlights_file(kind, name)
+    if target is None:
+        raise ValueError("Unsupported xLights filename")
+    try:
+        offset = int(handler.headers.get("Upload-Offset", ""))
+        total = int(handler.headers.get("Upload-Length", ""))
+        length = int(handler.headers.get("Content-Length", ""))
+    except ValueError as error:
+        raise ValueError("Invalid upload size") from error
+    if not (0 <= offset <= total <= XLIGHTS_FILE_LIMIT and 0 < length <= XLIGHTS_CHUNK_LIMIT and offset + length <= total):
+        raise ValueError("Invalid upload size")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _upload_locks_guard:
+        lock = _upload_locks.setdefault(str(target), threading.Lock())
+    with lock:
+        partial = target.with_name(target.name + ".part")
+        current = partial.stat().st_size if partial.exists() else 0
+        if offset == 0:
+            current = 0
+        if current != offset:
+            raise ValueError("Upload offset does not match")
+        if shutil.disk_usage(target.parent).free < length + 32 * 1024 * 1024:
+            raise ValueError("Not enough space on the Pi")
+        with partial.open("wb" if offset == 0 else "ab") as output:
+            remaining = length
+            while remaining:
+                chunk = handler.rfile.read(min(1024 * 1024, remaining))
+                if not chunk:
+                    raise ValueError("Upload stopped early")
+                output.write(chunk)
+                remaining -= len(chunk)
+        if offset + length == total:
+            partial.replace(target)
+    return {"name": name, "bytes": offset + length, "complete": offset + length == total}
 
 
 def show_root() -> Path:
@@ -586,7 +648,7 @@ def show_media_path(media_id: str, root: Path | None = None) -> tuple[Path, str]
     base = show_root() if root is None else root
     folder = (base / "media").resolve()
     path = (folder / media_id).resolve()
-    if path.parent != folder or not path.is_file():
+    if path.parent != folder:
         return None
     mime = "application/octet-stream"
     try:
@@ -594,9 +656,15 @@ def show_media_path(media_id: str, root: Path | None = None) -> tuple[Path, str]
         for item in items if isinstance(items, list) else []:
             if isinstance(item, dict) and item.get("id") == media_id and item.get("mime") in SHOW_TYPES:
                 mime = str(item["mime"])
+                # FPP Connect can refresh an associated video independently of
+                # the mapped project, provided it has the exact imported name.
+                if mime.startswith("video/") and isinstance(item.get("name"), str):
+                    uploaded = xlights_file("videos", item["name"])
+                    if uploaded is not None and uploaded.is_file():
+                        return uploaded, mime
     except (OSError, json.JSONDecodeError):
         pass
-    return path, mime
+    return (path, mime) if path.is_file() else None
 
 
 def _form_number(fields: dict, name: str) -> float | None:
@@ -1102,6 +1170,26 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
+        if path == "/config.php":
+            # xLights requests this legacy marker before enabling FPP Connect.
+            self.send_html("settings['Title'] = \"Falcon Player compatible Beamloom\";")
+            return
+        if path == "/api/system/info":
+            self._json({"uuid": "beamloom-player-" + socket.gethostname(), "Platform": "Raspberry Pi", "Variant": "Beamloom Pi file receiver", "Version": "7.1", "HostName": socket.gethostname(), "Mode": "remote", "majorVersion": 7, "minorVersion": 1, "typeId": 1})
+            return
+        meta = re.fullmatch(r"/api/(media|sequence)/([^/]+)/meta", path)
+        if meta:
+            name = unquote(meta.group(2))
+            kinds = ("sequences",) if meta.group(1) == "sequence" else ("music", "videos")
+            found = next((file for kind in kinds if (file := xlights_file(kind, name)) is not None and file.is_file()), None)
+            if found is None:
+                self.send_error(404)
+            else:
+                self._json({"name": name, "format": {"size": found.stat().st_size}})
+            return
+        if path == "/xlights/files":
+            self._json({kind: [{"name": file.name, "bytes": file.stat().st_size} for file in sorted((xlights_root() / kind).glob("*")) if file.is_file() and xlights_file(kind, file.name) == file] for kind in XLIGHTS_EXTENSIONS})
+            return
         if path == "/sync/live":
             self.stream_sync()
             return
@@ -1189,6 +1277,24 @@ class Handler(BaseHTTPRequestHandler):
             self._send_file(*found)
             return
         self.send_error(404)
+
+    def do_PATCH(self) -> None:
+        match = re.fullmatch(r"/api/file/(sequences|music|videos)", self.path.split("?", 1)[0])
+        if match is None:
+            self.send_error(404)
+            return
+        if self.headers.get("Content-Type", "").lower() != "application/offset+octet-stream":
+            self.send_error(415)
+            return
+        try:
+            result = receive_xlights_chunk(self, match.group(1))
+        except ValueError as error:
+            self.send_error(400, str(error))
+            return
+        except OSError:
+            self.send_error(507, "Could not store the file")
+            return
+        self._json({"ok": True, **result})
 
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
