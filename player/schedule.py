@@ -20,18 +20,13 @@ def clean(value: object) -> dict:
     after = int(after)
     if after < -60 or after > 180:
         after = 20
-    end = raw.get("end", "23:00")
-    if not isinstance(end, str) or len(end) != 5 or end[2] != ":":
-        end = "23:00"
-    else:
-        hour, minute = end.split(":", 1)
-        if not (hour.isdigit() and minute.isdigit() and int(hour) < 24 and int(minute) < 60):
-            end = "23:00"
+    end = _clock_time(raw.get("end"), "23:00")
     return {
         "enabled": raw.get("enabled") is True,
         "latitude": latitude,
         "longitude": longitude,
         "afterSunset": after,
+        "start": _clock_time(raw.get("start"), ""),
         "end": end,
     }
 
@@ -77,7 +72,7 @@ def status(saved: object, now: datetime) -> dict:
     }
     if not saved["enabled"]:
         return result
-    if saved["latitude"] is None or saved["longitude"] is None:
+    if not saved["start"] and (saved["latitude"] is None or saved["longitude"] is None):
         result["active"] = False
         result["note"] = "Enter the latitude and longitude for this house."
         return result
@@ -103,10 +98,14 @@ def status(saved: object, now: datetime) -> dict:
 
 
 def _window(day: date, saved: dict, zone) -> tuple[datetime, datetime] | None:
-    event = sunset(day, saved["latitude"], saved["longitude"])
-    if event is None:
-        return None
-    start = event.astimezone(zone) + timedelta(minutes=saved["afterSunset"])
+    if saved["start"]:
+        hour, minute = (int(part) for part in saved["start"].split(":"))
+        start = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
+    else:
+        event = sunset(day, saved["latitude"], saved["longitude"])
+        if event is None:
+            return None
+        start = event.astimezone(zone) + timedelta(minutes=saved["afterSunset"])
     stop = _on_day(start, saved["end"])
     if stop <= start:
         stop += timedelta(days=1)
@@ -116,6 +115,17 @@ def _window(day: date, saved: dict, zone) -> tuple[datetime, datetime] | None:
 def _on_day(moment: datetime, end: str) -> datetime:
     hour, minute = (int(part) for part in end.split(":"))
     return moment.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
+def _clock_time(value: object, default: str) -> str:
+    if value is None or value == "":
+        return "" if default == "" else default
+    if not isinstance(value, str) or len(value) != 5 or value[2] != ":":
+        return default
+    hour, minute = value.split(":", 1)
+    if not (hour.isdigit() and minute.isdigit() and int(hour) < 24 and int(minute) < 60):
+        return default
+    return f"{int(hour):02d}:{int(minute):02d}"
 
 
 def _coord(value: object, low: float, high: float) -> float | None:

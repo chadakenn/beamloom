@@ -49,7 +49,14 @@ class ScheduleTest(unittest.TestCase):
         self.assertEqual(zlib.decompress(base64.b64decode(payload.group(1))), Path(schedule.__file__).read_bytes())
         self.assertIn("player/schedule.py", updater.FILES)
 
-    def test_bad_coordinates_are_ignored(self):
+    def test_a_typed_start_time_does_not_need_a_location(self):
+        saved = {"enabled": True, "start": "18:30", "end": "23:00"}
+        early = schedule.status(saved, datetime(2026, 6, 21, 18, 0, tzinfo=NEW_YORK))
+        playing = schedule.status(saved, datetime(2026, 6, 21, 19, 0, tzinfo=NEW_YORK))
+        self.assertFalse(early["on"])
+        self.assertTrue(playing["on"])
+        self.assertEqual(playing["starts"], "6:30 PM")
+        self.assertEqual(schedule.clean({"start": "7:30", "end": "bad"})["start"], "")
         saved = schedule.clean({"enabled": True, "latitude": 120, "longitude": "west", "end": "25:99", "afterSunset": 900})
         self.assertIsNone(saved["latitude"])
         self.assertEqual(saved["end"], "23:00")

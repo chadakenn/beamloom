@@ -36,6 +36,7 @@ export function ShowBar() {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [afterSunset, setAfterSunset] = useState("20");
+  const [clockStart, setClockStart] = useState("");
   const [clockEnd, setClockEnd] = useState("23:00");
   const [savingClock, setSavingClock] = useState(false);
   const clockDirty = useRef(false);
@@ -66,6 +67,7 @@ export function ShowBar() {
     setLatitude(clock.latitude == null ? "" : String(clock.latitude));
     setLongitude(clock.longitude == null ? "" : String(clock.longitude));
     setAfterSunset(String(clock.afterSunset));
+    setClockStart(clock.start || "");
     setClockEnd(clock.end);
   }, [piStatus]);
 
@@ -180,6 +182,7 @@ export function ShowBar() {
       latitude: latitude.trim() === "" ? Number.NaN : Number(latitude),
       longitude: longitude.trim() === "" ? Number.NaN : Number(longitude),
       afterSunset: Number(afterSunset),
+      start: clockStart.trim(),
       end: clockEnd,
     });
     setSavingClock(false);
@@ -284,14 +287,15 @@ export function ShowBar() {
             <button type="button" disabled={!piOn || !suggestedPiUrl || !!piStatus?.error} onClick={() => void testPi()} className="ml-2 mt-3 rounded border border-line px-3 py-2 disabled:opacity-40">Test connection</button>
             <div className="mt-4 border-t border-line pt-3">
               <h3 className="font-semibold">Dusk clock</h3>
-              <p className="mt-1 text-xs text-muted">After you send a show, the Pi can start it after sunset and stop it at the time you set. The PC can be off. Enter the latitude and longitude of the house. West longitudes are negative.</p>
+              <p className="mt-1 text-xs text-muted">After you send a show, the Pi starts it at the time you type, or at sunset if you leave the start time blank. It stops at the time you type. The PC can be off.</p>
               {piStatus?.clock?.note ? <p className="mt-1 text-xs" role="status">{piStatus.clock.note} Pi time {piStatus.clock.now}.</p> : null}
-              <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={clockOn} onChange={(event) => { clockDirty.current = true; setClockOn(event.target.checked); }} /> Start the stored show at dusk</label>
+              <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={clockOn} onChange={(event) => { clockDirty.current = true; setClockOn(event.target.checked); }} /> Use the Pi clock</label>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <label className="text-xs">Latitude<input value={latitude} onChange={(event) => { clockDirty.current = true; setLatitude(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="decimal" placeholder="40.71" /></label>
-                <label className="text-xs">Longitude<input value={longitude} onChange={(event) => { clockDirty.current = true; setLongitude(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="decimal" placeholder="-74.01" /></label>
-                <label className="text-xs">Minutes after sunset<input value={afterSunset} onChange={(event) => { clockDirty.current = true; setAfterSunset(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="numeric" /></label>
+                <label className="text-xs">Start at<input value={clockStart} onChange={(event) => { clockDirty.current = true; setClockStart(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="18:30 or blank for sunset" /></label>
                 <label className="text-xs">Stop at<input value={clockEnd} onChange={(event) => { clockDirty.current = true; setClockEnd(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" placeholder="23:00" /></label>
+                <label className="text-xs">Latitude, for sunset<input value={latitude} onChange={(event) => { clockDirty.current = true; setLatitude(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="decimal" placeholder="40.71" /></label>
+                <label className="text-xs">Longitude, for sunset<input value={longitude} onChange={(event) => { clockDirty.current = true; setLongitude(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="decimal" placeholder="-74.01" /></label>
+                <label className="text-xs">Minutes after sunset<input value={afterSunset} onChange={(event) => { clockDirty.current = true; setAfterSunset(event.target.value); }} className="mt-1 w-full rounded border border-line bg-bg p-2" inputMode="numeric" /></label>
               </div>
               <button type="button" disabled={savingClock || !!piStatus?.error} onClick={() => void saveClock()} className="mt-2 rounded border border-line px-3 py-2 disabled:opacity-40">{savingClock ? "Saving…" : "Save dusk clock"}</button>
             </div>

@@ -36,7 +36,7 @@ declare global {
       liveVideoBegin?: (id: string, mime: string, size: number) => Promise<"started" | "ready" | false>;
       liveVideoChunk?: (id: string, offset: number, bytes: Uint8Array) => Promise<boolean>;
       liveVideoFinish?: (id: string) => Promise<boolean>;
-      piStatus?: (host: string) => Promise<{ error?: string; latencyMs?: number; viewers?: number; pcUrl?: string; wifi?: { mode: string; ssid: string }; display?: { state: string; detail: string; result: string; message: string }; update?: { state: string; version?: string; available?: string | null; message?: string }; clock?: { enabled: boolean; on: boolean; now: string; starts: string; stops: string; note: string; latitude: number | null; longitude: number | null; afterSunset: number; end: string } } | null>;
+      piStatus?: (host: string) => Promise<{ error?: string; latencyMs?: number; viewers?: number; pcUrl?: string; wifi?: { mode: string; ssid: string }; display?: { state: string; detail: string; result: string; message: string }; update?: { state: string; version?: string; available?: string | null; message?: string }; clock?: { enabled: boolean; on: boolean; now: string; starts: string; stops: string; note: string; latitude: number | null; longitude: number | null; afterSunset: number; start: string; end: string } } | null>;
       piDiscover?: () => Promise<{ host: string; wifi: { mode: string; ssid: string } }[]>;
       piConnect?: (host: string) => Promise<{ ok?: boolean; error?: string; pcUrl?: string }>;
       piCheck?: (host: string, pcUrl: string) => Promise<{ ok?: boolean; error?: string }>;
@@ -48,7 +48,7 @@ declare global {
       piShowFile?: (host: string, id: string) => Promise<{ ok?: boolean; error?: string }>;
       piShowFinish?: (host: string) => Promise<{ ok?: boolean; error?: string; show?: { saved: boolean; name: string; files: number; bytes: number } }>;
       piPlayMode?: (host: string, mode: "auto" | "show" | "live") => Promise<{ ok?: boolean; error?: string; playMode?: string }>;
-      piSchedule?: (host: string, schedule: { enabled: boolean; latitude: number; longitude: number; afterSunset: number; end: string }) => Promise<{ ok?: boolean; error?: string; clock?: { note?: string } }>;
+      piSchedule?: (host: string, schedule: { enabled: boolean; latitude: number; longitude: number; afterSunset: number; start: string; end: string }) => Promise<{ ok?: boolean; error?: string; clock?: { note?: string } }>;
     };
   }
 }
