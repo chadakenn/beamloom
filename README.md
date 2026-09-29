@@ -6,6 +6,32 @@
 
 Beamloom is a house projection studio. You design the show on a Windows PC, then a Raspberry Pi plugged into the projector plays it. The PC is the editor. The Pi is the player, in the same role Falcon Player has for lights. After setup you do not sign in on the Pi. The picture goes out over HDMI, and the settings page is [http://beamloom.local/](http://beamloom.local/) on the PC.
 
+## The app
+
+<p align="center">
+  <img src="docs/app/editor.png" alt="The Beamloom editor, with a mapped facade, surface list, and look controls" width="880">
+</p>
+
+<p align="center"><em>Drag the corners until each surface sits on a window, door, or wall.</em></p>
+
+<p align="center">
+  <img src="docs/app/halloween.png" alt="A Halloween show open in Beamloom, with window, door, garage, and eave surfaces" width="880">
+</p>
+
+<p align="center"><em>Included shows, such as Halloween, open with scenes you can place on your house.</em></p>
+
+<p align="center">
+  <img src="docs/app/connections.png" alt="The Connections page for finding a Pi, sending a show, and setting the dusk clock" width="880">
+</p>
+
+<p align="center"><em>Connections is where you find the Pi, send the show, and set the dusk clock.</em></p>
+
+<p align="center">
+  <img src="docs/app/shortcuts.png" alt="The keyboard shortcuts card over the Beamloom editor" width="880">
+</p>
+
+<p align="center"><em>Press ? for the shortcuts.</em></p>
+
 ## What it can do
 
 - **Map the house.** Put a surface on a window, door, garage, or wall. Drag the four corners until the light sits on that part of the house. **Align surface** shows a bright shape so you can line it up while you watch the projector.
